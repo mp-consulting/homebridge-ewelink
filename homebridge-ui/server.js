@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
 
 /**
@@ -19,55 +20,100 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
   }
 
   /**
+   * Create a mock platform object for API usage
+   * @param {object} config - Configuration options
+   * @returns {object} Mock platform with logger and config
+   */
+  createMockPlatform(config = {}) {
+    return {
+      log: {
+        info: (...args) => console.log('[API INFO]', ...args),
+        debug: (...args) => console.log('[API DEBUG]', ...args),
+        warn: (...args) => console.warn('[API WARN]', ...args),
+        error: (...args) => console.error('[API ERROR]', ...args),
+      },
+      config,
+    };
+  }
+
+  /**
+   * Create an authenticated API instance
+   * @param {object} config - Configuration options
+   * @param {string} accessToken - Optional access token for authentication
+   * @returns {Promise<object>} Configured API instance
+   */
+  async createApiInstance(config, accessToken = null) {
+    const { EWeLinkAPI } = await import('./api/ewelink-api.js');
+    const mockPlatform = this.createMockPlatform(config);
+    const api = new EWeLinkAPI(mockPlatform);
+
+    if (accessToken) {
+      api.setCredentials(accessToken);
+    }
+
+    return api;
+  }
+
+  /**
+   * Validate required payload fields
+   * @param {object} payload - Request payload
+   * @param {string[]} requiredFields - Array of required field names
+   * @throws {RequestError} If any required field is missing
+   */
+  validatePayload(payload, requiredFields) {
+    const missingFields = requiredFields.filter(field => !payload[field]);
+
+    if (missingFields.length > 0) {
+      throw new RequestError(
+        `Missing required fields: ${missingFields.join(', ')}`,
+        { status: 400 },
+      );
+    }
+  }
+
+  /**
+   * Handle errors consistently across all handlers
+   * @param {Error} error - The error to handle
+   * @param {string} defaultMessage - Default error message
+   * @throws {RequestError} Formatted error for client
+   */
+  handleError(error, defaultMessage) {
+    if (error instanceof RequestError) {
+      throw error;
+    }
+
+    const message = error.message || defaultMessage;
+    const status = error.response?.status || 500;
+    throw new RequestError(message, { status });
+  }
+
+  /**
    * Handle login request
    * Creates a mock platform instance to use the EWeLinkAPI class
    */
   async handleLogin(payload) {
+    this.validatePayload(payload, ['username', 'password']);
+
     const { username, password, countryCode } = payload;
 
-    if (!username || !password) {
-      throw new RequestError('Username and password are required', { status: 400 });
-    }
-
     try {
-      // Dynamically import the EWeLinkAPI class
-      const { EWeLinkAPI } = await import('./api/ewelink-api.js');
+      const api = await this.createApiInstance({
+        username,
+        password,
+        countryCode,
+      });
 
-      // Create a mock platform object with minimal required properties
-      const mockPlatform = {
-        log: {
-          info: (...args) => console.log('[API INFO]', ...args),
-          debug: (...args) => console.log('[API DEBUG]', ...args),
-          warn: (...args) => console.warn('[API WARN]', ...args),
-          error: (...args) => console.error('[API ERROR]', ...args),
-        },
-        config: {
-          username,
-          password,
-          countryCode,
-        },
-      };
-
-      // Create API instance and login
-      const api = new EWeLinkAPI(mockPlatform);
       await api.login();
 
-      // Get the credentials from the API
-      const credentials = {
+      return {
         success: true,
         apiKey: api.apiKey,
         accessToken: api.accessToken,
         refreshToken: api.refreshToken,
         region: api.region,
       };
-
-      return credentials;
-
     } catch (error) {
-      if (error instanceof RequestError) throw error;
-
-      const message = error.message || 'Login failed';
-      throw new RequestError(message, { status: error.response?.status || 500 });
+      this.handleError(error, 'Login failed');
     }
   }
 
@@ -77,14 +123,9 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    */
   async handleGetTokens() {
     try {
-      // Dynamically import the TokenStorage class
       const { TokenStorage } = await import('./utils/token-storage.js');
+      const tokenStorage = new TokenStorage(this.homebridgeStoragePath);
 
-      // Get the storage path from homebridge
-      const storagePath = this.homebridgeStoragePath;
-      const tokenStorage = new TokenStorage(storagePath);
-
-      // Load tokens
       const tokens = tokenStorage.load();
 
       if (!tokens) {
@@ -108,10 +149,8 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
         apiKey: tokens.apiKey,
         region: tokens.region,
       };
-
     } catch (error) {
-      const message = error.message || 'Failed to get tokens';
-      throw new RequestError(message, { status: 500 });
+      this.handleError(error, 'Failed to get tokens');
     }
   }
 
@@ -119,37 +158,16 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    * Handle get devices request
    */
   async handleGetDevices(payload) {
+    this.validatePayload(payload, ['accessToken']);
+
     const { accessToken, region } = payload;
 
-    if (!accessToken) {
-      throw new RequestError('Access token is required', { status: 400 });
-    }
-
     try {
-      // Dynamically import the EWeLinkAPI class and settings
-      const { EWeLinkAPI } = await import('./api/ewelink-api.js');
-      const { API_REGIONS } = await import('./settings.js');
+      const api = await this.createApiInstance(
+        { countryCode: region || 'us' },
+        accessToken,
+      );
 
-      // Create a mock platform object with the correct region
-      const mockPlatform = {
-        log: {
-          info: (...args) => console.log('[API INFO]', ...args),
-          debug: (...args) => console.log('[API DEBUG]', ...args),
-          warn: (...args) => console.warn('[API WARN]', ...args),
-          error: (...args) => console.error('[API ERROR]', ...args),
-        },
-        config: {
-          countryCode: region || 'us',
-        },
-      };
-
-      // Create API instance (this will set up the httpClient with the correct region)
-      const api = new EWeLinkAPI(mockPlatform);
-
-      // Set the access token and configure authentication
-      api.setCredentials(accessToken);
-
-      // Get devices
       const devices = await api.getDevices();
 
       return {
@@ -165,12 +183,8 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
         })),
         total: devices.length,
       };
-
     } catch (error) {
-      if (error instanceof RequestError) throw error;
-
-      const message = error.message || 'Failed to get devices';
-      throw new RequestError(message, { status: error.response?.status || 500 });
+      this.handleError(error, 'Failed to get devices');
     }
   }
 
@@ -178,49 +192,28 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    * Handle test device request
    */
   async handleTestDevice(payload) {
+    this.validatePayload(payload, ['accessToken', 'deviceId']);
+
     const { accessToken, region, deviceId, params } = payload;
 
-    if (!accessToken || !deviceId) {
-      throw new RequestError('Access token and device ID are required', { status: 400 });
-    }
-
     try {
-      // Dynamically import the EWeLinkAPI class
-      const { EWeLinkAPI } = await import('./api/ewelink-api.js');
+      const api = await this.createApiInstance(
+        { countryCode: region },
+        accessToken,
+      );
 
-      // Create a mock platform object
-      const mockPlatform = {
-        log: {
-          info: (...args) => console.log('[API INFO]', ...args),
-          debug: (...args) => console.log('[API DEBUG]', ...args),
-          warn: (...args) => console.warn('[API WARN]', ...args),
-          error: (...args) => console.error('[API ERROR]', ...args),
-        },
-        config: {
-          countryCode: region,
-        },
-      };
-
-      // Create API instance (this will set up the httpClient with the correct region)
-      const api = new EWeLinkAPI(mockPlatform);
-
-      // Set the access token and configure authentication
-      api.setCredentials(accessToken);
-
-      // Send the device command
-      const success = await api.setDeviceState(deviceId, params || { switch: 'on' });
+      const success = await api.setDeviceState(
+        deviceId,
+        params || { switch: 'on' },
+      );
 
       return {
         success,
         error: success ? 0 : 1,
         message: success ? 'Command sent successfully' : 'Failed to send command',
       };
-
     } catch (error) {
-      if (error instanceof RequestError) throw error;
-
-      const message = error.message || 'Failed to test device';
-      throw new RequestError(message, { status: error.response?.status || 500 });
+      this.handleError(error, 'Failed to test device');
     }
   }
 }
