@@ -8,6 +8,7 @@ dist/
 homebridge-ui/api/
 homebridge-ui/types/
 homebridge-ui/utils/
+homebridge-ui/constants/
 homebridge-ui/settings.js
 homebridge-ui/settings.d.ts
 
