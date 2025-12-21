@@ -1,0 +1,24 @@
+# Source
+src/
+
+# Config
+tsconfig.json
+eslint.config.js
+nodemon.json
+
+# Test
+test/
+
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# npm
+*.tgz

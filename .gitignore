@@ -1,0 +1,32 @@
+# Dependency directories
+node_modules/
+
+# Build output
+dist/
+
+# Generated files in homebridge-ui (copied from dist during build)
+homebridge-ui/api/
+homebridge-ui/types/
+homebridge-ui/utils/
+homebridge-ui/settings.js
+homebridge-ui/settings.d.ts
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# macOS
+.DS_Store
+
+# Test configuration
+test/
+
+# npm
+*.tgz
+package-lock.json
+
+# Environment
+.env
+.env.local

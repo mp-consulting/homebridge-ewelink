@@ -1,0 +1,6 @@
+# Generated files copied from dist/
+api/
+settings.js
+settings.d.ts
+types/
+utils/

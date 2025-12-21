@@ -1,0 +1,330 @@
+import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { BaseAccessory } from './base.js';
+import { EWeLinkPlatform } from '../platform.js';
+import { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
+
+/**
+ * Sensor Accessory for various sensor types
+ */
+export class SensorAccessory extends BaseAccessory {
+  /** Temperature sensor service */
+  private temperatureService?: ReturnType<typeof this.getOrAddService>;
+
+  /** Humidity sensor service */
+  private humidityService?: ReturnType<typeof this.getOrAddService>;
+
+  /** Battery service */
+  private batteryService?: ReturnType<typeof this.getOrAddService>;
+
+  /** Motion sensor service */
+  private motionService?: ReturnType<typeof this.getOrAddService>;
+
+  /** Contact sensor service */
+  private contactService?: ReturnType<typeof this.getOrAddService>;
+
+  /** Device config */
+  private readonly deviceConfig?: SensorDeviceConfig;
+
+  constructor(
+    platform: EWeLinkPlatform,
+    accessory: PlatformAccessory<AccessoryContext>,
+  ) {
+    super(platform, accessory);
+
+    // Get device-specific config
+    this.deviceConfig = platform.config.sensorDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+
+    // Set up services based on device capabilities
+    this.setupSensorServices();
+
+    // Set initial state
+    this.updateState(this.deviceParams);
+  }
+
+  /**
+   * Set up sensor services based on device capabilities
+   */
+  private setupSensorServices(): void {
+    const uiid = this.device.extra?.uiid || 0;
+
+    // Temperature sensor
+    if (this.hasTemperature() && !this.deviceConfig?.hideTemp) {
+      this.temperatureService = this.getOrAddService(
+        this.Service.TemperatureSensor,
+        `${this.accessory.displayName} Temperature`,
+        'temp',
+      );
+
+      this.temperatureService.getCharacteristic(this.Characteristic.CurrentTemperature)
+        .onGet(this.getCurrentTemperature.bind(this));
+    } else {
+      this.removeServiceIfExists(this.Service.TemperatureSensor, 'temp');
+    }
+
+    // Humidity sensor
+    if (this.hasHumidity() && !this.deviceConfig?.hideHumidity) {
+      this.humidityService = this.getOrAddService(
+        this.Service.HumiditySensor,
+        `${this.accessory.displayName} Humidity`,
+        'humidity',
+      );
+
+      this.humidityService.getCharacteristic(this.Characteristic.CurrentRelativeHumidity)
+        .onGet(this.getCurrentHumidity.bind(this));
+    } else {
+      this.removeServiceIfExists(this.Service.HumiditySensor, 'humidity');
+    }
+
+    // Motion sensor (PIR sensors)
+    if (this.isMotionSensor()) {
+      this.motionService = this.getOrAddService(this.Service.MotionSensor);
+
+      this.motionService.getCharacteristic(this.Characteristic.MotionDetected)
+        .onGet(this.getMotionDetected.bind(this));
+
+      this.service = this.motionService;
+    }
+
+    // Contact sensor (door/window sensors)
+    if (this.isContactSensor()) {
+      this.contactService = this.getOrAddService(this.Service.ContactSensor);
+
+      this.contactService.getCharacteristic(this.Characteristic.ContactSensorState)
+        .onGet(this.getContactState.bind(this));
+
+      this.service = this.contactService;
+    }
+
+    // Battery service for battery-powered sensors
+    if (this.hasBattery()) {
+      this.batteryService = this.getOrAddService(this.Service.Battery);
+
+      this.batteryService.getCharacteristic(this.Characteristic.BatteryLevel)
+        .onGet(this.getBatteryLevel.bind(this));
+
+      this.batteryService.getCharacteristic(this.Characteristic.StatusLowBattery)
+        .onGet(this.getStatusLowBattery.bind(this));
+    }
+
+    // Default service to temperature if nothing else
+    if (!this.service && this.temperatureService) {
+      this.service = this.temperatureService;
+    }
+  }
+
+  /**
+   * Check if device has temperature sensor
+   */
+  private hasTemperature(): boolean {
+    return this.deviceParams.currentTemperature !== undefined ||
+           this.deviceParams.temperature !== undefined;
+  }
+
+  /**
+   * Check if device has humidity sensor
+   */
+  private hasHumidity(): boolean {
+    return this.deviceParams.currentHumidity !== undefined ||
+           this.deviceParams.humidity !== undefined;
+  }
+
+  /**
+   * Check if device has battery
+   */
+  private hasBattery(): boolean {
+    return this.deviceParams.battery !== undefined;
+  }
+
+  /**
+   * Check if this is a motion sensor
+   */
+  private isMotionSensor(): boolean {
+    const uiid = this.device.extra?.uiid || 0;
+    // UIID for motion sensors
+    return [102, 107, 136].includes(uiid);
+  }
+
+  /**
+   * Check if this is a contact sensor
+   */
+  private isContactSensor(): boolean {
+    const uiid = this.device.extra?.uiid || 0;
+    // UIID for door/window sensors
+    return [102, 137, 154].includes(uiid);
+  }
+
+  /**
+   * Get current temperature
+   */
+  private async getCurrentTemperature(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      let temp = this.parseTemperature();
+      if (this.deviceConfig?.tempOffset) {
+        temp += this.deviceConfig.tempOffset;
+      }
+      return this.clamp(temp, -270, 100);
+    }, 'CurrentTemperature');
+  }
+
+  /**
+   * Get current humidity
+   */
+  private async getCurrentHumidity(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      let humidity = this.parseHumidity();
+      if (this.deviceConfig?.humidityOffset) {
+        humidity += this.deviceConfig.humidityOffset;
+      }
+      return this.clamp(humidity, 0, 100);
+    }, 'CurrentRelativeHumidity');
+  }
+
+  /**
+   * Get motion detected state
+   */
+  private async getMotionDetected(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      // Motion is typically indicated by switch state or motion param
+      return this.deviceParams.switch === 'on' ||
+             this.deviceParams.state === 1;
+    }, 'MotionDetected');
+  }
+
+  /**
+   * Get contact sensor state
+   */
+  private async getContactState(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      // Contact is typically 0 = closed, 1 = open
+      const isOpen = this.deviceParams.switch === 'on' ||
+                     this.deviceParams.state === 1;
+      return isOpen
+        ? this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+        : this.Characteristic.ContactSensorState.CONTACT_DETECTED;
+    }, 'ContactSensorState');
+  }
+
+  /**
+   * Get battery level
+   */
+  private async getBatteryLevel(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      return this.clamp(this.deviceParams.battery || 100, 0, 100);
+    }, 'BatteryLevel');
+  }
+
+  /**
+   * Get low battery status
+   */
+  private async getStatusLowBattery(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      const level = this.deviceParams.battery || 100;
+      const threshold = this.deviceConfig?.lowBattery || 20;
+      return level < threshold
+        ? this.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+        : this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
+    }, 'StatusLowBattery');
+  }
+
+  /**
+   * Parse temperature from device params
+   */
+  private parseTemperature(): number {
+    if (this.deviceParams.currentTemperature !== undefined) {
+      const temp = parseFloat(String(this.deviceParams.currentTemperature));
+      return temp > 1000 ? temp / 100 : temp;
+    }
+    if (this.deviceParams.temperature !== undefined) {
+      const temp = parseFloat(String(this.deviceParams.temperature));
+      return temp > 1000 ? temp / 100 : temp;
+    }
+    return 20;
+  }
+
+  /**
+   * Parse humidity from device params
+   */
+  private parseHumidity(): number {
+    if (this.deviceParams.currentHumidity !== undefined) {
+      const humidity = parseFloat(String(this.deviceParams.currentHumidity));
+      return humidity > 100 ? humidity / 100 : humidity;
+    }
+    if (this.deviceParams.humidity !== undefined) {
+      const humidity = parseFloat(String(this.deviceParams.humidity));
+      return humidity > 100 ? humidity / 100 : humidity;
+    }
+    return 50;
+  }
+
+  /**
+   * Update state from device params
+   */
+  updateState(params: DeviceParams): void {
+    Object.assign(this.deviceParams, params);
+
+    // Update temperature
+    if (this.temperatureService) {
+      let temp = this.parseTemperature();
+      if (this.deviceConfig?.tempOffset) {
+        temp += this.deviceConfig.tempOffset;
+      }
+      this.temperatureService.updateCharacteristic(
+        this.Characteristic.CurrentTemperature,
+        this.clamp(temp, -270, 100),
+      );
+    }
+
+    // Update humidity
+    if (this.humidityService) {
+      let humidity = this.parseHumidity();
+      if (this.deviceConfig?.humidityOffset) {
+        humidity += this.deviceConfig.humidityOffset;
+      }
+      this.humidityService.updateCharacteristic(
+        this.Characteristic.CurrentRelativeHumidity,
+        this.clamp(humidity, 0, 100),
+      );
+    }
+
+    // Update motion
+    if (this.motionService) {
+      const motion = params.switch === 'on' || params.state === 1;
+      this.motionService.updateCharacteristic(
+        this.Characteristic.MotionDetected,
+        motion,
+      );
+    }
+
+    // Update contact
+    if (this.contactService) {
+      const isOpen = params.switch === 'on' || params.state === 1;
+      this.contactService.updateCharacteristic(
+        this.Characteristic.ContactSensorState,
+        isOpen
+          ? this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.Characteristic.ContactSensorState.CONTACT_DETECTED,
+      );
+    }
+
+    // Update battery
+    if (this.batteryService && params.battery !== undefined) {
+      const level = this.clamp(params.battery, 0, 100);
+      const threshold = this.deviceConfig?.lowBattery || 20;
+
+      this.batteryService.updateCharacteristic(
+        this.Characteristic.BatteryLevel,
+        level,
+      );
+      this.batteryService.updateCharacteristic(
+        this.Characteristic.StatusLowBattery,
+        level < threshold
+          ? this.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+          : this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+      );
+    }
+
+    this.logDebug('Sensor state updated');
+  }
+}

@@ -1,0 +1,510 @@
+<style>
+  .ewelink-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .ewelink-header img {
+    max-width: 300px;
+    margin-bottom: 1rem;
+  }
+
+  .step-container {
+    margin-bottom: 2rem;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 0.75rem;
+  }
+
+  .step-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .device-list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .device-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .device-item:last-child {
+    border-bottom: none;
+  }
+
+  .device-info {
+    flex: 1;
+  }
+
+  .device-name {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+
+  .device-id {
+    font-size: 0.85rem;
+    color: var(--bs-secondary);
+  }
+
+  .device-model {
+    font-size: 0.8rem;
+    color: var(--bs-secondary);
+  }
+
+  .device-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-online {
+    background-color: var(--bs-success);
+    color: white;
+  }
+
+  .status-offline {
+    background-color: var(--bs-danger);
+    color: white;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .device-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-sm-icon {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+</style>
+
+<div class="ewelink-header">
+  <img src="https://user-images.githubusercontent.com/43026681/101325266-63126600-3863-11eb-9382-4a2924f0e540.png" alt="eWeLink">
+  <p class="text-muted">Homebridge plugin to integrate eWeLink devices into HomeKit</p>
+</div>
+
+<!-- Step 1: Login -->
+<div id="step-login" class="step-container">
+  <div class="step-header">
+    <div class="step-number">1</div>
+    <h3 class="step-title">Connect Your eWeLink Account</h3>
+  </div>
+
+  <!-- Active session notice -->
+  <div id="active-session-notice" class="alert alert-info hidden">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <strong>Active Session Detected</strong>
+        <p class="mb-0 small">Using the existing session from Homebridge</p>
+      </div>
+      <button id="btn-new-login" class="btn btn-sm btn-outline-primary">Login with Different Account</button>
+    </div>
+  </div>
+
+  <div class="card" id="login-form">
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="username" class="form-label">Email or Phone Number</label>
+        <input type="text" class="form-control" id="username" placeholder="your@email.com">
+        <div class="form-text">Enter your eWeLink account email or phone number</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" placeholder="••••••••">
+      </div>
+
+      <div class="mb-3">
+        <label for="countryCode" class="form-label">Country Code</label>
+        <select class="form-select" id="countryCode">
+          <option value="+1">United States (+1)</option>
+          <option value="+44">United Kingdom (+44)</option>
+          <option value="+86">China (+86)</option>
+          <option value="+33">France (+33)</option>
+          <option value="+49">Germany (+49)</option>
+          <option value="+81">Japan (+81)</option>
+          <option value="+61">Australia (+61)</option>
+          <option value="+91">India (+91)</option>
+          <option value="+65">Singapore (+65)</option>
+          <option value="+82">South Korea (+82)</option>
+          <option value="+39">Italy (+39)</option>
+          <option value="+34">Spain (+34)</option>
+          <option value="+31">Netherlands (+31)</option>
+          <option value="+48">Poland (+48)</option>
+          <option value="+7">Russia (+7)</option>
+          <option value="+55">Brazil (+55)</option>
+          <option value="+52">Mexico (+52)</option>
+        </select>
+      </div>
+
+      <button id="btn-login" class="btn btn-primary">
+        <span class="spinner-border spinner-border-sm hidden" id="login-spinner"></span>
+        Connect Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Step 2: Devices -->
+<div id="step-devices" class="step-container hidden">
+  <div class="step-header">
+    <div class="step-number">2</div>
+    <h3 class="step-title">Your Devices</h3>
+  </div>
+
+  <div class="alert alert-success mb-3" id="success-alert">
+    <strong>Success!</strong> Your eWeLink account is connected. Found <span id="device-count">0</span> devices.
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Discovered Devices</span>
+      <button id="btn-refresh" class="btn btn-sm btn-outline-secondary">
+        <span class="spinner-border spinner-border-sm hidden" id="refresh-spinner"></span>
+        Refresh
+      </button>
+    </div>
+    <div class="card-body device-list" id="device-list">
+      <!-- Devices will be populated here -->
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Connection Settings</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="mode" class="form-label">Connection Mode</label>
+        <select class="form-select" id="mode">
+          <option value="auto">Auto (LAN + Cloud)</option>
+          <option value="lan">LAN Only</option>
+          <option value="wan">Cloud Only</option>
+        </select>
+        <div class="form-text">Auto mode tries LAN first, then falls back to cloud</div>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="debug">
+        <label class="form-check-label" for="debug">Enable Debug Logging</label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="offlineAsOff">
+        <label class="form-check-label" for="offlineAsOff">Show Offline Devices as Off</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button id="btn-save" class="btn btn-success">Save Configuration</button>
+    <button id="btn-schema" class="btn btn-outline-primary">Advanced Settings</button>
+  </div>
+</div>
+
+<!-- Step 3: Complete -->
+<div id="step-complete" class="step-container hidden">
+  <div class="step-header">
+    <div class="step-number" style="background-color: var(--bs-success);">✓</div>
+    <h3 class="step-title">Configuration Complete</h3>
+  </div>
+
+  <div class="alert alert-success">
+    <strong>All done!</strong> Your eWeLink plugin is configured. Please restart Homebridge to apply the changes.
+  </div>
+
+  <button id="btn-restart" class="btn btn-warning">Restart Homebridge</button>
+</div>
+
+<script>
+(async () => {
+  // State
+  let credentials = {
+    accessToken: null,
+    region: null,
+    apiKey: null,
+  };
+  let devices = [];
+
+  // DOM elements
+  const stepLogin = document.getElementById('step-login');
+  const stepDevices = document.getElementById('step-devices');
+  const stepComplete = document.getElementById('step-complete');
+  const btnLogin = document.getElementById('btn-login');
+  const btnSave = document.getElementById('btn-save');
+  const btnRefresh = document.getElementById('btn-refresh');
+  const btnSchema = document.getElementById('btn-schema');
+  const btnRestart = document.getElementById('btn-restart');
+  const loginSpinner = document.getElementById('login-spinner');
+  const refreshSpinner = document.getElementById('refresh-spinner');
+  const deviceList = document.getElementById('device-list');
+  const deviceCount = document.getElementById('device-count');
+
+  // Load existing config
+  const pluginConfig = await homebridge.getPluginConfig();
+  const existingConfig = pluginConfig[0] || {};
+
+  // Pre-fill form with existing values
+  if (existingConfig.username) {
+    document.getElementById('username').value = existingConfig.username;
+  }
+  if (existingConfig.password) {
+    document.getElementById('password').value = existingConfig.password;
+  }
+  if (existingConfig.countryCode) {
+    document.getElementById('countryCode').value = existingConfig.countryCode;
+  }
+  if (existingConfig.mode) {
+    document.getElementById('mode').value = existingConfig.mode;
+  }
+  if (existingConfig.debug) {
+    document.getElementById('debug').checked = existingConfig.debug;
+  }
+  if (existingConfig.offlineAsOff) {
+    document.getElementById('offlineAsOff').checked = existingConfig.offlineAsOff;
+  }
+
+  // Check for existing session from plugin
+  async function checkExistingSession() {
+    try {
+      const response = await homebridge.request('/get-tokens');
+      if (response.success) {
+        credentials = {
+          accessToken: response.accessToken,
+          region: response.region,
+          apiKey: response.apiKey,
+        };
+
+        // Show active session notice
+        document.getElementById('active-session-notice').classList.remove('hidden');
+        document.getElementById('login-form').classList.add('hidden');
+
+        // Load devices and skip to devices step
+        await loadDevices();
+        stepLogin.classList.add('hidden');
+        stepDevices.classList.remove('hidden');
+
+        return true;
+      }
+    } catch (error) {
+      // No session available or error, continue with normal login flow
+      console.log('No existing session found, showing login form');
+    }
+    return false;
+  }
+
+  // Try to use existing session on page load
+  await checkExistingSession();
+
+  // Handle "Login with Different Account" button
+  const btnNewLogin = document.getElementById('btn-new-login');
+  if (btnNewLogin) {
+    btnNewLogin.addEventListener('click', () => {
+      // Hide the active session notice
+      document.getElementById('active-session-notice').classList.add('hidden');
+      // Show the login form
+      document.getElementById('login-form').classList.remove('hidden');
+    });
+  }
+
+  // Login handler
+  btnLogin.addEventListener('click', async () => {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const countryCode = document.getElementById('countryCode').value;
+
+    if (!username || !password) {
+      homebridge.toast.error('Please enter your username and password');
+      return;
+    }
+
+    loginSpinner.classList.remove('hidden');
+    btnLogin.disabled = true;
+
+    try {
+      const response = await homebridge.request('/login', {
+        username,
+        password,
+        countryCode,
+      });
+
+      if (response.success) {
+        credentials = {
+          accessToken: response.accessToken,
+          region: response.region,
+          apiKey: response.apiKey,
+        };
+
+        homebridge.toast.success('Successfully connected to eWeLink!');
+
+        // Update config with credentials
+        await homebridge.updatePluginConfig([{
+          ...existingConfig,
+          platform: 'eWeLink',
+          name: existingConfig.name || 'eWeLink',
+          username,
+          password,
+          countryCode,
+        }]);
+
+        // Load devices
+        await loadDevices();
+
+        // Show devices step
+        stepLogin.classList.add('hidden');
+        stepDevices.classList.remove('hidden');
+      }
+    } catch (error) {
+      homebridge.toast.error(error.message || 'Login failed');
+    } finally {
+      loginSpinner.classList.add('hidden');
+      btnLogin.disabled = false;
+    }
+  });
+
+  // Load devices
+  async function loadDevices() {
+    refreshSpinner.classList.remove('hidden');
+    btnRefresh.disabled = true;
+
+    try {
+      const response = await homebridge.request('/get-devices', {
+        accessToken: credentials.accessToken,
+        region: credentials.region,
+      });
+
+      if (response.success) {
+        devices = response.devices;
+        deviceCount.textContent = devices.length;
+        renderDevices();
+      }
+    } catch (error) {
+      homebridge.toast.error(error.message || 'Failed to load devices');
+    } finally {
+      refreshSpinner.classList.add('hidden');
+      btnRefresh.disabled = false;
+    }
+  }
+
+  // Render device list
+  function renderDevices() {
+    if (devices.length === 0) {
+      deviceList.innerHTML = '<div class="text-center text-muted py-4">No devices found</div>';
+      return;
+    }
+
+    deviceList.innerHTML = devices.map(device => `
+      <div class="device-item">
+        <div class="device-info">
+          <div class="device-name">${escapeHtml(device.name)}</div>
+          <div class="device-id">ID: ${device.deviceId}</div>
+          <div class="device-model">${device.brand || 'Unknown'} - ${device.model || 'Unknown Model'} (UIID: ${device.uiid || 'N/A'})</div>
+        </div>
+        <div class="device-status">
+          <span class="status-badge ${device.online ? 'status-online' : 'status-offline'}">
+            ${device.online ? 'Online' : 'Offline'}
+          </span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Refresh devices
+  btnRefresh.addEventListener('click', loadDevices);
+
+  // Show schema form for advanced settings
+  btnSchema.addEventListener('click', () => {
+    homebridge.showSchemaForm();
+  });
+
+  // Save configuration
+  btnSave.addEventListener('click', async () => {
+    homebridge.showSpinner();
+
+    try {
+      const config = {
+        ...existingConfig,
+        platform: 'eWeLink',
+        name: existingConfig.name || 'eWeLink',
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+        countryCode: document.getElementById('countryCode').value,
+        mode: document.getElementById('mode').value,
+        debug: document.getElementById('debug').checked,
+        offlineAsOff: document.getElementById('offlineAsOff').checked,
+      };
+
+      await homebridge.updatePluginConfig([config]);
+      await homebridge.savePluginConfig();
+
+      homebridge.toast.success('Configuration saved!');
+
+      // Show complete step
+      stepDevices.classList.add('hidden');
+      stepComplete.classList.remove('hidden');
+
+    } catch (error) {
+      homebridge.toast.error(error.message || 'Failed to save configuration');
+    } finally {
+      homebridge.hideSpinner();
+    }
+  });
+
+  // Restart Homebridge
+  btnRestart.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to restart Homebridge?')) {
+      try {
+        // This will close the settings modal
+        homebridge.closeSettings();
+      } catch (error) {
+        // Ignore errors when closing
+      }
+    }
+  });
+
+  // Listen for config changes from schema form
+  homebridge.addEventListener('configChanged', (event) => {
+    Object.assign(existingConfig, event.data);
+  });
+
+})();
+</script>

@@ -1,0 +1,9 @@
+{
+  "watch": [
+    "src",
+    "homebridge-ui"
+  ],
+  "ext": "ts,js,json,html,css",
+  "ignore": ["src/**/*.spec.ts"],
+  "exec": "tsc && homebridge -I -D -C ./test/hbConfig"
+}

@@ -1,0 +1,479 @@
+{
+  "pluginAlias": "eWeLink",
+  "pluginType": "platform",
+  "singular": true,
+  "customUi": true,
+  "headerDisplay": "<p align=\"center\"><img width=\"60%\" src=\"https://user-images.githubusercontent.com/43026681/101325266-63126600-3863-11eb-9382-4a2924f0e540.png\"></p><p align=\"center\">For help and support please visit our <a href=\"https://github.com/homebridge-plugins/homebridge-ewelink/wiki\">GitHub Wiki</a>. We hope you find this plugin useful!</p>",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "eWeLink",
+        "required": true
+      },
+      "username": {
+        "title": "Username",
+        "type": "string",
+        "description": "Your eWeLink username, please use your main eWeLink credentials (not a secondary/shared account)."
+      },
+      "password": {
+        "title": "Password",
+        "type": "string",
+        "description": "Your eWeLink password, can also be a base64 encoded version of your password."
+      },
+      "countryCode": {
+        "title": "Country Code",
+        "type": "string",
+        "description": "Your country code (e.g. +1 for US, +44 for UK, +86 for China).",
+        "default": "+1"
+      },
+      "mode": {
+        "title": "Connection Mode",
+        "type": "string",
+        "description": "This setting defines how the plugin communicates with your devices.",
+        "default": "auto",
+        "oneOf": [
+          { "title": "Auto (LAN + Cloud)", "enum": ["auto"] },
+          { "title": "LAN Only", "enum": ["lan"] },
+          { "title": "Cloud Only", "enum": ["wan"] }
+        ]
+      },
+      "debug": {
+        "title": "Debug Mode",
+        "type": "boolean",
+        "description": "Enable debug logging.",
+        "default": false
+      },
+      "disableDeviceLogging": {
+        "title": "Disable Device Logging",
+        "type": "boolean",
+        "description": "Disable logging for individual device updates.",
+        "default": false
+      },
+      "offlineAsOff": {
+        "title": "Show Offline Devices as Off",
+        "type": "boolean",
+        "description": "When enabled, offline devices will show as 'Off' instead of 'No Response'.",
+        "default": false
+      },
+      "outlineInLog": {
+        "title": "Outline Messages in Log",
+        "type": "boolean",
+        "description": "Add visual outline to log messages.",
+        "default": true
+      },
+      "singleDevices": {
+        "title": "Single Switch Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "showAs": {
+              "title": "Show As",
+              "type": "string",
+              "default": "default",
+              "oneOf": [
+                { "title": "Switch (Default)", "enum": ["default"] },
+                { "title": "Outlet", "enum": ["outlet"] },
+                { "title": "Valve", "enum": ["valve"] },
+                { "title": "Sensor", "enum": ["sensor"] },
+                { "title": "Heater", "enum": ["heater"] },
+                { "title": "Cooler", "enum": ["cooler"] },
+                { "title": "Purifier", "enum": ["purifier"] },
+                { "title": "Lock", "enum": ["lock"] },
+                { "title": "Tap", "enum": ["tap"] }
+              ]
+            },
+            "ipAddress": {
+              "title": "IP Address",
+              "type": "string",
+              "description": "Manually set the IP address for LAN control."
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            },
+            "disableDeviceLogging": {
+              "title": "Disable Logging",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "multiDevices": {
+        "title": "Multi-Switch Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "showAs": {
+              "title": "Show As",
+              "type": "string",
+              "default": "default",
+              "oneOf": [
+                { "title": "Switch (Default)", "enum": ["default"] },
+                { "title": "Outlet", "enum": ["outlet"] },
+                { "title": "Blind", "enum": ["blind"] },
+                { "title": "Garage Door", "enum": ["garage"] },
+                { "title": "Lock", "enum": ["lock"] }
+              ]
+            },
+            "hideChannels": {
+              "title": "Hide Channels",
+              "type": "string",
+              "description": "Comma-separated list of channel numbers to hide (0-indexed)."
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "thDevices": {
+        "title": "Thermostat Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "tempOffset": {
+              "title": "Temperature Offset",
+              "type": "number",
+              "description": "Offset to apply to temperature readings.",
+              "default": 0
+            },
+            "humidityOffset": {
+              "title": "Humidity Offset",
+              "type": "number",
+              "description": "Offset to apply to humidity readings.",
+              "default": 0
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "lightDevices": {
+        "title": "Light Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "brightnessStep": {
+              "title": "Brightness Step",
+              "type": "integer",
+              "description": "Step size for brightness adjustments.",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "adaptiveLightingShift": {
+              "title": "Adaptive Lighting Shift",
+              "type": "integer",
+              "description": "Color temperature shift for adaptive lighting.",
+              "default": 0
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "fanDevices": {
+        "title": "Fan Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "hideLight": {
+              "title": "Hide Light",
+              "type": "boolean",
+              "description": "Hide the integrated light control.",
+              "default": false
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "sensorDevices": {
+        "title": "Sensor Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "hideTemp": {
+              "title": "Hide Temperature",
+              "type": "boolean",
+              "default": false
+            },
+            "hideHumidity": {
+              "title": "Hide Humidity",
+              "type": "boolean",
+              "default": false
+            },
+            "tempOffset": {
+              "title": "Temperature Offset",
+              "type": "number",
+              "default": 0
+            },
+            "humidityOffset": {
+              "title": "Humidity Offset",
+              "type": "number",
+              "default": 0
+            },
+            "lowBattery": {
+              "title": "Low Battery Threshold",
+              "type": "integer",
+              "default": 20,
+              "minimum": 0,
+              "maximum": 100
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "rfDevices": {
+        "title": "RF Bridge Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "label": {
+              "title": "Custom Label",
+              "type": "string"
+            },
+            "ignoreDevice": {
+              "title": "Ignore Device",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "groups": {
+        "title": "Device Groups",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "title": "Group Type",
+              "type": "string",
+              "required": true,
+              "oneOf": [
+                { "title": "Blind", "enum": ["blind"] },
+                { "title": "Garage Door", "enum": ["garage"] },
+                { "title": "Lock", "enum": ["lock"] },
+                { "title": "Valve", "enum": ["valve"] }
+              ]
+            },
+            "deviceIds": {
+              "title": "Device IDs",
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Device IDs to include in this group."
+            },
+            "label": {
+              "title": "Group Label",
+              "type": "string"
+            },
+            "operationTime": {
+              "title": "Operation Time (seconds)",
+              "type": "integer",
+              "description": "Time for full operation (open/close)."
+            }
+          }
+        }
+      },
+      "ignoredDevices": {
+        "title": "Ignored Devices",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "Device ID to ignore"
+        },
+        "description": "List of device IDs to completely ignore."
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "Account Settings",
+      "items": [
+        "username",
+        "password",
+        "countryCode"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Connection Settings",
+      "items": [
+        "mode"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "General Settings",
+      "expandable": true,
+      "items": [
+        "debug",
+        "disableDeviceLogging",
+        "offlineAsOff",
+        "outlineInLog"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Device Configuration",
+      "expandable": true,
+      "items": [
+        {
+          "key": "singleDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Single Switch Device"
+        },
+        {
+          "key": "multiDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Multi-Switch Device"
+        },
+        {
+          "key": "thDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Thermostat Device"
+        },
+        {
+          "key": "lightDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Light Device"
+        },
+        {
+          "key": "fanDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Fan Device"
+        },
+        {
+          "key": "sensorDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Sensor Device"
+        },
+        {
+          "key": "rfDevices",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add RF Bridge Device"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Device Groups",
+      "expandable": true,
+      "items": [
+        {
+          "key": "groups",
+          "type": "array",
+          "expandable": true,
+          "buttonText": "Add Group"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Ignored Devices",
+      "expandable": true,
+      "items": [
+        {
+          "key": "ignoredDevices",
+          "type": "array",
+          "buttonText": "Add Device ID"
+        }
+      ]
+    }
+  ]
+}

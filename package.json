@@ -1,0 +1,77 @@
+{
+  "name": "@homebridge-plugins/homebridge-ewelink",
+  "displayName": "Homebridge eWeLink",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Homebridge plugin to integrate eWeLink devices into HomeKit",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "lint": "eslint src/**.ts --max-warnings=0",
+    "watch": "npm run build && npm link && nodemon",
+    "build": "rimraf ./dist && tsc && npm run copy-api-to-ui",
+    "copy-api-to-ui": "node scripts/copy-api.js",
+    "prepublishOnly": "npm run lint && npm run build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "homebridge",
+    "homebridge-plugin",
+    "homekit",
+    "ewelink",
+    "sonoff",
+    "zigbee",
+    "rf",
+    "hoobs",
+    "smart-home"
+  ],
+  "author": "bwp91",
+  "license": "MIT",
+  "homepage": "https://github.com/homebridge-plugins/homebridge-ewelink#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/homebridge-plugins/homebridge-ewelink.git"
+  },
+  "bugs": {
+    "url": "https://github.com/homebridge-plugins/homebridge-ewelink/issues"
+  },
+  "engines": {
+    "node": "^20.18.0 || ^22.9.0 || ^24",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "funding": [
+    {
+      "type": "patreon",
+      "url": "https://patreon.com/bwp91"
+    },
+    {
+      "type": "ko-fi",
+      "url": "https://ko-fi.com/bwp91"
+    }
+  ],
+  "dependencies": {
+    "@homebridge/plugin-ui-utils": "^2.1.2",
+    "axios": "^1.7.9",
+    "crypto-js": "^4.2.0",
+    "dns-packet": "^5.6.1",
+    "fakegato-history": "^0.6.4",
+    "multicast-dns": "^7.2.5",
+    "node-persist": "^4.0.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/crypto-js": "^4.2.2",
+    "@types/multicast-dns": "^7.2.4",
+    "@types/node": "^22.10.2",
+    "@types/node-persist": "^3.1.8",
+    "@types/ws": "^8.5.13",
+    "eslint": "^9.17.0",
+    "homebridge": "2.0.0-beta.65",
+    "homebridge-config-ui-x": "^4.80.0",
+    "nodemon": "^3.1.9",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}
