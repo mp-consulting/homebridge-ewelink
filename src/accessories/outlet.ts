@@ -26,6 +26,12 @@ export class OutletAccessory extends BaseAccessory {
   /** Device configuration */
   private readonly deviceConfig?: SingleDeviceConfig;
 
+  /** Power threshold for "in use" state */
+  private readonly inUsePowerThreshold: number;
+
+  /** Power reading UIIDs (5: wattage only, 32/182/190: wattage+voltage+current) */
+  private readonly hasFullPowerReadings: boolean;
+
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -41,6 +47,13 @@ export class OutletAccessory extends BaseAccessory {
 
     // Check if inching mode is enabled
     this.isInched = this.deviceConfig?.isInched || false;
+
+    // Power threshold configuration
+    this.inUsePowerThreshold = this.deviceConfig?.inUsePowerThreshold || 0;
+
+    // Check if device has full power readings (voltage + current)
+    const uiid = this.device.extra?.uiid || 0;
+    this.hasFullPowerReadings = [32, 182, 190].includes(uiid);
 
     // Set up the outlet service
     this.service = this.getOrAddService(this.Service.Outlet);
@@ -81,9 +94,32 @@ export class OutletAccessory extends BaseAccessory {
    * Setup power monitoring characteristics
    */
   private setupPowerMonitoring(): void {
-    // Eve Energy uses custom characteristics for power monitoring
-    // We'll add them to the main outlet service
-    this.logDebug('Power monitoring supported');
+    const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
+
+    // Add Current Consumption (Watts) - available on all power monitoring devices
+    if (!this.service.testCharacteristic(CurrentConsumption)) {
+      this.service.addCharacteristic(CurrentConsumption);
+    }
+
+    // Add Voltage and Current for devices with full power readings
+    if (this.hasFullPowerReadings) {
+      if (!this.service.testCharacteristic(Voltage)) {
+        this.service.addCharacteristic(Voltage);
+      }
+      if (!this.service.testCharacteristic(ElectricCurrent)) {
+        this.service.addCharacteristic(ElectricCurrent);
+      }
+    } else {
+      // Remove voltage/current if not supported
+      if (this.service.testCharacteristic(Voltage)) {
+        this.service.removeCharacteristic(this.service.getCharacteristic(Voltage));
+      }
+      if (this.service.testCharacteristic(ElectricCurrent)) {
+        this.service.removeCharacteristic(this.service.getCharacteristic(ElectricCurrent));
+      }
+    }
+
+    this.logDebug(`Power monitoring enabled (full readings: ${this.hasFullPowerReadings})`);
   }
 
   /**
@@ -149,13 +185,13 @@ export class OutletAccessory extends BaseAccessory {
    */
   private async getOutletInUse(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      // If power monitoring is available, use it
+      // If power monitoring is available, use it with threshold
       if (this.deviceParams.power !== undefined) {
         const power = parseFloat(String(this.deviceParams.power));
-        return power > 0;
+        return power > this.inUsePowerThreshold;
       }
       // Otherwise, outlet is in use if it's on
-      return SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
+      return this.isInched ? this.cacheState : SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
     }, 'OutletInUse');
   }
 
@@ -197,7 +233,7 @@ export class OutletAccessory extends BaseAccessory {
       let inUse = this.cacheState;
       if (params.power !== undefined) {
         const power = parseFloat(String(params.power));
-        inUse = power > 0;
+        inUse = power > this.inUsePowerThreshold;
       }
       this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
     } else {
@@ -209,11 +245,32 @@ export class OutletAccessory extends BaseAccessory {
       let inUse = isOn;
       if (params.power !== undefined) {
         const power = parseFloat(String(params.power));
-        inUse = power > 0;
+        inUse = power > this.inUsePowerThreshold;
       }
       this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
 
       this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}, In Use: ${inUse}`);
+    }
+
+    // Update Eve power monitoring characteristics if supported
+    if (this.supportsPowerMonitoring()) {
+      const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
+
+      if (params.power !== undefined) {
+        const power = parseFloat(String(params.power));
+        this.service.updateCharacteristic(CurrentConsumption, power);
+      }
+
+      if (this.hasFullPowerReadings) {
+        if (params.voltage !== undefined) {
+          const voltage = parseFloat(String(params.voltage));
+          this.service.updateCharacteristic(Voltage, voltage);
+        }
+        if (params.current !== undefined) {
+          const current = parseFloat(String(params.current));
+          this.service.updateCharacteristic(ElectricCurrent, current);
+        }
+      }
     }
   }
 }

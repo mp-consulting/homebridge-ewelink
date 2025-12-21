@@ -13,6 +13,7 @@ import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } 
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
+import { EveCharacteristics } from './utils/eve-characteristics.js';
 
 // Accessory handlers
 import { SwitchAccessory } from './accessories/switch.js';
@@ -44,6 +45,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   public readonly api: API;
   public readonly log: Logging;
   public readonly config: EWeLinkPlatformConfig;
+
+  /** Eve Home custom characteristics */
+  public readonly eveCharacteristics: EveCharacteristics;
 
   /** Cached accessories */
   public readonly accessories: Map<string, PlatformAccessory<AccessoryContext>> = new Map();
@@ -93,6 +97,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     this.config = this.validateConfig(config as EWeLinkPlatformConfig);
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
+
+    // Initialize Eve characteristics
+    this.eveCharacteristics = new EveCharacteristics(api);
 
     // Bind the method to preserve 'this' context
     this.configureAccessory = this.configureAccessory.bind(this);
