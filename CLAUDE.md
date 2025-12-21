@@ -6,139 +6,172 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development
 - **Lint code**: `npm run lint`
-- **Fix lint issues**: `npm run lint:fix`
+- **Build**: `npm run build`
+- **Watch mode**: `npm run watch` (builds, links, and watches with nodemon)
 
 ## Architecture
 
 ### Core Structure
-This is a Homebridge plugin that integrates eWeLink devices into HomeKit. The main entry point is `lib/index.js` which registers the platform with Homebridge.
+This is a Homebridge plugin that integrates eWeLink devices into HomeKit. Built with TypeScript and ES modules.
+
+**Entry Point**: `src/index.ts` → compiles to `dist/index.js`
 
 ### Key Components
 
-**Platform Layer** (`lib/platform.js`)
+**Platform Layer** (`src/platform.ts`)
 - Main platform class that coordinates all plugin operations
 - Manages device discovery, initialization, and lifecycle
 - Handles configuration and storage via node-persist
 - Implements request queue with p-queue for rate limiting
 - Routes devices to appropriate handlers based on UIID and configuration
+- UUID generation: Uses `api.hap.uuid.generate(deviceId)` for consistent HomeKit identifiers
 
-**Connection Layer** (`lib/connection/`)
-- `api.js`: Internal HTTP API server for local control
-- `http.js`: eWeLink cloud API client
-- `lan.js`: Local network device control
-- `ws.js`: WebSocket client for real-time updates
+**API Layer** (`src/api/`)
+- `ewelink-api.ts`: Main eWeLink cloud API client
+- `http-client.ts`: HTTP request wrapper with region support and authentication
+- `ws-client.ts`: WebSocket client for real-time device updates
+- `lan-client.ts`: Local network device control via mDNS
 
-**Device Layer** (`lib/device/`)
-- Individual device type implementations (switches, lights, sensors, etc.)
-- Each device type extends base functionality with specific HomeKit characteristics
-- Supports various Sonoff/eWeLink device models
-- Device types include:
-  - Single/Multi switches with optional power monitoring
-  - RGB/CCT/Dimmable lights
-  - Sensors (ambient, contact, motion, water)
-  - Thermostats, fans, curtains
-  - RF Bridge devices
-  - Zigbee devices (via bridge)
-  - Groups and simulations
+**Accessory Layer** (`src/accessories/`)
+- Individual device type implementations extending `BaseAccessory`
+- Each accessory type implements specific HomeKit characteristics
+- Supported types:
+  - `switch.ts`: Single/multi-channel switches
+  - `outlet.ts`: Outlets with power monitoring
+  - `light.ts`, `light-dimmer.ts`, `light-rgb.ts`, `light-cct.ts`: Various light types
+  - `curtain.ts`: Window coverings with position control (UIID 11, 67, 126)
+  - `sensor.ts`, `th-sensor.ts`: Temperature/humidity sensors
+  - `thermostat.ts`: Smart thermostats (UIID 127)
+  - `fan.ts`: Ceiling fans with speed control
+  - `rf-bridge.ts`, `zigbee-bridge.ts`: Bridge devices
 
-**Utilities** (`lib/utils/`)
-- `constants.js`: Device configurations and UIID mappings
-- `functions.js`: Shared utility functions
-- `custom-chars.js`: Custom HomeKit characteristics
-- `eve-chars.js`: Eve Home app specific characteristics
-- Language files for internationalization
+**Base Classes** (`src/accessories/base.ts`)
+- `BaseAccessory`: Common functionality for all accessories
+  - Logging helpers (`logInfo`, `logDebug`, `logError`)
+  - State handling utilities (`handleGet`, `handleSet`)
+  - Service management (`getOrAddService`)
+  - Command sending via platform
+
+**Utilities** (`src/utils/`)
+- `device-parsers.ts`: Value parsing utilities (temperature, humidity, battery, boolean)
+- `switch-helper.ts`: Switch state and command building logic
+- `color-utils.ts`: RGB/HSV color conversion
+- `token-storage.ts`: Persistent token storage
+
+**Constants** (`src/constants/`)
+- `device-constants.ts`: Device UIIDs, categories, and mappings
+- `network-constants.ts`: Network ports and intervals
+- `region-constants.ts`: Country code to region mapping
+- `api-constants.ts`: API endpoints and timeouts
+
+**Types** (`src/types/`)
+- TypeScript type definitions for devices, accessories, configs
 
 ### Device Identification (UIID)
-Every eWeLink device has a UIID (unique interface ID) that determines its capabilities:
 
-**Key UIID Categories** (defined in `lib/utils/constants.js`):
-- `switchSingle`: [1, 6, 14, 24, 27, etc.] - Basic on/off switches
-- `switchSinglePower`: [5, 32] - Switches with power monitoring
-- `switchMulti`: [2, 3, 4, 7, 8, 9, etc.] - Multi-channel switches
-- `lightRGB`: [22] - RGB color lights
-- `lightCCT`: [103] - Color temperature lights
-- `lightRGBCCT`: [33, 59, 104, etc.] - Full color + temperature lights
-- `lightDimmer`: [36, 44, 57] - Dimmable lights
-- `sensorContact`: [102, 154] - Door/window sensors
-- `sensorAmbient`: [15, 181] - Temperature/humidity sensors
-- `thermostat`: [127] - Smart thermostats
-- `rfBridge`: [28, 98] - RF 433MHz bridges
-- `zbBridge`: [66, 128, 168] - Zigbee bridges
-- Zigbee prefixed devices (1000-7000 range)
+Every eWeLink device has a UIID (unique interface ID) that determines its capabilities.
 
-**Device Routing Logic** (in `lib/platform.js:initialiseDevice()`):
-1. Checks device UIID against category arrays in constants
-2. Considers user configuration (showAs property for simulations)
-3. Creates appropriate device handler instance
-4. Special handling for:
-   - Power monitoring devices (different decimal places)
-   - Multi-channel devices (individual switches/outlets)
-   - Bridge devices (RF/Zigbee sub-devices)
-   - Simulated accessories (garage doors, valves, etc.)
+**Device Routing** (in `src/platform.ts:addAccessory()`):
+1. Generate UUID from device ID: `api.hap.uuid.generate(device.deviceid)`
+2. Check device UIID against `DEVICE_UIID_MAP` in constants
+3. Special UIID 126 handling: Auto-detect curtain vs multi-switch based on params
+4. Create appropriate accessory handler instance
+5. Register handler in `accessoryHandlers` map by UUID
+
+**Key UIID Categories** (defined in `src/constants/device-constants.ts`):
+- Single switches: 1, 6, 14, 24, 77, 138, 160
+- Multi switches: 2, 3, 4, 7, 8, 9, 29, 30, 126 (when not curtain)
+- Power monitoring: 5, 32, 126, 165
+- Dimmable lights: 36, 44, 57
+- RGB lights: 22
+- CCT lights: 103, 104
+- RGB+CCT lights: 33, 59, 135, 136, 137, 173
+- Curtains: 11, 67, 126 (when has curtain params)
+- Sensors: 102, 154 (contact), 15, 181 (ambient)
+- Thermostats: 127
+- RF Bridge: 28, 98
+- Zigbee Bridge: 66, 128, 168
+- Zigbee devices: 1000-7000 range
 
 ### Communication Flow
-1. Plugin authenticates with eWeLink cloud to fetch device list
-2. Attempts local (LAN) control first for supported devices
-3. Falls back to cloud control via HTTP/WebSocket if local fails
-4. Maintains real-time sync through WebSocket connection
-5. Exposes optional internal API for external control
 
-### Command & Payload Structure
+1. Plugin authenticates with eWeLink cloud (HMAC-SHA256 signed login)
+2. Fetches device list from cloud API
+3. Connects WebSocket for real-time updates
+4. Attempts LAN control for supported devices (mDNS discovery)
+5. Falls back to cloud control via WebSocket if LAN unavailable
+6. Maintains real-time sync through WebSocket updates
 
-**HTTP Connection** (`lib/connection/http.js`)
-- **Login**: POST to `/v2/user/login`
-  - Request: `{email/phoneNumber, password, countryCode}`
-  - Response: Returns `at` (access token) and `apikey`
-  - Uses HMAC-SHA256 signature with app secret
-- **Get Homes**: GET to `/v2/family`
-  - Headers: Bearer token authentication
-- **Get Devices**: GET to `/v2/device` and `/v2/group`
-  - Fetches device list per home with full params
+### WebSocket Protocol
 
-**WebSocket Connection** (`lib/connection/ws.js`)
-- **Authentication**: Action `userOnline`
-  - Payload: `{action: 'userOnline', apikey, appid, at, nonce, sequence, ts, version: 8}`
-- **Device Update**: Action `update`
-  - Payload: `{action: 'update', apikey, deviceid, params, sequence, ts: 0, userAgent: 'app'}`
-  - Params vary by device type (see below)
-- **Query State**: Action `query`
-  - Payload: `{action: 'query', apikey, deviceid, params: [], sequence}`
-- **Heartbeat**: Sends `'ping'` at intervals to keep connection alive
+**Connection** (`src/api/ws-client.ts`):
+- Authentication: Action `userOnline` with tokens
+- Heartbeat: Sends `ping` every 90 seconds
+- Commands: Action `update` with device params
+- Queries: Action `query` to fetch fresh device state
+- Updates: Receives action `update` for device state changes
 
-**LAN Connection** (`lib/connection/lan.js`)
-- Uses mDNS discovery for `_ewelink._tcp.local` services
-- **Encryption**: AES-128-CBC with MD5 hashed device key
-- **Update Request**: POST to `http://{device_ip}:8081/zeroconf/{suffix}`
-  - Suffixes: `switch`, `switches`, `dimmable`, `light`, `fan`, `transmit`, `location`, `monitor`
-  - Encrypted payload with IV
-  - Data structure: `{data, deviceid, encrypt: true, iv, selfApikey: '123', sequence}`
-- **DNS Monitoring**: Listens for TXT records with encrypted device updates
+**Query Pattern** (used by curtain accessories):
+```typescript
+// Send query
+const message = {
+  action: 'query',
+  apikey: apiKey,
+  deviceid: deviceId,
+  params: [],
+  sequence: timestamp,
+  ts: 0,
+  userAgent: 'app'
+};
 
-**Common Device Parameters**
+// Response triggers handleDeviceUpdate()
+// Accessory's updateState() method is called with fresh params
+```
+
+### Common Device Parameters
+
 - **Single Switch**: `{switch: 'on'/'off'}`
-- **Multi Switch**: `{switches: [{outlet: 0-3, switch: 'on'/'off'}]}`
-- **SCM Devices**: Uses switches array even for single switch (UIID 77/78/81/107/112/138/160)
+- **Multi Switch**: `{switches: [{outlet: 0, switch: 'on'}]}`
 - **Dimmable**: `{brightness: 0-100, mode: 0}`
-- **RGB Light**: `{ltype: 'color'/'white', color: {br, r, g, b}, white: {br, ct}}`
-- **Power Monitor**: `{uiActive: 120}` to request power updates
-- **Curtain/Motor**: `{location: 0-100}` for position
-- **RF Bridge**: `{cmd: 'transmit', rfChl: channel}`
-- **TH10/16**: `{switch, mainSwitch, deviceType: 'normal'}`
-- **Fan (iFan)**: `{light: 'on'/'off', fan: 'on'/'off', speed: 1-3}`
-
-**Update Priority**
-1. Try LAN if device supports it (check `constants.devices.lan` array)
-2. Fall back to WebSocket if LAN fails
-3. Queue updates with 250ms intervals to prevent rate limiting
-4. Power monitoring devices poll every 120 seconds
+- **RGB Light**: `{ltype: 'color'/'white', color: {r, g, b, br}, white: {br, ct}}`
+- **Curtain (UIID 126)**: `{currLocation: 0-100, location: 0-100, motorTurn: 0/1/2}`
+- **Curtain (UIID 11)**: `{setclose: 0-100}` (inverted: 0=open, 100=closed)
+- **Thermostat**: `{targetTemp: number, switch: 'on'/'off', workState: 0/1/2}`
+- **Fan**: `{light: 'on'/'off', fan: 'on'/'off', speed: 1-3}`
 
 ### State Management
-- Device states cached using node-persist
-- Queue system (p-queue) prevents API rate limiting
-- Fakegato history service for Eve Home app integration
+
+- **Cached Accessories**: Loaded via `configureAccessory()` at startup
+- **State Updates**: Routed by UUID through `handleDeviceUpdate()`
+- **State Refresh**: Curtains auto-query state 5 seconds after init
+- **Persistence**: Uses node-persist for token storage
+
+### Error Handling Patterns
+
+All accessories use consistent error handling through `BaseAccessory`:
+
+```typescript
+// Get operations
+handleGet(getter: () => T, characteristic: string): Promise<T>
+
+// Set operations with automatic retry and logging
+handleSet(value: T, characteristic: string, setter: (val: T) => Promise<boolean>)
+```
 
 ## Important Notes
-- ES modules with Node.js 20/22/24 support required
-- Uses @antfu/eslint-config for code style
-- No test suite - manual testing required
-- Verified Homebridge plugin following official standards
+
+- **TypeScript**: ES modules, compiled to `dist/` directory
+- **Node.js**: Requires Node.js 20/22/24
+- **Homebridge**: Compatible with v1.8+ and v2.0 beta
+- **Linting**: Uses `@antfu/eslint-config` with strict rules
+- **No Tests**: Manual testing required
+- **Package Scope**: `@mp-consulting/homebridge-ewelink`
+- **Repository**: https://github.com/mp-consulting/homebridge-ewelink
+
+## Recent Improvements
+
+- Curtain accessories now auto-refresh state on startup to prevent stale position display
+- WebSocket query responses properly route to device `updateState()` methods
+- Extracted utilities for code reuse (device-parsers, switch-helper, color-utils)
+- Centralized constants for better maintainability
+- Homebridge UI server refactored with unified error handling and validation
