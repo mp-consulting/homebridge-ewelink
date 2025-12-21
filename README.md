@@ -1,6 +1,6 @@
 # homebridge-ewelink
 
-[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-ewelink/latest?label=latest)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-ewelink)
+[![npm](https://img.shields.io/npm/v/@mp-consulting/homebridge-ewelink/latest?label=latest)](https://www.npmjs.com/package/@mp-consulting/homebridge-ewelink)
 [![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=flat)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 
 Homebridge plugin to integrate eWeLink devices into HomeKit.
@@ -26,13 +26,13 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 1. Open the Homebridge UI
 2. Go to the Plugins tab
-3. Search for `@homebridge-plugins/homebridge-ewelink`
+3. Search for `@mp-consulting/homebridge-ewelink`
 4. Click Install
 
 ### Manual Installation
 
 ```bash
-npm install -g @homebridge-plugins/homebridge-ewelink
+npm install -g @mp-consulting/homebridge-ewelink
 ```
 
 ## Configuration
