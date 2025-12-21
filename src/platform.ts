@@ -17,6 +17,8 @@ import { EveCharacteristics } from './utils/eve-characteristics.js';
 
 // Accessory handlers
 import { SwitchAccessory } from './accessories/switch.js';
+import { SwitchMiniAccessory } from './accessories/switch-mini.js';
+import { SwitchMateAccessory } from './accessories/switch-mate.js';
 import { OutletAccessory } from './accessories/outlet.js';
 import { LightAccessory } from './accessories/light.js';
 import { ThermostatAccessory } from './accessories/thermostat.js';
@@ -82,6 +84,8 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   private readonly accessoryHandlers: Map<
     string,
     | SwitchAccessory
+    | SwitchMiniAccessory
+    | SwitchMateAccessory
     | OutletAccessory
     | LightAccessory
     | ThermostatAccessory
@@ -383,6 +387,8 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     // Create appropriate handler based on category and showAs
     let handler:
       | SwitchAccessory
+      | SwitchMiniAccessory
+      | SwitchMateAccessory
       | OutletAccessory
       | LightAccessory
       | ThermostatAccessory
@@ -542,9 +548,17 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         case DeviceCategory.SINGLE_SWITCH:
         case DeviceCategory.MULTI_SWITCH:
         default:
-          if (showAs === 'outlet') {
+          // Check for SONOFF Mini (UIID 174) - 6-channel programmable switch
+          if (uiid === 174) {
+            handler = new SwitchMiniAccessory(this, accessory) as any;
+          } else if (uiid === 177) {
+            // SONOFF Mate (UIID 177) - 3-button programmable switch
+            handler = new SwitchMateAccessory(this, accessory) as any;
+          } else if (showAs === 'outlet') {
+            // Regular outlet
             handler = new OutletAccessory(this, accessory);
           } else {
+            // Regular switch
             handler = new SwitchAccessory(this, accessory);
           }
           break;

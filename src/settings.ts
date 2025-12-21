@@ -169,6 +169,12 @@ export const DEVICE_UIID_MAP: Record<number, DeviceCategory> = {
   137: DeviceCategory.LIGHT,
   173: DeviceCategory.LIGHT,
 
+  // SONOFF Mini (S-MAN) - Programmable switch with 6 channels
+  174: DeviceCategory.SINGLE_SWITCH,
+
+  // SONOFF Mate (S-MATE) - Programmable switch with 3 button modes
+  177: DeviceCategory.SINGLE_SWITCH,
+
   // Curtains/Motors
   11: DeviceCategory.CURTAIN,
   67: DeviceCategory.CURTAIN,
