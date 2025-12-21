@@ -12,6 +12,10 @@ export interface EWeLinkPlatformConfig extends PlatformConfig {
   countryCode?: string;
   /** Connection mode: auto, lan, wan */
   mode?: 'auto' | 'lan' | 'wan';
+  /** Language for localization */
+  language?: string;
+  /** Disable "No Response" errors */
+  disableNoResponse?: boolean;
   /** Hide device from Homebridge */
   hideDevFromHB?: boolean;
   /** Hide master/parent devices */
@@ -28,6 +32,16 @@ export interface EWeLinkPlatformConfig extends PlatformConfig {
   disableDeviceLogging?: boolean;
   /** Show offline devices as off */
   offlineAsOff?: boolean;
+  /** Ignored home IDs */
+  ignoredHomes?: string[];
+  /** Internal API server host */
+  httpHost?: string;
+  /** Internal API server port */
+  apiPort?: number;
+  /** Custom eWeLink app ID */
+  appId?: string;
+  /** Custom eWeLink app secret */
+  appSecret?: string;
   /** Single switch device configurations */
   singleDevices?: SingleDeviceConfig[];
   /** Multi-switch device configurations */
@@ -122,6 +136,8 @@ export interface SingleDeviceConfig extends BaseDeviceConfig {
 export interface MultiDeviceConfig extends BaseDeviceConfig {
   /** Show as different accessory type */
   showAs?: 'default' | 'outlet' | 'switch' | 'valve' | 'blind' | 'garage' | 'door' | 'window' | 'lock';
+  /** Override device model */
+  deviceModel?: string;
   /** Hide specific channels (0-indexed) */
   hideChannels?: string;
   /** Operation time in seconds */
@@ -130,20 +146,52 @@ export interface MultiDeviceConfig extends BaseDeviceConfig {
   operationTimeDown?: number;
   /** Invert open/close state */
   invert?: boolean;
+  /** Sensor device ID for garage doors */
+  sensorId?: string;
+  /** Hide sensor in garage simulation */
+  hideSensor?: boolean;
+  /** Obstruction sensor device ID */
+  obstructId?: string;
+  /** Lock type for lock simulation */
+  type?: string;
+  /** Sensor type */
+  sensorType?: string;
+  /** Low battery threshold */
+  lowBattThreshold?: number;
+  /** Scale battery percentage */
+  scaleBattery?: boolean;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
  * Thermostat device configuration
  */
 export interface ThermostatDeviceConfig extends BaseDeviceConfig {
+  /** Show as different accessory type */
+  showAs?: 'default' | 'thermostat' | 'heater' | 'cooler' | 'humidifier' | 'dehumidifier';
+  /** Override device model */
+  deviceModel?: string;
+  /** Show heat/cool toggle */
+  showHeatCool?: boolean;
+  /** Hide main switch */
+  hideSwitch?: boolean;
   /** Offset temperature */
   tempOffset?: number;
+  /** Temperature offset multiplier factor */
+  offsetFactor?: number;
   /** Humidity offset */
   humidityOffset?: number;
+  /** Humidity offset multiplier factor */
+  humidityOffsetFactor?: number;
   /** Minimum target temperature */
   minTarget?: number;
   /** Maximum target temperature */
   maxTarget?: number;
+  /** Temperature threshold */
+  targetTempThreshold?: number;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
@@ -152,20 +200,26 @@ export interface ThermostatDeviceConfig extends BaseDeviceConfig {
 export interface FanDeviceConfig extends BaseDeviceConfig {
   /** Show as different accessory type */
   showAs?: 'default' | 'switch';
+  /** Override device model */
+  deviceModel?: string;
   /** Hide light */
   hideLight?: boolean;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
  * Light device configuration
  */
 export interface LightDeviceConfig extends BaseDeviceConfig {
+  /** Override device model */
+  deviceModel?: string;
   /** Override brightness step */
   brightnessStep?: number;
   /** Use adaptive lighting */
   adaptiveLightingShift?: number;
-  /** Override color temperature range */
-  overrideDisabledLogging?: boolean;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
@@ -200,8 +254,14 @@ export interface SensorDeviceConfig extends BaseDeviceConfig {
  * RF Bridge device configuration
  */
 export interface RFDeviceConfig extends BaseDeviceConfig {
+  /** Override device model */
+  deviceModel?: string;
+  /** Reset RF bridge on plugin startup */
+  resetOnStartup?: boolean;
   /** Custom subdevice configurations */
   subdevices?: RFSubdeviceConfig[];
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
@@ -226,12 +286,30 @@ export interface BridgeSensorConfig {
   deviceId: string;
   /** Full button ID (deviceId + button code) */
   fullButtonId: string;
+  /** Full device ID (alias for fullButtonId) */
+  fullDeviceId?: string;
   /** Sensor type */
   sensorType?: 'motion' | 'contact' | 'smoke' | 'water' | 'co' | 'occupancy' | 'button' | 'doorbell';
+  /** Device type (alias for sensorType) */
+  deviceType?: string;
+  /** Type (alias for sensorType) */
+  type?: string;
   /** Custom label */
   label?: string;
-  /** Reset time in seconds */
+  /** Reset time in seconds (alias for sensorTimeLength) */
   resetTime?: number;
+  /** Sensor time length in seconds */
+  sensorTimeLength?: number;
+  /** Time difference threshold for duplicate detection */
+  sensorTimeDifference?: number;
+  /** Webhook URL for sensor triggers */
+  sensorWebHook?: string;
+  /** Curtain type for RF curtains */
+  curtainType?: string;
+  /** Operation time in seconds */
+  operationTime?: number;
+  /** Down operation time in seconds */
+  operationTimeDown?: number;
 }
 
 /**

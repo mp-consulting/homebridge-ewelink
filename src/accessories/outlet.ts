@@ -96,26 +96,37 @@ export class OutletAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
+    // UUID constants
+    const CurrentConsumptionUUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
+    const VoltageUUID = 'E863F10A-079E-48FF-8F27-9C2605A29F52';
+    const ElectricCurrentUUID = 'E863F126-079E-48FF-8F27-9C2605A29F52';
+
     // Add Current Consumption (Watts) - available on all power monitoring devices
-    if (!this.service.testCharacteristic(CurrentConsumption)) {
+    if (!this.service.testCharacteristic(CurrentConsumptionUUID)) {
       this.service.addCharacteristic(CurrentConsumption);
     }
 
     // Add Voltage and Current for devices with full power readings
     if (this.hasFullPowerReadings) {
-      if (!this.service.testCharacteristic(Voltage)) {
+      if (!this.service.testCharacteristic(VoltageUUID)) {
         this.service.addCharacteristic(Voltage);
       }
-      if (!this.service.testCharacteristic(ElectricCurrent)) {
+      if (!this.service.testCharacteristic(ElectricCurrentUUID)) {
         this.service.addCharacteristic(ElectricCurrent);
       }
     } else {
       // Remove voltage/current if not supported
-      if (this.service.testCharacteristic(Voltage)) {
-        this.service.removeCharacteristic(this.service.getCharacteristic(Voltage));
+      if (this.service.testCharacteristic(VoltageUUID)) {
+        const voltageCh = this.service.getCharacteristic(VoltageUUID);
+        if (voltageCh) {
+          this.service.removeCharacteristic(voltageCh);
+        }
       }
-      if (this.service.testCharacteristic(ElectricCurrent)) {
-        this.service.removeCharacteristic(this.service.getCharacteristic(ElectricCurrent));
+      if (this.service.testCharacteristic(ElectricCurrentUUID)) {
+        const currentCh = this.service.getCharacteristic(ElectricCurrentUUID);
+        if (currentCh) {
+          this.service.removeCharacteristic(currentCh);
+        }
       }
     }
 
@@ -254,21 +265,24 @@ export class OutletAccessory extends BaseAccessory {
 
     // Update Eve power monitoring characteristics if supported
     if (this.supportsPowerMonitoring()) {
-      const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
+      // UUID constants
+      const CurrentConsumptionUUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
+      const VoltageUUID = 'E863F10A-079E-48FF-8F27-9C2605A29F52';
+      const ElectricCurrentUUID = 'E863F126-079E-48FF-8F27-9C2605A29F52';
 
       if (params.power !== undefined) {
         const power = parseFloat(String(params.power));
-        this.service.updateCharacteristic(CurrentConsumption, power);
+        this.service.updateCharacteristic(CurrentConsumptionUUID, power);
       }
 
       if (this.hasFullPowerReadings) {
         if (params.voltage !== undefined) {
           const voltage = parseFloat(String(params.voltage));
-          this.service.updateCharacteristic(Voltage, voltage);
+          this.service.updateCharacteristic(VoltageUUID, voltage);
         }
         if (params.current !== undefined) {
           const current = parseFloat(String(params.current));
-          this.service.updateCharacteristic(ElectricCurrent, current);
+          this.service.updateCharacteristic(ElectricCurrentUUID, current);
         }
       }
     }
