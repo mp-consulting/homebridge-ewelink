@@ -2,6 +2,9 @@ import WebSocket from 'ws';
 import { EWeLinkPlatform } from '../platform.js';
 import { WSMessage, DeviceParams } from '../types/index.js';
 import { EWELINK_APP_ID } from '../settings.js';
+import { CryptoUtils } from '../utils/crypto-utils.js';
+import { API_TIMEOUTS } from '../constants/api-constants.js';
+import { NETWORK_INTERVALS } from '../constants/network-constants.js';
 
 /**
  * WebSocket client for real-time device updates
@@ -11,7 +14,7 @@ export class WSClient {
   private ws: WebSocket | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
-  private heartbeatIntervalMs = 90000;
+  private heartbeatIntervalMs: number = NETWORK_INTERVALS.WEBSOCKET_HEARTBEAT;
   private reconnecting = false;
   private connected = false;
   private pendingRequests: Map<string, {
@@ -85,7 +88,7 @@ export class WSClient {
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const nonce = this.generateNonce();
+    const nonce = CryptoUtils.generateNonce();
 
     const authMessage = {
       action: 'userOnline',
@@ -102,7 +105,7 @@ export class WSClient {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Authentication timeout'));
-      }, 10000);
+      }, API_TIMEOUTS.WEBSOCKET_AUTH);
 
       const handleAuth = (data: WebSocket.Data) => {
         try {
@@ -223,7 +226,7 @@ export class WSClient {
         this.pendingRequests.delete(sequence);
         this.platform.log.warn(`Command timeout for ${deviceId}`);
         reject(new Error('Command timeout'));
-      }, 10000);
+      }, API_TIMEOUTS.WEBSOCKET_COMMAND);
 
       this.pendingRequests.set(sequence, { resolve, reject, timeout });
 
@@ -290,7 +293,7 @@ export class WSClient {
         this.reconnecting = false;
         this.scheduleReconnect();
       }
-    }, 5000);
+    }, NETWORK_INTERVALS.WEBSOCKET_RECONNECT);
   }
 
   /**
@@ -326,15 +329,4 @@ export class WSClient {
     return this.connected;
   }
 
-  /**
-   * Generate random nonce
-   */
-  private generateNonce(): string {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
 }

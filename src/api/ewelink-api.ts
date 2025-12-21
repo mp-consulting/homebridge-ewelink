@@ -3,6 +3,9 @@ import { createHmac } from 'crypto';
 import { EWeLinkPlatform } from '../platform.js';
 import { API_REGIONS, EWELINK_APP_ID, EWELINK_APP_SECRET } from '../settings.js';
 import { TokenStorage } from '../utils/token-storage.js';
+import { CryptoUtils } from '../utils/crypto-utils.js';
+import { API_TIMEOUTS, WEBSOCKET_HOST_MAPPING, WEBSOCKET_FALLBACK_HOSTS } from '../constants/api-constants.js';
+import { getRegionFromCountryCode } from '../constants/region-constants.js';
 import {
   EWeLinkDevice,
   APIResponse,
@@ -33,13 +36,13 @@ export class EWeLinkAPI {
     this.tokenStorage = new TokenStorage(storagePath);
 
     // Determine region from country code
-    this.region = this.getRegionFromCountryCode(platform.config.countryCode);
+    this.region = getRegionFromCountryCode(platform.config.countryCode) as keyof typeof API_REGIONS;
     this.httpHost = API_REGIONS[this.region].httpHost;
 
     // Create HTTP client
     this.httpClient = axios.create({
       baseURL: `https://${this.httpHost}`,
-      timeout: 30000,
+      timeout: API_TIMEOUTS.HTTP_REQUEST,
       headers: {
         'Content-Type': 'application/json',
         'X-CK-Appid': EWELINK_APP_ID,
@@ -70,39 +73,6 @@ export class EWeLinkAPI {
     );
   }
 
-  /**
-   * Get API region from country code
-   */
-  private getRegionFromCountryCode(countryCode?: string): keyof typeof API_REGIONS {
-    if (!countryCode) {
-      return 'us';
-    }
-
-    const code = countryCode.toLowerCase().replace('+', '');
-
-    // China
-    if (code === '86' || code === 'cn') {
-      return 'cn';
-    }
-
-    // Asia
-    if (['91', '65', '60', '66', '81', '82', '852', '853', '886', 'as'].includes(code)) {
-      return 'as';
-    }
-
-    // Europe
-    if ([
-      '30', '31', '32', '33', '34', '36', '39', '40', '41', '43', '44', '45', '46', '47', '48', '49',
-      '351', '352', '353', '354', '355', '356', '357', '358', '359', '370', '371', '372', '373', '374',
-      '375', '376', '377', '378', '380', '381', '382', '383', '385', '386', '387', '389', '420', '421',
-      'eu',
-    ].includes(code)) {
-      return 'eu';
-    }
-
-    // Default to US
-    return 'us';
-  }
 
   /**
    * Generate signature for API requests
@@ -138,7 +108,7 @@ export class EWeLinkAPI {
       this.platform.log.debug('Using modified password (possibly base64 decoded)');
     }
 
-    const nonce = this.generateNonce();
+    const nonce = CryptoUtils.generateNonce();
     this.platform.log.debug(`Nonce: ${nonce}`);
 
     // Determine if username is email or phone
@@ -438,17 +408,6 @@ export class EWeLinkAPI {
     }
   }
 
-  /**
-   * Generate random nonce
-   */
-  private generateNonce(): string {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
 
   /**
    * Get API key
@@ -484,7 +443,7 @@ export class EWeLinkAPI {
         `/dispatch/app`,
         {
           appid: EWELINK_APP_ID,
-          nonce: this.generateNonce(),
+          nonce: CryptoUtils.generateNonce(),
           ts: Math.floor(Date.now() / 1000),
           version: 8,
         },
@@ -515,18 +474,23 @@ export class EWeLinkAPI {
       }
 
       // Since dispatch is failing, use numbered pconnect hosts which do exist
-      // eu-pconnect2.coolkit.cc and eu-pconnect3.coolkit.cc are known working hosts
-      let wsHost: string;
-      if (this.httpHost.includes('eu-apia')) {
-        wsHost = 'eu-pconnect3.coolkit.cc:8080';
-      } else if (this.httpHost.includes('us-apia')) {
-        wsHost = 'us-pconnect3.coolkit.cc:8080';
-      } else if (this.httpHost.includes('as-apia')) {
-        wsHost = 'as-pconnect3.coolkit.cc:8080';
-      } else if (this.httpHost.includes('cn-apia')) {
-        wsHost = 'cn-pconnect3.coolkit.cn:8080';
-      } else {
-        // Fallback to old pattern
+      // Try to get WebSocket host from mapping
+      let wsHost: string | undefined;
+
+      for (const [prefix, host] of Object.entries(WEBSOCKET_HOST_MAPPING)) {
+        if (this.httpHost.includes(prefix)) {
+          wsHost = host;
+          break;
+        }
+      }
+
+      // If no mapping found, try fallback hosts for the region
+      if (!wsHost && WEBSOCKET_FALLBACK_HOSTS[this.region]) {
+        wsHost = WEBSOCKET_FALLBACK_HOSTS[this.region][2]; // Use pconnect3 (index 2)
+      }
+
+      // Last resort fallback
+      if (!wsHost) {
         wsHost = this.httpHost
           .replace('-apia.', '-pconnect3.')
           .replace('.cc', '.cc:8080')

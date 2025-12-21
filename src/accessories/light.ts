@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { ColorUtils } from '../utils/color-utils.js';
 
 /**
  * Light Accessory with brightness and color support
@@ -159,7 +160,7 @@ export class LightAccessory extends BaseAccessory {
     return this.handleGet(() => {
       if (this.deviceParams.color) {
         const { r, g, b } = this.deviceParams.color;
-        const hsv = this.rgbToHsv(r, g, b);
+        const hsv = ColorUtils.rgbToHsv(r, g, b);
         return hsv.h;
       }
       return 0;
@@ -172,8 +173,8 @@ export class LightAccessory extends BaseAccessory {
   private async setHue(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as number, 'Hue', async (hue) => {
       const currentColor = this.deviceParams.color || { r: 255, g: 255, b: 255, br: 100 };
-      const hsv = this.rgbToHsv(currentColor.r, currentColor.g, currentColor.b);
-      const rgb = this.hsvToRgb(hue, hsv.s, hsv.v);
+      const hsv = ColorUtils.rgbToHsv(currentColor.r, currentColor.g, currentColor.b);
+      const rgb = ColorUtils.hsvToRgb(hue, hsv.s, hsv.v);
 
       return await this.sendCommand({
         ltype: 'color',
@@ -189,7 +190,7 @@ export class LightAccessory extends BaseAccessory {
     return this.handleGet(() => {
       if (this.deviceParams.color) {
         const { r, g, b } = this.deviceParams.color;
-        const hsv = this.rgbToHsv(r, g, b);
+        const hsv = ColorUtils.rgbToHsv(r, g, b);
         return hsv.s;
       }
       return 100;
@@ -202,8 +203,8 @@ export class LightAccessory extends BaseAccessory {
   private async setSaturation(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as number, 'Saturation', async (sat) => {
       const currentColor = this.deviceParams.color || { r: 255, g: 255, b: 255, br: 100 };
-      const hsv = this.rgbToHsv(currentColor.r, currentColor.g, currentColor.b);
-      const rgb = this.hsvToRgb(hsv.h, sat, hsv.v);
+      const hsv = ColorUtils.rgbToHsv(currentColor.r, currentColor.g, currentColor.b);
+      const rgb = ColorUtils.hsvToRgb(hsv.h, sat, hsv.v);
 
       return await this.sendCommand({
         ltype: 'color',
@@ -212,72 +213,6 @@ export class LightAccessory extends BaseAccessory {
     });
   }
 
-  /**
-   * Convert RGB to HSV
-   */
-  private rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
-    r /= 255;
-    g /= 255;
-    b /= 255;
-
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const diff = max - min;
-
-    let h = 0;
-    const s = max === 0 ? 0 : (diff / max) * 100;
-    const v = max * 100;
-
-    if (diff !== 0) {
-      switch (max) {
-        case r:
-          h = ((g - b) / diff + (g < b ? 6 : 0)) * 60;
-          break;
-        case g:
-          h = ((b - r) / diff + 2) * 60;
-          break;
-        case b:
-          h = ((r - g) / diff + 4) * 60;
-          break;
-      }
-    }
-
-    return { h: Math.round(h), s: Math.round(s), v: Math.round(v) };
-  }
-
-  /**
-   * Convert HSV to RGB
-   */
-  private hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
-    s /= 100;
-    v /= 100;
-
-    const c = v * s;
-    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = v - c;
-
-    let r = 0, g = 0, b = 0;
-
-    if (h >= 0 && h < 60) {
-      r = c; g = x; b = 0;
-    } else if (h >= 60 && h < 120) {
-      r = x; g = c; b = 0;
-    } else if (h >= 120 && h < 180) {
-      r = 0; g = c; b = x;
-    } else if (h >= 180 && h < 240) {
-      r = 0; g = x; b = c;
-    } else if (h >= 240 && h < 300) {
-      r = x; g = 0; b = c;
-    } else {
-      r = c; g = 0; b = x;
-    }
-
-    return {
-      r: Math.round((r + m) * 255),
-      g: Math.round((g + m) * 255),
-      b: Math.round((b + m) * 255),
-    };
-  }
 
   /**
    * Update state from device params
@@ -311,7 +246,7 @@ export class LightAccessory extends BaseAccessory {
 
     // Update Color
     if (this.supportsColor && params.color) {
-      const hsv = this.rgbToHsv(params.color.r, params.color.g, params.color.b);
+      const hsv = ColorUtils.rgbToHsv(params.color.r, params.color.g, params.color.b);
       this.service.updateCharacteristic(this.Characteristic.Hue, hsv.h);
       this.service.updateCharacteristic(this.Characteristic.Saturation, hsv.s);
     }

@@ -66,4 +66,67 @@ export class DeviceValueParser {
     }
     return defaultValue;
   }
+
+  /**
+   * Parse a generic number from device params
+   * @param value - The value to parse
+   * @param defaultValue - Default value if parsing fails
+   * @returns Parsed number or default
+   */
+  static parseNumber(value: unknown, defaultValue = 0): number {
+    if (value === undefined || value === null) {
+      return defaultValue;
+    }
+    const num = parseFloat(String(value));
+    return isNaN(num) ? defaultValue : num;
+  }
+
+  /**
+   * Parse switch state to boolean
+   * @param value - Switch state ('on'/'off' or boolean)
+   * @returns true if 'on', false if 'off'
+   */
+  static parseSwitch(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    return String(value).toLowerCase() === 'on';
+  }
+
+  /**
+   * Parse generic boolean value
+   * @param value - Value to parse (boolean, number, or string)
+   * @returns Parsed boolean value
+   */
+  static parseBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+    const str = String(value).toLowerCase();
+    return str === 'on' || str === 'true' || str === '1';
+  }
+
+  /**
+   * Check if device params have temperature data
+   */
+  static hasTemperature(params: DeviceParams): boolean {
+    return params.currentTemperature !== undefined || params.temperature !== undefined;
+  }
+
+  /**
+   * Check if device params have humidity data
+   */
+  static hasHumidity(params: DeviceParams): boolean {
+    return params.currentHumidity !== undefined || params.humidity !== undefined;
+  }
+
+  /**
+   * Check if device params have battery data
+   */
+  static hasBattery(params: DeviceParams): boolean {
+    return params.battery !== undefined;
+  }
 }
