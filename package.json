@@ -25,7 +25,7 @@
     "hoobs",
     "smart-home"
   ],
-  "author": "bwp91",
+  "author": "https://github.com/mp-consulting",
   "license": "MIT",
   "homepage": "https://github.com/homebridge-plugins/homebridge-ewelink#readme",
   "repository": {
@@ -39,16 +39,6 @@
     "node": "^20.18.0 || ^22.9.0 || ^24",
     "homebridge": "^1.8.0 || ^2.0.0-beta.0"
   },
-  "funding": [
-    {
-      "type": "patreon",
-      "url": "https://patreon.com/bwp91"
-    },
-    {
-      "type": "ko-fi",
-      "url": "https://ko-fi.com/bwp91"
-    }
-  ],
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.1.2",
     "axios": "^1.7.9",
