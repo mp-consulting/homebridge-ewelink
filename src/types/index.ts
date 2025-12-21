@@ -282,6 +282,12 @@ export interface RFSubdeviceConfig {
   showAs?: 'motion' | 'contact' | 'smoke' | 'water' | 'co' | 'occupancy' | 'button' | 'doorbell' | 'curtain' | 'garage';
   /** Reset time in seconds */
   resetTime?: number;
+  /** Operation time in seconds */
+  operationTime?: number;
+  /** Down operation time in seconds */
+  operationTimeDown?: number;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**
