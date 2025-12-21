@@ -217,4 +217,5 @@ export const DEVICE_UIID_MAP: Record<number, DeviceCategory> = {
   7016: DeviceCategory.SENSOR, // ZB Sensor Occupancy
   7017: DeviceCategory.THERMOSTAT, // ZB Thermostat
   7019: DeviceCategory.SENSOR, // ZB Sensor Water
+  7027: DeviceCategory.SINGLE_SWITCH, // ZB Valve/Switch
 };
