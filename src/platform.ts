@@ -31,6 +31,9 @@ import { PanelAccessory } from './accessories/panel.js';
 import { VirtualAccessory } from './accessories/virtual.js';
 import { MotorAccessory } from './accessories/motor.js';
 import { GroupAccessory } from './accessories/group.js';
+import { RFBridgeAccessory } from './accessories/rf-bridge.js';
+import { RFButtonAccessory } from './accessories/rf-button.js';
+import { RFSensorAccessory } from './accessories/rf-sensor.js';
 
 /**
  * eWeLink Platform Plugin
@@ -64,6 +67,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     | VirtualAccessory
     | MotorAccessory
     | GroupAccessory
+    | RFBridgeAccessory
+    | RFButtonAccessory
+    | RFSensorAccessory
   > = new Map();
 
   /** eWeLink API client */
@@ -394,6 +400,11 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
       case DeviceCategory.GROUP:
         handler = new GroupAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.RF_BRIDGE:
+        // RF Bridge acts as coordinator for RF sub-devices
+        handler = new RFBridgeAccessory(this, accessory) as any;
         break;
 
       case DeviceCategory.SINGLE_SWITCH:
