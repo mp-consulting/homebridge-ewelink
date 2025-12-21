@@ -1,11 +1,11 @@
 import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 
 /**
- * Outlet Accessory with power monitoring support
+ * Outlet Accessory with power monitoring support and optional inching mode
  */
 export class OutletAccessory extends BaseAccessory {
   /** Channel index for multi-channel devices */
@@ -14,6 +14,18 @@ export class OutletAccessory extends BaseAccessory {
   /** Power monitoring service */
   private powerService?: ReturnType<typeof this.getOrAddService>;
 
+  /** Inching mode enabled */
+  private readonly isInched: boolean;
+
+  /** Cached state for inching mode (toggles internally) */
+  private cacheState: boolean = false;
+
+  /** Ignore updates flag for inching mode debouncing */
+  private ignoreUpdates: boolean = false;
+
+  /** Device configuration */
+  private readonly deviceConfig?: SingleDeviceConfig;
+
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -21,6 +33,14 @@ export class OutletAccessory extends BaseAccessory {
     super(platform, accessory);
 
     this.channelIndex = accessory.context.channelIndex || 0;
+
+    // Get device-specific config
+    this.deviceConfig = platform.config.singleDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+
+    // Check if inching mode is enabled
+    this.isInched = this.deviceConfig?.isInched || false;
 
     // Set up the outlet service
     this.service = this.getOrAddService(this.Service.Outlet);
@@ -37,6 +57,11 @@ export class OutletAccessory extends BaseAccessory {
     // Add power monitoring if device supports it
     if (this.supportsPowerMonitoring()) {
       this.setupPowerMonitoring();
+    }
+
+    // Initialize cache state for inching mode
+    if (this.isInched) {
+      this.cacheState = this.getCurrentState();
     }
 
     // Set initial state
@@ -65,6 +90,9 @@ export class OutletAccessory extends BaseAccessory {
    * Get switch state
    */
   private async getOn(): Promise<CharacteristicValue> {
+    if (this.isInched) {
+      return this.cacheState;
+    }
     return this.handleGet(() => this.getCurrentState(), 'On');
   }
 
@@ -72,10 +100,48 @@ export class OutletAccessory extends BaseAccessory {
    * Set switch state
    */
   private async setOn(value: CharacteristicValue): Promise<void> {
-    await this.handleSet(value as boolean, 'On', async (on) => {
-      const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
-      return await this.sendCommand(params);
-    });
+    if (this.isInched) {
+      await this.handleInchingModeSet(value as boolean);
+    } else {
+      await this.handleSet(value as boolean, 'On', async (on) => {
+        const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
+        return await this.sendCommand(params);
+      });
+    }
+  }
+
+  /**
+   * Handle inching mode set - always sends "on", toggles internal state
+   */
+  private async handleInchingModeSet(value: boolean): Promise<void> {
+    try {
+      // Toggle the cached state
+      const newState = !this.cacheState;
+
+      // Always send "on" command for inching mode
+      const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, true);
+
+      // Set ignore flag to prevent echo updates
+      this.ignoreUpdates = true;
+      setTimeout(() => {
+        this.ignoreUpdates = false;
+      }, 1500);
+
+      await this.sendCommand(params);
+
+      // Update cached state
+      this.cacheState = newState;
+      this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
+
+      this.logDebug(`Inching mode state toggled: ${this.cacheState ? 'ON' : 'OFF'}`);
+    } catch (err) {
+      this.logError('Failed to set inching mode state', err);
+      // Revert characteristic to previous state
+      setTimeout(() => {
+        this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
+      }, 2000);
+      throw err;
+    }
   }
 
   /**
@@ -107,18 +173,47 @@ export class OutletAccessory extends BaseAccessory {
     // Update local cache
     Object.assign(this.deviceParams, params);
 
-    // Update On characteristic
-    const isOn = this.getCurrentState();
-    this.service.updateCharacteristic(this.Characteristic.On, isOn);
+    if (this.isInched) {
+      // In inching mode, check for "on" command and toggle cached state
+      const isSCM = SwitchHelper.isSCMDevice(this.deviceParams);
+      const receivedOn = isSCM
+        ? params.switches?.[this.channelIndex]?.switch === 'on'
+        : params.switch === 'on';
 
-    // Update OutletInUse
-    let inUse = isOn;
-    if (params.power !== undefined) {
-      const power = parseFloat(String(params.power));
-      inUse = power > 0;
+      if (receivedOn && !this.ignoreUpdates) {
+        // Set ignore flag
+        this.ignoreUpdates = true;
+        setTimeout(() => {
+          this.ignoreUpdates = false;
+        }, 1500);
+
+        // Toggle cached state
+        this.cacheState = !this.cacheState;
+        this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
+        this.logDebug(`Inching mode state toggled (external): ${this.cacheState ? 'ON' : 'OFF'}`);
+      }
+
+      // Update OutletInUse based on power or cache state
+      let inUse = this.cacheState;
+      if (params.power !== undefined) {
+        const power = parseFloat(String(params.power));
+        inUse = power > 0;
+      }
+      this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
+    } else {
+      // Standard mode - update from device state
+      const isOn = this.getCurrentState();
+      this.service.updateCharacteristic(this.Characteristic.On, isOn);
+
+      // Update OutletInUse
+      let inUse = isOn;
+      if (params.power !== undefined) {
+        const power = parseFloat(String(params.power));
+        inUse = power > 0;
+      }
+      this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
+
+      this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}, In Use: ${inUse}`);
     }
-    this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
-
-    this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}, In Use: ${inUse}`);
   }
 }

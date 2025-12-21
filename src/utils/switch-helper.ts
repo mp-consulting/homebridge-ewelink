@@ -54,4 +54,12 @@ export class SwitchHelper {
   static isMultiChannel(deviceParams: DeviceParams): boolean {
     return deviceParams.switches !== undefined && deviceParams.switches.length > 1;
   }
+
+  /**
+   * Check if device uses SCM (switches array) format
+   * Some single-channel devices use the switches array format
+   */
+  static isSCMDevice(deviceParams: DeviceParams): boolean {
+    return deviceParams.switches !== undefined;
+  }
 }

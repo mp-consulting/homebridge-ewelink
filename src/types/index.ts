@@ -78,7 +78,9 @@ export interface SingleDeviceConfig extends BaseDeviceConfig {
   tempSource?: string;
   /** Humidity sensor device ID */
   humiditySource?: string;
-  /** Use inching mode as on/off state */
+  /** Enable inching mode (always sends "on", toggles state internally) */
+  isInched?: boolean;
+  /** Use inching mode as on/off state (deprecated, use isInched) */
   showAsInching?: boolean;
   /** Sensor type for sensor mode */
   sensorType?: 'motion' | 'leak' | 'smoke' | 'co' | 'contact';
@@ -92,6 +94,26 @@ export interface SingleDeviceConfig extends BaseDeviceConfig {
   offset?: number;
   /** Temperature offset multiplier factor */
   offsetFactor?: number;
+  /** Power threshold for "in use" state (outlets) */
+  inUsePowerThreshold?: number;
+  /** Sensor device ID for garage doors */
+  sensorId?: string;
+  /** Show as motor/curtain */
+  showAsMotor?: boolean;
+  /** Eachen garage door variant */
+  showAsEachen?: boolean;
+  /** Disable timer functionality */
+  disableTimer?: boolean;
+  /** Hide sensor in garage simulation */
+  hideSensor?: boolean;
+  /** Obstruction sensor device ID */
+  obstructId?: string;
+  /** Lock type for lock simulation */
+  type?: string;
+  /** Override logging level */
+  overrideLogging?: string;
+  /** Garage door type */
+  garageType?: string;
 }
 
 /**
@@ -154,12 +176,24 @@ export interface SensorDeviceConfig extends BaseDeviceConfig {
   hideTemp?: boolean;
   /** Hide humidity sensor */
   hideHumidity?: boolean;
+  /** Hide switch service (for sensors with relay control) */
+  hideSwitch?: boolean;
   /** Temperature offset */
   tempOffset?: number;
   /** Humidity offset */
   humidityOffset?: number;
   /** Low battery threshold */
   lowBattery?: number;
+  /** Hide long/double press events */
+  hideLongDouble?: boolean;
+  /** Scale battery percentage */
+  scaleBattery?: boolean;
+  /** Time difference threshold for sensors */
+  sensorTimeDifference?: number;
+  /** Override device model */
+  deviceModel?: string;
+  /** Override logging level */
+  overrideLogging?: string;
 }
 
 /**

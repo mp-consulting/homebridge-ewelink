@@ -16,7 +16,7 @@ import {
 } from '../constants/device-constants.js';
 
 /**
- * Sensor Accessory for various sensor types
+ * Sensor Accessory for various sensor types with optional switch control
  */
 export class SensorAccessory extends BaseAccessory {
   /** Temperature sensor service */
@@ -34,8 +34,14 @@ export class SensorAccessory extends BaseAccessory {
   /** Contact sensor service */
   private contactService?: ReturnType<typeof this.getOrAddService>;
 
+  /** Switch service (optional, for sensors that can control a relay) */
+  private switchService?: ReturnType<typeof this.getOrAddService>;
+
   /** Device config */
   private readonly deviceConfig?: SensorDeviceConfig;
+
+  /** Hide switch service */
+  private readonly hideSwitch: boolean;
 
   constructor(
     platform: EWeLinkPlatform,
@@ -48,6 +54,9 @@ export class SensorAccessory extends BaseAccessory {
       d => d.deviceId === this.deviceId,
     );
 
+    // Check if switch should be hidden
+    this.hideSwitch = this.deviceConfig?.hideSwitch || false;
+
     // Set up services based on device capabilities
     this.setupSensorServices();
 
@@ -59,6 +68,24 @@ export class SensorAccessory extends BaseAccessory {
    * Set up sensor services based on device capabilities
    */
   private setupSensorServices(): void {
+    // Optional switch service for sensors with relay control
+    if (this.hasSwitchControl() && !this.hideSwitch) {
+      this.switchService = this.getOrAddService(
+        this.Service.Switch,
+        this.accessory.displayName,
+      );
+
+      this.switchService.getCharacteristic(this.Characteristic.On)
+        .onGet(this.getSwitchState.bind(this))
+        .onSet(this.setSwitchState.bind(this));
+
+      // Set as primary service so status is reflected in Home icon
+      this.switchService.setPrimaryService();
+      this.service = this.switchService;
+    } else {
+      this.removeServiceIfExists(this.Service.Switch);
+    }
+
     // Temperature sensor
     if (this.hasTemperature() && !this.deviceConfig?.hideTemp) {
       this.temperatureService = this.getOrAddService(
@@ -148,6 +175,13 @@ export class SensorAccessory extends BaseAccessory {
   }
 
   /**
+   * Check if device has switch control (ambient sensors like SONOFF SC)
+   */
+  private hasSwitchControl(): boolean {
+    return this.deviceParams.switch !== undefined;
+  }
+
+  /**
    * Check if this is a motion sensor
    */
   private isMotionSensor(): boolean {
@@ -161,6 +195,24 @@ export class SensorAccessory extends BaseAccessory {
   private isContactSensor(): boolean {
     const uiid = this.device.extra?.uiid || 0;
     return CONTACT_SENSOR_UIIDS.includes(uiid);
+  }
+
+  /**
+   * Get switch state
+   */
+  private async getSwitchState(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      return this.deviceParams.switch === 'on';
+    }, 'On');
+  }
+
+  /**
+   * Set switch state
+   */
+  private async setSwitchState(value: CharacteristicValue): Promise<void> {
+    await this.handleSet(value as boolean, 'On', async (on) => {
+      return await this.sendCommand({ switch: on ? 'on' : 'off' });
+    });
   }
 
   /**
@@ -245,6 +297,12 @@ export class SensorAccessory extends BaseAccessory {
    */
   updateState(params: DeviceParams): void {
     Object.assign(this.deviceParams, params);
+
+    // Update switch state if present
+    if (this.switchService && params.switch !== undefined) {
+      const isOn = params.switch === 'on';
+      this.switchService.updateCharacteristic(this.Characteristic.On, isOn);
+    }
 
     // Update temperature
     if (this.temperatureService) {
