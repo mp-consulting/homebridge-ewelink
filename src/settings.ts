@@ -81,6 +81,13 @@ export enum DeviceCategory {
   CURTAIN = 'curtain',
   GARAGE = 'garage',
   LOCK = 'lock',
+  AIR_CONDITIONER = 'air_conditioner',
+  HUMIDIFIER = 'humidifier',
+  DIFFUSER = 'diffuser',
+  PANEL = 'panel',
+  VIRTUAL = 'virtual',
+  MOTOR = 'motor',
+  GROUP = 'group',
   UNKNOWN = 'unknown',
 }
 
@@ -183,11 +190,28 @@ export const DEVICE_UIID_MAP: Record<number, DeviceCategory> = {
   // Fans
   34: DeviceCategory.FAN,
 
+  // Air Conditioner
+  151: DeviceCategory.AIR_CONDITIONER,
+
+  // Humidifier
+  19: DeviceCategory.HUMIDIFIER,
+
+  // Diffuser
+  25: DeviceCategory.DIFFUSER,
+
+  // Panel (NSPanel, NSPanel Pro)
+  133: DeviceCategory.PANEL,
+  195: DeviceCategory.PANEL,
+
+  // Virtual devices
+  265: DeviceCategory.VIRTUAL,
+
+  // Group devices (virtual UIID)
+  5000: DeviceCategory.GROUP,
+
   // Other sensors
   130: DeviceCategory.SENSOR,
-  133: DeviceCategory.SENSOR,
   191: DeviceCategory.SENSOR,
-  195: DeviceCategory.SENSOR,
 
   // RF Bridge
   28: DeviceCategory.RF_BRIDGE,

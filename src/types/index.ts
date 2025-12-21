@@ -88,6 +88,10 @@ export interface SingleDeviceConfig extends BaseDeviceConfig {
   operationTime?: number;
   /** Operation time for valve */
   operationTimeDown?: number;
+  /** Temperature offset in degrees */
+  offset?: number;
+  /** Temperature offset multiplier factor */
+  offsetFactor?: number;
 }
 
 /**

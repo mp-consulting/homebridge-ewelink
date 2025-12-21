@@ -2,7 +2,7 @@ import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
-import { DeviceParsers } from '../utils/device-parsers.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
 
 /**
  * Panel Accessory (UIID 133, 195 - NSPanel, NSPanel Pro)
@@ -36,10 +36,10 @@ export class PanelAccessory extends BaseAccessory {
     // Get device-specific configuration
     const deviceConfig = this.platform.config.singleDevices?.find(
       d => d.deviceId === this.deviceId,
-    ) || {};
+    );
 
-    this.tempOffset = deviceConfig.offset || 0;
-    this.tempOffsetFactor = deviceConfig.offsetFactor;
+    this.tempOffset = deviceConfig?.offset || 0;
+    this.tempOffsetFactor = deviceConfig?.offsetFactor;
 
     // Set up the temperature sensor service
     this.tempService = this.getOrAddService(this.Service.TemperatureSensor);
@@ -79,8 +79,8 @@ export class PanelAccessory extends BaseAccessory {
    */
   private initializeFromParams(): void {
     // Temperature
-    if (DeviceParsers.hasTemperature(this.deviceParams)) {
-      let temp = DeviceParsers.parseTemperature(this.deviceParams);
+    if (DeviceValueParser.hasTemperature(this.deviceParams)) {
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
       if (this.tempOffsetFactor) {
         temp *= this.tempOffsetFactor;
       }
@@ -125,7 +125,7 @@ export class PanelAccessory extends BaseAccessory {
    * Set channel state
    */
   private async setChannelState(channel: 1 | 2, value: CharacteristicValue): Promise<void> {
-    const newState = value ? 'on' : 'off';
+    const newState: 'on' | 'off' = value ? 'on' : 'off';
     const currentState = channel === 1 ? this.cacheState1 : this.cacheState2;
 
     if (newState === currentState) {
@@ -166,8 +166,8 @@ export class PanelAccessory extends BaseAccessory {
     Object.assign(this.deviceParams, params);
 
     // Update temperature
-    if (DeviceParsers.hasTemperature(params)) {
-      let temp = DeviceParsers.parseTemperature(params);
+    if (DeviceValueParser.hasTemperature(params)) {
+      let temp = DeviceValueParser.parseTemperature(params);
       if (this.tempOffsetFactor) {
         temp *= this.tempOffsetFactor;
       }

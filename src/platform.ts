@@ -24,6 +24,13 @@ import { FanAccessory } from './accessories/fan.js';
 import { SensorAccessory } from './accessories/sensor.js';
 import { CurtainAccessory } from './accessories/curtain.js';
 import { GarageAccessory } from './accessories/garage.js';
+import { AirConditionerAccessory } from './accessories/air-conditioner.js';
+import { HumidifierAccessory } from './accessories/humidifier.js';
+import { DiffuserAccessory } from './accessories/diffuser.js';
+import { PanelAccessory } from './accessories/panel.js';
+import { VirtualAccessory } from './accessories/virtual.js';
+import { MotorAccessory } from './accessories/motor.js';
+import { GroupAccessory } from './accessories/group.js';
 
 /**
  * eWeLink Platform Plugin
@@ -50,6 +57,13 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     | SensorAccessory
     | CurtainAccessory
     | GarageAccessory
+    | AirConditionerAccessory
+    | HumidifierAccessory
+    | DiffuserAccessory
+    | PanelAccessory
+    | VirtualAccessory
+    | MotorAccessory
+    | GroupAccessory
   > = new Map();
 
   /** eWeLink API client */
@@ -311,7 +325,14 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       | FanAccessory
       | SensorAccessory
       | CurtainAccessory
-      | GarageAccessory;
+      | GarageAccessory
+      | AirConditionerAccessory
+      | HumidifierAccessory
+      | DiffuserAccessory
+      | PanelAccessory
+      | VirtualAccessory
+      | MotorAccessory
+      | GroupAccessory;
 
     switch (category) {
       case DeviceCategory.OUTLET:
@@ -345,6 +366,34 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
       case DeviceCategory.GARAGE:
         handler = new GarageAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.AIR_CONDITIONER:
+        handler = new AirConditionerAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.HUMIDIFIER:
+        handler = new HumidifierAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.DIFFUSER:
+        handler = new DiffuserAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.PANEL:
+        handler = new PanelAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.VIRTUAL:
+        handler = new VirtualAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.MOTOR:
+        handler = new MotorAccessory(this, accessory);
+        break;
+
+      case DeviceCategory.GROUP:
+        handler = new GroupAccessory(this, accessory);
         break;
 
       case DeviceCategory.SINGLE_SWITCH:
