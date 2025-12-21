@@ -143,7 +143,7 @@ This plugin supports a wide range of eWeLink devices. Device types are automatic
 
 ```bash
 # Clone the repository
-git clone https://github.com/homebridge-plugins/homebridge-ewelink.git
+git clone https://github.com/mp-consulting/homebridge-ewelink.git
 cd homebridge-ewelink
 
 # Install dependencies
@@ -192,8 +192,8 @@ Enable debug logging in the plugin settings to see detailed logs:
 
 ## Support
 
-- [GitHub Issues](https://github.com/homebridge-plugins/homebridge-ewelink/issues)
-- [GitHub Wiki](https://github.com/homebridge-plugins/homebridge-ewelink/wiki)
+- [GitHub Issues](https://github.com/mp-consulting/homebridge-ewelink/issues)
+- [GitHub Wiki](https://github.com/mp-consulting/homebridge-ewelink/wiki)
 - [Discord](https://discord.com/channels/432663330281226270/742733745743855627)
 
 ## Credits
