@@ -52,7 +52,8 @@ export abstract class BaseAccessory {
    * Check if device is online
    */
   protected get isOnline(): boolean {
-    return this.device.online;
+    // Default to true if online status is not explicitly set
+    return this.device.online !== false;
   }
 
   /**
@@ -113,6 +114,13 @@ export abstract class BaseAccessory {
     getValue: () => T | null | undefined,
     characteristic: string,
   ): Promise<T> {
+    // Check if device is online (unless offlineAsOff is enabled)
+    if (!this.isOnline && !this.platform.config.offlineAsOff) {
+      throw new this.platform.api.hap.HapStatusError(
+        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+      );
+    }
+
     const value = getValue();
 
     if (value === null || value === undefined) {
