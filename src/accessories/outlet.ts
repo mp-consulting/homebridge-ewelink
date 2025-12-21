@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { SwitchHelper } from '../utils/switch-helper.js';
 
 /**
  * Outlet Accessory with power monitoring support
@@ -72,7 +73,7 @@ export class OutletAccessory extends BaseAccessory {
    */
   private async setOn(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as boolean, 'On', async (on) => {
-      const params = this.buildSwitchParams(on);
+      const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
       return await this.sendCommand(params);
     });
   }
@@ -88,7 +89,7 @@ export class OutletAccessory extends BaseAccessory {
         return power > 0;
       }
       // Otherwise, outlet is in use if it's on
-      return this.getCurrentState();
+      return SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
     }, 'OutletInUse');
   }
 
@@ -96,40 +97,7 @@ export class OutletAccessory extends BaseAccessory {
    * Get current switch state from params
    */
   private getCurrentState(): boolean {
-    // Multi-channel device
-    if (this.deviceParams.switches) {
-      const switchState = this.deviceParams.switches.find(
-        s => s.outlet === this.channelIndex,
-      );
-      return switchState?.switch === 'on';
-    }
-
-    // Single channel device
-    return this.deviceParams.switch === 'on';
-  }
-
-  /**
-   * Build switch command params
-   */
-  private buildSwitchParams(on: boolean): DeviceParams {
-    const state = on ? 'on' : 'off';
-
-    // Multi-channel device
-    if (this.deviceParams.switches) {
-      const switches = [...this.deviceParams.switches];
-      const index = switches.findIndex(s => s.outlet === this.channelIndex);
-
-      if (index >= 0) {
-        switches[index] = { ...switches[index], switch: state };
-      } else {
-        switches.push({ outlet: this.channelIndex, switch: state });
-      }
-
-      return { switches };
-    }
-
-    // Single channel device
-    return { switch: state };
+    return SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
   }
 
   /**

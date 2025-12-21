@@ -2,6 +2,18 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
+import {
+  TEMPERATURE_MIN,
+  TEMPERATURE_MAX,
+  HUMIDITY_MIN,
+  HUMIDITY_MAX,
+  BATTERY_MIN,
+  BATTERY_MAX,
+  DEFAULT_BATTERY,
+  MOTION_SENSOR_UIIDS,
+  CONTACT_SENSOR_UIIDS,
+} from '../constants/device-constants.js';
 
 /**
  * Sensor Accessory for various sensor types
@@ -47,8 +59,6 @@ export class SensorAccessory extends BaseAccessory {
    * Set up sensor services based on device capabilities
    */
   private setupSensorServices(): void {
-    const uiid = this.device.extra?.uiid || 0;
-
     // Temperature sensor
     if (this.hasTemperature() && !this.deviceConfig?.hideTemp) {
       this.temperatureService = this.getOrAddService(
@@ -142,8 +152,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private isMotionSensor(): boolean {
     const uiid = this.device.extra?.uiid || 0;
-    // UIID for motion sensors
-    return [102, 107, 136].includes(uiid);
+    return MOTION_SENSOR_UIIDS.includes(uiid);
   }
 
   /**
@@ -151,8 +160,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private isContactSensor(): boolean {
     const uiid = this.device.extra?.uiid || 0;
-    // UIID for door/window sensors
-    return [102, 137, 154].includes(uiid);
+    return CONTACT_SENSOR_UIIDS.includes(uiid);
   }
 
   /**
@@ -160,11 +168,11 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getCurrentTemperature(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
       if (this.deviceConfig?.tempOffset) {
         temp += this.deviceConfig.tempOffset;
       }
-      return this.clamp(temp, -270, 100);
+      return this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
     }, 'CurrentTemperature');
   }
 
@@ -173,11 +181,11 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getCurrentHumidity(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let humidity = this.parseHumidity();
+      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
       if (this.deviceConfig?.humidityOffset) {
         humidity += this.deviceConfig.humidityOffset;
       }
-      return this.clamp(humidity, 0, 100);
+      return this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX);
     }, 'CurrentRelativeHumidity');
   }
 
@@ -211,7 +219,11 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getBatteryLevel(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      return this.clamp(this.deviceParams.battery || 100, 0, 100);
+      return this.clamp(
+        DeviceValueParser.parseBattery(this.deviceParams, DEFAULT_BATTERY),
+        BATTERY_MIN,
+        BATTERY_MAX,
+      );
     }, 'BatteryLevel');
   }
 
@@ -220,42 +232,12 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getStatusLowBattery(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      const level = this.deviceParams.battery || 100;
+      const level = DeviceValueParser.parseBattery(this.deviceParams, DEFAULT_BATTERY);
       const threshold = this.deviceConfig?.lowBattery || 20;
       return level < threshold
         ? this.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
         : this.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
     }, 'StatusLowBattery');
-  }
-
-  /**
-   * Parse temperature from device params
-   */
-  private parseTemperature(): number {
-    if (this.deviceParams.currentTemperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.currentTemperature));
-      return temp > 1000 ? temp / 100 : temp;
-    }
-    if (this.deviceParams.temperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.temperature));
-      return temp > 1000 ? temp / 100 : temp;
-    }
-    return 20;
-  }
-
-  /**
-   * Parse humidity from device params
-   */
-  private parseHumidity(): number {
-    if (this.deviceParams.currentHumidity !== undefined) {
-      const humidity = parseFloat(String(this.deviceParams.currentHumidity));
-      return humidity > 100 ? humidity / 100 : humidity;
-    }
-    if (this.deviceParams.humidity !== undefined) {
-      const humidity = parseFloat(String(this.deviceParams.humidity));
-      return humidity > 100 ? humidity / 100 : humidity;
-    }
-    return 50;
   }
 
   /**
@@ -266,25 +248,25 @@ export class SensorAccessory extends BaseAccessory {
 
     // Update temperature
     if (this.temperatureService) {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
       if (this.deviceConfig?.tempOffset) {
         temp += this.deviceConfig.tempOffset;
       }
       this.temperatureService.updateCharacteristic(
         this.Characteristic.CurrentTemperature,
-        this.clamp(temp, -270, 100),
+        this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX),
       );
     }
 
     // Update humidity
     if (this.humidityService) {
-      let humidity = this.parseHumidity();
+      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
       if (this.deviceConfig?.humidityOffset) {
         humidity += this.deviceConfig.humidityOffset;
       }
       this.humidityService.updateCharacteristic(
         this.Characteristic.CurrentRelativeHumidity,
-        this.clamp(humidity, 0, 100),
+        this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX),
       );
     }
 
@@ -310,7 +292,11 @@ export class SensorAccessory extends BaseAccessory {
 
     // Update battery
     if (this.batteryService && params.battery !== undefined) {
-      const level = this.clamp(params.battery, 0, 100);
+      const level = this.clamp(
+        DeviceValueParser.parseBattery(this.deviceParams, DEFAULT_BATTERY),
+        BATTERY_MIN,
+        BATTERY_MAX,
+      );
       const threshold = this.deviceConfig?.lowBattery || 20;
 
       this.batteryService.updateCharacteristic(

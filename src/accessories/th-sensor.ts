@@ -2,6 +2,13 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, ThermostatDeviceConfig } from '../types/index.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
+import {
+  TEMPERATURE_MIN,
+  TEMPERATURE_MAX,
+  HUMIDITY_MIN,
+  HUMIDITY_MAX,
+} from '../constants/device-constants.js';
 
 /**
  * Temperature/Humidity Sensor Accessory (UIID 15)
@@ -68,15 +75,14 @@ export class THSensorAccessory extends BaseAccessory {
    */
   private async getCurrentTemperature(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
 
       // Apply offset if configured
       if (this.deviceConfig?.tempOffset) {
         temp += this.deviceConfig.tempOffset;
       }
 
-      // Clamp to valid range (-270 to 100)
-      return this.clamp(temp, -270, 100);
+      return this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
     }, 'CurrentTemperature');
   }
 
@@ -85,52 +91,15 @@ export class THSensorAccessory extends BaseAccessory {
    */
   private async getCurrentHumidity(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let humidity = this.parseHumidity();
+      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
 
       // Apply offset if configured
       if (this.deviceConfig?.humidityOffset) {
         humidity += this.deviceConfig.humidityOffset;
       }
 
-      // Clamp to valid range (0-100)
-      return this.clamp(humidity, 0, 100);
+      return this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX);
     }, 'CurrentRelativeHumidity');
-  }
-
-  /**
-   * Parse temperature from device params
-   */
-  private parseTemperature(): number {
-    // Some devices send temperature * 100
-    if (this.deviceParams.currentTemperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.currentTemperature));
-      return temp > 1000 ? temp / 100 : temp;
-    }
-
-    if (this.deviceParams.temperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.temperature));
-      return temp > 1000 ? temp / 100 : temp;
-    }
-
-    return 20; // Default temperature
-  }
-
-  /**
-   * Parse humidity from device params
-   */
-  private parseHumidity(): number {
-    // Some devices send humidity * 100
-    if (this.deviceParams.currentHumidity !== undefined) {
-      const humidity = parseFloat(String(this.deviceParams.currentHumidity));
-      return humidity > 100 ? humidity / 100 : humidity;
-    }
-
-    if (this.deviceParams.humidity !== undefined) {
-      const humidity = parseFloat(String(this.deviceParams.humidity));
-      return humidity > 100 ? humidity / 100 : humidity;
-    }
-
-    return 50; // Default humidity
   }
 
   /**
@@ -141,11 +110,11 @@ export class THSensorAccessory extends BaseAccessory {
 
     // Update temperature
     if (this.temperatureService) {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
       if (this.deviceConfig?.tempOffset) {
         temp += this.deviceConfig.tempOffset;
       }
-      temp = this.clamp(temp, -270, 100);
+      temp = this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
 
       this.temperatureService.updateCharacteristic(
         this.Characteristic.CurrentTemperature,
@@ -156,11 +125,11 @@ export class THSensorAccessory extends BaseAccessory {
 
     // Update humidity
     if (this.humidityService) {
-      let humidity = this.parseHumidity();
+      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
       if (this.deviceConfig?.humidityOffset) {
         humidity += this.deviceConfig.humidityOffset;
       }
-      humidity = this.clamp(humidity, 0, 100);
+      humidity = this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX);
 
       this.humidityService.updateCharacteristic(
         this.Characteristic.CurrentRelativeHumidity,

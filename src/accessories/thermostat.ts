@@ -2,6 +2,15 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, ThermostatDeviceConfig } from '../types/index.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
+import {
+  TEMPERATURE_MIN,
+  TEMPERATURE_MAX,
+  THERMOSTAT_TEMP_MIN,
+  THERMOSTAT_TEMP_MAX,
+  THERMOSTAT_TEMP_STEP,
+  DEFAULT_TEMPERATURE,
+} from '../constants/device-constants.js';
 
 /**
  * Thermostat Accessory (UIID 127)
@@ -18,7 +27,7 @@ export class ThermostatAccessory extends BaseAccessory {
   private readonly tempOffset: number;
 
   /** Cached current temperature */
-  private cacheTemp = 20;
+  private cacheTemp = DEFAULT_TEMPERATURE;
 
   constructor(
     platform: EWeLinkPlatform,
@@ -57,9 +66,9 @@ export class ThermostatAccessory extends BaseAccessory {
     // Configure target temperature characteristic
     this.thermostatService.getCharacteristic(this.Characteristic.TargetTemperature)
       .setProps({
-        minValue: 5,
-        maxValue: 45,
-        minStep: 0.5,
+        minValue: THERMOSTAT_TEMP_MIN,
+        maxValue: THERMOSTAT_TEMP_MAX,
+        minStep: THERMOSTAT_TEMP_STEP,
       })
       .onSet(this.setTargetTemperature.bind(this));
 
@@ -75,7 +84,7 @@ export class ThermostatAccessory extends BaseAccessory {
    */
   private async getCurrentTemperature(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams, this.cacheTemp);
 
       // Apply offset if configured
       if (this.tempOffset) {
@@ -85,8 +94,7 @@ export class ThermostatAccessory extends BaseAccessory {
       // Cache the temperature
       this.cacheTemp = temp;
 
-      // Clamp to valid range (-270 to 100)
-      return this.clamp(temp, -270, 100);
+      return this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
     }, 'CurrentTemperature');
   }
 
@@ -118,7 +126,7 @@ export class ThermostatAccessory extends BaseAccessory {
       const targetTemp = Number(val);
 
       // Clamp to valid range
-      const clampedTemp = this.clamp(targetTemp, 5, 45);
+      const clampedTemp = this.clamp(targetTemp, THERMOSTAT_TEMP_MIN, THERMOSTAT_TEMP_MAX);
 
       // Update device via API
       const success = await this.sendCommand({
@@ -134,39 +142,22 @@ export class ThermostatAccessory extends BaseAccessory {
   }
 
   /**
-   * Parse temperature from device params
-   */
-  private parseTemperature(): number {
-    // Temperature field in device params
-    if (this.deviceParams.temperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.temperature));
-      return isNaN(temp) ? this.cacheTemp : temp;
-    }
-
-    if (this.deviceParams.currentTemperature !== undefined) {
-      const temp = parseFloat(String(this.deviceParams.currentTemperature));
-      // Some devices send temperature * 100
-      return isNaN(temp) ? this.cacheTemp : (temp > 1000 ? temp / 100 : temp);
-    }
-
-    return this.cacheTemp; // Return cached value if no update
-  }
-
-  /**
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
     Object.assign(this.deviceParams, params);
 
-    if (!this.thermostatService) return;
+    if (!this.thermostatService) {
+      return;
+    }
 
     // Update current temperature
     if (params.temperature !== undefined || params.currentTemperature !== undefined) {
-      let temp = this.parseTemperature();
+      let temp = DeviceValueParser.parseTemperature(this.deviceParams, this.cacheTemp);
       if (this.tempOffset) {
         temp += this.tempOffset;
       }
-      temp = this.clamp(temp, -270, 100);
+      temp = this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
 
       this.thermostatService.updateCharacteristic(
         this.Characteristic.CurrentTemperature,
@@ -177,7 +168,11 @@ export class ThermostatAccessory extends BaseAccessory {
 
     // Update target temperature
     if (params.targetTemp !== undefined) {
-      const targetTemp = this.clamp(parseFloat(String(params.targetTemp)), 5, 45);
+      const targetTemp = this.clamp(
+        parseFloat(String(params.targetTemp)),
+        THERMOSTAT_TEMP_MIN,
+        THERMOSTAT_TEMP_MAX,
+      );
       this.thermostatService.updateCharacteristic(
         this.Characteristic.TargetTemperature,
         targetTemp,
