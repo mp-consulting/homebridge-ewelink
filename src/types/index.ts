@@ -138,6 +138,10 @@ export interface MultiDeviceConfig extends BaseDeviceConfig {
   showAs?: 'default' | 'outlet' | 'switch' | 'valve' | 'blind' | 'garage' | 'door' | 'window' | 'lock';
   /** Override device model */
   deviceModel?: string;
+  /** Temperature source device ID for climate simulations */
+  tempSource?: string;
+  /** Humidity sensor device ID */
+  humiditySource?: string;
   /** Hide specific channels (0-indexed) */
   hideChannels?: string;
   /** Operation time in seconds */
