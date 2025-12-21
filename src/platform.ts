@@ -36,6 +36,32 @@ import { RFBridgeAccessory } from './accessories/rf-bridge.js';
 import { RFButtonAccessory } from './accessories/rf-button.js';
 import { RFSensorAccessory } from './accessories/rf-sensor.js';
 
+// Simulation accessory handlers
+import { LockAccessory } from './accessories/simulations/lock.js';
+import { ValveAccessory } from './accessories/simulations/valve.js';
+import { TapAccessory } from './accessories/simulations/tap.js';
+import { THHeaterAccessory } from './accessories/simulations/th-heater.js';
+import { THCoolerAccessory } from './accessories/simulations/th-cooler.js';
+import { THHumidifierAccessory } from './accessories/simulations/th-humidifier.js';
+import { THDehumidifierAccessory } from './accessories/simulations/th-dehumidifier.js';
+import { THThermostatAccessory } from './accessories/simulations/th-thermostat.js';
+import { HeaterAccessory } from './accessories/simulations/heater.js';
+import { CoolerAccessory } from './accessories/simulations/cooler.js';
+import { PurifierAccessory } from './accessories/simulations/purifier.js';
+import { BlindAccessory } from './accessories/simulations/blind.js';
+import { DoorAccessory } from './accessories/simulations/door.js';
+import { WindowAccessory } from './accessories/simulations/window.js';
+import { DoorbellAccessory } from './accessories/simulations/doorbell.js';
+import { LightFanAccessory } from './accessories/simulations/light-fan.js';
+import { TVAccessory } from './accessories/simulations/tv.js';
+import { ProgrammableButtonAccessory } from './accessories/simulations/p-button.js';
+import { RFBlindAccessory } from './accessories/simulations/rf-blind.js';
+import { RFDoorAccessory } from './accessories/simulations/rf-door.js';
+import { RFWindowAccessory } from './accessories/simulations/rf-window.js';
+import { SensorAccessory as SimSensorAccessory } from './accessories/simulations/sensor.js';
+import { SensorLeakAccessory } from './accessories/simulations/sensor-leak.js';
+import { SensorVisibleAccessory } from './accessories/simulations/sensor-visible.js';
+
 /**
  * eWeLink Platform Plugin
  */
@@ -74,6 +100,30 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     | RFBridgeAccessory
     | RFButtonAccessory
     | RFSensorAccessory
+    | LockAccessory
+    | ValveAccessory
+    | TapAccessory
+    | THHeaterAccessory
+    | THCoolerAccessory
+    | THHumidifierAccessory
+    | THDehumidifierAccessory
+    | THThermostatAccessory
+    | HeaterAccessory
+    | CoolerAccessory
+    | PurifierAccessory
+    | BlindAccessory
+    | DoorAccessory
+    | WindowAccessory
+    | DoorbellAccessory
+    | LightFanAccessory
+    | TVAccessory
+    | ProgrammableButtonAccessory
+    | RFBlindAccessory
+    | RFDoorAccessory
+    | RFWindowAccessory
+    | SimSensorAccessory
+    | SensorLeakAccessory
+    | SensorVisibleAccessory
   > = new Map();
 
   /** eWeLink API client */
@@ -328,6 +378,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
     // Determine what to show as
     const showAs = deviceConfig?.showAs || 'default';
+    const uiid = device.extra?.uiid || 0;
 
     // Create appropriate handler based on category and showAs
     let handler:
@@ -345,84 +396,159 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       | PanelAccessory
       | VirtualAccessory
       | MotorAccessory
-      | GroupAccessory;
+      | GroupAccessory
+      | LockAccessory
+      | ValveAccessory
+      | TapAccessory
+      | THHeaterAccessory
+      | THCoolerAccessory
+      | THHumidifierAccessory
+      | THDehumidifierAccessory
+      | THThermostatAccessory
+      | HeaterAccessory
+      | CoolerAccessory
+      | PurifierAccessory
+      | BlindAccessory
+      | DoorAccessory
+      | WindowAccessory
+      | DoorbellAccessory
+      | LightFanAccessory
+      | TVAccessory
+      | ProgrammableButtonAccessory
+      | SimSensorAccessory
+      | SensorLeakAccessory
+      | SensorVisibleAccessory;
 
-    switch (category) {
-      case DeviceCategory.OUTLET:
-        handler = new OutletAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.LIGHT:
-        handler = new LightAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.THERMOSTAT:
-        // UIID 15 is TH sensor (temp/humidity only), UIID 127 is actual thermostat with heating control
-        if (device.extra?.uiid === 15) {
-          handler = new THSensorAccessory(this, accessory) as any;
-        } else {
-          handler = new ThermostatAccessory(this, accessory);
-        }
-        break;
-
-      case DeviceCategory.FAN:
-        handler = new FanAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.SENSOR:
-        handler = new SensorAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.CURTAIN:
-        handler = new CurtainAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.GARAGE:
-        handler = new GarageAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.AIR_CONDITIONER:
-        handler = new AirConditionerAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.HUMIDIFIER:
-        handler = new HumidifierAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.DIFFUSER:
-        handler = new DiffuserAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.PANEL:
-        handler = new PanelAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.VIRTUAL:
-        handler = new VirtualAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.MOTOR:
-        handler = new MotorAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.GROUP:
-        handler = new GroupAccessory(this, accessory);
-        break;
-
-      case DeviceCategory.RF_BRIDGE:
-        // RF Bridge acts as coordinator for RF sub-devices
-        handler = new RFBridgeAccessory(this, accessory) as any;
-        break;
-
-      case DeviceCategory.SINGLE_SWITCH:
-      case DeviceCategory.MULTI_SWITCH:
-      default:
-        if (showAs === 'outlet') {
+    // Check for simulation accessories first (based on showAs config)
+    if (showAs === 'blind') {
+      handler = new BlindAccessory(this, accessory);
+    } else if (showAs === 'door') {
+      handler = new DoorAccessory(this, accessory);
+    } else if (showAs === 'window') {
+      handler = new WindowAccessory(this, accessory);
+    } else if (showAs === 'garage' || showAs === 'gate') {
+      handler = new GarageAccessory(this, accessory);
+    } else if (showAs === 'lock') {
+      handler = new LockAccessory(this, accessory);
+    } else if (showAs === 'valve' || showAs === 'switch_valve') {
+      handler = new ValveAccessory(this, accessory);
+    } else if (showAs === 'tap') {
+      handler = new TapAccessory(this, accessory);
+    } else if (showAs === 'sensor') {
+      handler = new SimSensorAccessory(this, accessory);
+    } else if (showAs === 'sensor_leak') {
+      handler = new SensorLeakAccessory(this, accessory);
+    } else if (showAs === 'p_button') {
+      handler = new ProgrammableButtonAccessory(this, accessory);
+    } else if (showAs === 'doorbell') {
+      handler = new DoorbellAccessory(this, accessory);
+    } else if (showAs === 'purifier') {
+      handler = new PurifierAccessory(this, accessory);
+    } else if (showAs === 'heater' && [15, 181].includes(uiid)) {
+      // TH sensor with heater simulation
+      handler = new THHeaterAccessory(this, accessory);
+    } else if (showAs === 'cooler' && [15, 181].includes(uiid)) {
+      // TH sensor with cooler simulation
+      handler = new THCoolerAccessory(this, accessory);
+    } else if (showAs === 'humidifier' && [15, 181].includes(uiid)) {
+      // TH sensor with humidifier simulation
+      handler = new THHumidifierAccessory(this, accessory);
+    } else if (showAs === 'dehumidifier' && [15, 181].includes(uiid)) {
+      // TH sensor with dehumidifier simulation
+      handler = new THDehumidifierAccessory(this, accessory);
+    } else if (showAs === 'thermostat' && [15, 181].includes(uiid)) {
+      // TH sensor with thermostat simulation
+      handler = new THThermostatAccessory(this, accessory);
+    } else if (showAs === 'heater') {
+      // Switch with heater simulation (climate control from external temp source)
+      handler = new HeaterAccessory(this, accessory);
+    } else if (showAs === 'cooler') {
+      // Switch with cooler simulation (climate control from external temp source)
+      handler = new CoolerAccessory(this, accessory);
+    } else if (showAs === 'fan' && [36, 44, 57].includes(uiid)) {
+      // Dimmable light as fan
+      handler = new LightFanAccessory(this, accessory);
+    } else if (showAs === 'tv') {
+      handler = new TVAccessory(this, accessory);
+    } else {
+      // No simulation requested, use default routing
+      switch (category) {
+        case DeviceCategory.OUTLET:
           handler = new OutletAccessory(this, accessory);
-        } else {
-          handler = new SwitchAccessory(this, accessory);
-        }
-        break;
+          break;
+
+        case DeviceCategory.LIGHT:
+          handler = new LightAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.THERMOSTAT:
+        // UIID 15 is TH sensor (temp/humidity only), UIID 127 is actual thermostat with heating control
+          if (device.extra?.uiid === 15) {
+            handler = new THSensorAccessory(this, accessory) as any;
+          } else {
+            handler = new ThermostatAccessory(this, accessory);
+          }
+          break;
+
+        case DeviceCategory.FAN:
+          handler = new FanAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.SENSOR:
+          handler = new SensorAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.CURTAIN:
+          handler = new CurtainAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.GARAGE:
+          handler = new GarageAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.AIR_CONDITIONER:
+          handler = new AirConditionerAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.HUMIDIFIER:
+          handler = new HumidifierAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.DIFFUSER:
+          handler = new DiffuserAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.PANEL:
+          handler = new PanelAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.VIRTUAL:
+          handler = new VirtualAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.MOTOR:
+          handler = new MotorAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.GROUP:
+          handler = new GroupAccessory(this, accessory);
+          break;
+
+        case DeviceCategory.RF_BRIDGE:
+        // RF Bridge acts as coordinator for RF sub-devices
+          handler = new RFBridgeAccessory(this, accessory) as any;
+          break;
+
+        case DeviceCategory.SINGLE_SWITCH:
+        case DeviceCategory.MULTI_SWITCH:
+        default:
+          if (showAs === 'outlet') {
+            handler = new OutletAccessory(this, accessory);
+          } else {
+            handler = new SwitchAccessory(this, accessory);
+          }
+          break;
+      }
     }
 
     this.accessoryHandlers.set(accessory.UUID, handler);
