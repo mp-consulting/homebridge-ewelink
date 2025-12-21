@@ -11,14 +11,16 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Features
 
+- 🎉 **100% Functional Parity** - Complete TypeScript rewrite with full feature parity from original JavaScript implementation
 - 🏠 **Native HomeKit Support** - Control your eWeLink devices via Siri, Home app, and automations
 - 🌐 **Hybrid Connection** - Automatic LAN/cloud failover for reliable connectivity
 - ⚡ **Real-time Updates** - Instant status updates via WebSocket
 - 🎨 **Custom UI** - Beautiful configuration interface built into Homebridge
-- 📱 **Multi-device Support** - Switches, lights, sensors, fans, thermostats, and more
+- 📱 **Multi-device Support** - 22 core device types with 47+ total accessory types including switches, lights, sensors, fans, thermostats, and simulation accessories
 - 🔐 **Secure Authentication** - HMAC-SHA256 signature-based login with token sharing
 - 🔄 **Automatic Session Management** - UI automatically detects and uses existing plugin sessions
 - 🎯 **Smart Device Detection** - Automatically detects device types based on UIID and parameters
+- 🎮 **Programmable Switches** - Full support for SONOFF Mini (S-MAN) and SONOFF Mate (S-MATE) with single, double, and long press detection
 
 ## Installation
 
@@ -84,6 +86,8 @@ This plugin supports a wide range of eWeLink devices. Device types are automatic
 - **Single-channel switches** - UIID 1, 6, 14, 24, 27, 77, 78, 81, 107, 112, 138, 160, 168, 182, 190
 - **Multi-channel switches** - UIID 2, 3, 4, 7, 8, 9, 29, 30, 31, 41, 82, 83, 84, 113, 114, 139-141, 161-163, 178, 210-212
 - **Smart plugs with power monitoring** - UIID 5, 32, 126, 165, 262
+- **SONOFF Mini (S-MAN)** - UIID 174 - 6-channel stateless programmable switch with single, double, and long press detection
+- **SONOFF Mate (S-MATE)** - UIID 177 - 3-button programmable switch with single, double, and long press modes
 
 ### Lights
 - **Dimmable lights** - UIID 36, 44, 57

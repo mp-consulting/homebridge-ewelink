@@ -8,13 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-12-21
 
 ### Added
-- Complete TypeScript rewrite of the plugin
+- **100% Functional Parity** - Complete TypeScript rewrite achieving full feature parity with original JavaScript implementation
+- Complete TypeScript rewrite of the plugin with 22 core device types and 47+ total accessory types
 - Support for Homebridge 2.0.0 (beta)
 - Comprehensive UIID device mapping based on official eWeLink specifications
 - Automatic device type detection based on UIID and device parameters
 - Token sharing between plugin and UI for seamless authentication
 - Automatic session detection in UI - skips login if valid session exists
 - Shared API implementation between plugin and UI (no code duplication)
+- **SONOFF Mini (S-MAN)** programmable switch accessory (UIID 174):
+  - 6-channel stateless programmable switch (Channel 1-6)
+  - Single, double, and long press detection for each channel
+  - Event debouncing with 1000ms timeout
+  - 5-second event freshness validation
+- **SONOFF Mate (S-MATE)** programmable switch accessory (UIID 177):
+  - 3-button programmable switch (single/double/long press)
+  - Event debouncing with 1000ms timeout
+  - 5-second event freshness validation
+- **Complete Simulation Framework** with 25 simulation accessories:
+  - Garage door variants (1-4 channels, obstruction detection)
+  - Lock variants (1+ channels)
+  - Valve variants (1-4 channels)
+  - Tap variants (1-2 channels)
+  - TH simulations (cooler, dehumidifier, heater, humidifier, thermostat)
+  - Climate control (cooler, heater, purifier)
+  - Position-based (blind, door, window)
+  - RF simulations (rf-blind, rf-door, rf-window)
+  - Sensor simulations (motion, contact, leak, smoke, CO, CO2, occupancy)
+  - Other (doorbell, light-fan, tv, p-button)
 - New curtain accessory with full support for:
   - UIID 11 devices (with setclose parameter)
   - UIID 67 devices (with per parameter)
@@ -28,8 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Current temperature monitoring
   - Work state indicator
 - New temperature/humidity sensor accessory (UIID 15, 181) for read-only sensors
+- **Inching mode support** for switches and outlets with `isInched` configuration
+- **Sensor with switch control** with `hideSwitch` configuration option
+- **Eve Home characteristics** for power monitoring (CurrentConsumption, Voltage, ElectricCurrent)
+- **Power threshold configuration** with `inUsePowerThreshold` for outlet accessories
 - Automatic service cleanup when device category changes
 - Build script to automatically copy compiled files to homebridge-ui
+- **100% Configuration Type Safety** - All 152 config properties fully typed
 
 ### Changed
 - Migrated to ES modules (type: "module")
