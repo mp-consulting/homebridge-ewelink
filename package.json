@@ -27,13 +27,13 @@
   ],
   "author": "https://github.com/mp-consulting",
   "license": "MIT",
-  "homepage": "https://github.com/homebridge-plugins/homebridge-ewelink#readme",
+  "homepage": "https://github.com/mp-consulting/homebridge-ewelink#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/homebridge-plugins/homebridge-ewelink.git"
+    "url": "git+https://github.com/mp-consulting/homebridge-ewelink.git"
   },
   "bugs": {
-    "url": "https://github.com/homebridge-plugins/homebridge-ewelink/issues"
+    "url": "https://github.com/mp-consulting/homebridge-ewelink/issues"
   },
   "engines": {
     "node": "^20.18.0 || ^22.9.0 || ^24",
