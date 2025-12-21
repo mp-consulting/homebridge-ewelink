@@ -160,6 +160,8 @@ export interface MultiDeviceConfig extends BaseDeviceConfig {
   lowBattThreshold?: number;
   /** Scale battery percentage */
   scaleBattery?: boolean;
+  /** Disable timer functionality */
+  disableTimer?: boolean;
   /** Override logging level */
   overrideLogging?: string;
 }
@@ -626,4 +628,10 @@ export interface AccessoryContext {
   hbDeviceId?: string;
   /** Cache last activation for RF sensors */
   cacheLastAct?: string;
+  /** Cached target temperature/humidity for TH simulations */
+  cacheTarget?: number;
+  /** Show heat/cool toggle for thermostat */
+  showHeatCool?: boolean;
+  /** Cache type for TH simulations */
+  cacheType?: string;
 }

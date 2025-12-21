@@ -11,13 +11,13 @@ export const PLUGIN_NAME = '@homebridge-plugins/homebridge-ewelink';
 /**
  * Plugin version
  */
-export const PLUGIN_VERSION = '13.0.0';
+export const PLUGIN_VERSION = '1.0.0';
 
 /**
  * eWeLink API credentials
  */
-export const EWELINK_APP_ID = 'Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl';
-export const EWELINK_APP_SECRET = 'mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6';
+export const EWELINK_APP_ID = 'vBXTs5I0auE972GexaJeR2P4zQWOBoze';
+export const EWELINK_APP_SECRET = 'NLA0arkjuFyGI7CtHeBMbxL1v0AGG4WE';
 
 /**
  * eWeLink API regions
