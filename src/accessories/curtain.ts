@@ -54,10 +54,11 @@ export class CurtainAccessory extends BaseAccessory {
    */
   private async refreshState(): Promise<void> {
     try {
+      this.platform.log.info(`[${this.accessory.displayName}] Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
       await this.platform.queryDeviceState(this.deviceId);
-      this.logDebug('Device state refreshed');
+      this.platform.log.info(`[${this.accessory.displayName}] State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
-      this.logDebug(`Failed to refresh state: ${error instanceof Error ? error.message : String(error)}`);
+      this.platform.log.warn(`[${this.accessory.displayName}] Failed to refresh state: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -224,12 +225,14 @@ export class CurtainAccessory extends BaseAccessory {
       const newPosition = this.clamp(params.currLocation as number, 0, 100);
 
       if (newPosition !== this.currentPosition) {
+        this.platform.log.info(`[${this.accessory.displayName}] Current position changing from ${this.currentPosition}% to ${newPosition}%`);
         this.currentPosition = newPosition;
         this.service.updateCharacteristic(
           this.Characteristic.CurrentPosition,
           this.currentPosition,
         );
-        this.logDebug('Current position updated to ' + this.currentPosition + '%');
+      } else {
+        this.platform.log.info(`[${this.accessory.displayName}] Current position unchanged at ${this.currentPosition}%`);
       }
     }
 
