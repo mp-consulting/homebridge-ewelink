@@ -506,4 +506,12 @@ export interface AccessoryContext {
   lastParams?: DeviceParams;
   /** Show as */
   showAs?: string;
+  /** RF Bridge buttons (channel number -> button name) */
+  buttons?: Record<string, string>;
+  /** RF Bridge sensor type */
+  subType?: string;
+  /** Homebridge device ID for RF subdevices */
+  hbDeviceId?: string;
+  /** Cache last activation for RF sensors */
+  cacheLastAct?: string;
 }
