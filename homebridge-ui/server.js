@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import fs from 'node:fs';
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
 
 /**
@@ -14,6 +15,7 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
     this.onRequest('/get-tokens', this.handleGetTokens.bind(this));
     this.onRequest('/get-devices', this.handleGetDevices.bind(this));
     this.onRequest('/test-device', this.handleTestDevice.bind(this));
+    this.onRequest('/getCachedAccessories', this.handleGetCachedAccessories.bind(this));
 
     // Signal that we're ready
     this.ready();
@@ -214,6 +216,40 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
       };
     } catch (error) {
       this.handleError(error, 'Failed to test device');
+    }
+  }
+
+  /**
+   * Handle get cached accessories request
+   * Provides backward compatibility with older config-ui-x versions
+   */
+  async handleGetCachedAccessories() {
+    try {
+      const plugin = '@mp-consulting/homebridge-ewelink';
+      const devicesToReturn = [];
+
+      // The path and file of the cached accessories
+      const accFile = `${this.homebridgeStoragePath}/accessories/cachedAccessories`;
+
+      // Check the file exists
+      if (fs.existsSync(accFile)) {
+        // Read the cached accessories file
+        let cachedAccessories = await fs.promises.readFile(accFile);
+
+        // Parse the JSON
+        cachedAccessories = JSON.parse(cachedAccessories);
+
+        // We only want the accessories for this plugin
+        cachedAccessories
+          .filter(accessory => accessory.plugin === plugin)
+          .forEach(accessory => devicesToReturn.push(accessory));
+      }
+
+      // Return the array
+      return devicesToReturn;
+    } catch {
+      // Just return an empty accessory list in case of any errors
+      return [];
     }
   }
 }
