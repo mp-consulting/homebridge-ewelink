@@ -25,6 +25,10 @@ const filesToCopy = [
   'utils/token-storage.d.ts',
   'utils/crypto-utils.js',
   'utils/crypto-utils.d.ts',
+  'constants/api-constants.js',
+  'constants/api-constants.d.ts',
+  'constants/region-constants.js',
+  'constants/region-constants.d.ts',
 ];
 
 console.log('Copying API files to homebridge-ui...');
