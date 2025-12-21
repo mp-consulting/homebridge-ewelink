@@ -124,6 +124,10 @@ export interface SingleDeviceConfig extends BaseDeviceConfig {
   obstructId?: string;
   /** Lock type for lock simulation */
   type?: string;
+  /** Low battery threshold */
+  lowBattThreshold?: number;
+  /** Scale battery percentage */
+  scaleBattery?: boolean;
   /** Override logging level */
   overrideLogging?: string;
   /** Garage door type */
