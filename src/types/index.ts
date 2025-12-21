@@ -638,4 +638,12 @@ export interface AccessoryContext {
   showHeatCool?: boolean;
   /** Cache type for TH simulations */
   cacheType?: string;
+  /** Cached current position for blind/door/window simulations (0-100) */
+  cacheCurrentPosition?: number;
+  /** Cached target position for blind/door/window simulations (0-100) */
+  cacheTargetPosition?: number;
+  /** Cached position state for blind/door/window simulations (0=closing, 1=opening, 2=stopped) */
+  cachePositionState?: number;
+  /** Cache last start time for position calculations (in deciseconds) */
+  cacheLastStartTime?: number;
 }
