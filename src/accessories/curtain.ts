@@ -42,6 +42,23 @@ export class CurtainAccessory extends BaseAccessory {
 
     // Initialize from device params
     this.initializeFromParams();
+
+    // Query fresh state after WebSocket connects (delayed to allow connection)
+    setTimeout(() => {
+      this.refreshState();
+    }, 5000);
+  }
+
+  /**
+   * Refresh device state from server
+   */
+  private async refreshState(): Promise<void> {
+    try {
+      await this.platform.queryDeviceState(this.deviceId);
+      this.logDebug('Device state refreshed');
+    } catch (error) {
+      this.logDebug(`Failed to refresh state: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**

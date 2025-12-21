@@ -472,6 +472,24 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   }
 
   /**
+   * Query device state and update accessory
+   */
+  async queryDeviceState(deviceId: string): Promise<boolean> {
+    if (!this.wsClient || !this.wsClient.isConnected()) {
+      this.log.debug(`Cannot query ${deviceId}: WebSocket not connected`);
+      return false;
+    }
+
+    try {
+      await this.wsClient.queryDeviceState(deviceId);
+      return true;
+    } catch (error) {
+      this.log.warn(`Failed to query device ${deviceId}:`, error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  /**
    * Shutdown the platform
    */
   private shutdown(): void {

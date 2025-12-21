@@ -329,4 +329,53 @@ export class WSClient {
     return this.connected;
   }
 
+  /**
+   * Query device state to get current parameters
+   */
+  async queryDeviceState(deviceId: string): Promise<boolean> {
+    if (!this.ws || !this.connected || !this.platform.ewelinkApi) {
+      this.platform.log.warn(`Cannot query device ${deviceId}: WebSocket not connected`);
+      return false;
+    }
+
+    const apiKey = this.platform.ewelinkApi.getApiKey();
+    if (!apiKey) {
+      this.platform.log.warn(`Cannot query device ${deviceId}: No API key available`);
+      return false;
+    }
+
+    const sequence = String(Date.now());
+    const message = {
+      action: 'query',
+      apikey: apiKey,
+      deviceid: deviceId,
+      params: [],
+      sequence,
+      ts: 0,
+      userAgent: 'app',
+    };
+
+    this.platform.log.debug(`Querying device state for ${deviceId}`);
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(sequence);
+        this.platform.log.warn(`Query timeout for ${deviceId}`);
+        reject(new Error('Query timeout'));
+      }, API_TIMEOUTS.WEBSOCKET_COMMAND);
+
+      this.pendingRequests.set(sequence, { resolve, reject, timeout });
+
+      try {
+        this.ws!.send(JSON.stringify(message));
+        this.platform.log.debug(`Query sent for ${deviceId}`);
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(sequence);
+        this.platform.log.error(`Failed to query device ${deviceId}:`, error);
+        reject(error);
+      }
+    });
+  }
+
 }
