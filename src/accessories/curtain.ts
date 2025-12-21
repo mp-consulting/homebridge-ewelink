@@ -56,6 +56,10 @@ export class CurtainAccessory extends BaseAccessory {
     try {
       this.platform.log.info(`[${this.accessory.displayName}] Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
       await this.platform.queryDeviceState(this.deviceId);
+
+      // Wait a bit for the WebSocket response to be processed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       this.platform.log.info(`[${this.accessory.displayName}] State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
       this.platform.log.warn(`[${this.accessory.displayName}] Failed to refresh state: ${error instanceof Error ? error.message : String(error)}`);
