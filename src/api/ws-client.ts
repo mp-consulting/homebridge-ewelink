@@ -177,6 +177,13 @@ export class WSClient {
 
           if (message.error === 0) {
             this.platform.log.debug(`Command response received: success (error: ${message.error})`);
+
+            // If response includes device params, update the device state
+            if (message.deviceid && message.params) {
+              this.platform.log.debug(`Updating device ${message.deviceid} with query response params`);
+              this.platform.handleDeviceUpdate(message.deviceid, message.params);
+            }
+
             pending.resolve(true);
           } else {
             this.platform.log.error(`Command response received: failed (error: ${message.error})`);
@@ -184,6 +191,13 @@ export class WSClient {
           }
         } else {
           this.platform.log.debug(`Received response for unknown sequence: ${message.sequence}`);
+
+          // Even for unknown sequences, if we have device params, update the device
+          // This handles cases where responses come with different sequence numbers
+          if (message.error === 0 && message.deviceid && message.params) {
+            this.platform.log.debug(`Updating device ${message.deviceid} from unmatched sequence response`);
+            this.platform.handleDeviceUpdate(message.deviceid, message.params);
+          }
         }
       }
 
