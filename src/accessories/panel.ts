@@ -34,8 +34,12 @@ export class PanelAccessory extends BaseAccessory {
     this.isProPanel = this.accessory.context.device?.extra?.uiid === 195;
 
     // Get device-specific configuration
-    this.tempOffset = this.deviceConfig?.offset || 0;
-    this.tempOffsetFactor = this.deviceConfig?.offsetFactor;
+    const deviceConfig = this.platform.config.singleDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+
+    this.tempOffset = deviceConfig?.offset || 0;
+    this.tempOffsetFactor = deviceConfig?.offsetFactor;
 
     // Set up the temperature sensor service
     this.tempService = this.getOrAddService(this.Service.TemperatureSensor);

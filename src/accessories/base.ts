@@ -51,15 +51,6 @@ export abstract class BaseAccessory {
   }
 
   /**
-   * Get device-specific configuration from platform config
-   */
-  protected get deviceConfig() {
-    return this.platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
-  }
-
-  /**
    * Check if device is online
    */
   protected get isOnline(): boolean {

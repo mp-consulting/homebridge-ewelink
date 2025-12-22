@@ -24,8 +24,12 @@ export class AirConditionerAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific configuration
-    this.tempOffset = this.deviceConfig?.offset || 0;
-    this.tempOffsetFactor = this.deviceConfig?.offsetFactor;
+    const deviceConfig = this.platform.config.singleDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+
+    this.tempOffset = deviceConfig?.offset || 0;
+    this.tempOffsetFactor = deviceConfig?.offsetFactor;
 
     // Set up the heater cooler service
     this.service = this.getOrAddService(this.Service.HeaterCooler);
