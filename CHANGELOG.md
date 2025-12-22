@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-12-22
+
+### Added
+- **Extended Country Code Support**: Added 60+ country codes in the configuration UI
+  - Organized by region: Americas, Europe, Asia Pacific, Middle East, Africa
+  - Option groups for better navigation in the dropdown
+  - Updated region mapping for all new country codes
+- **Query Retry Logic**: Device state queries now automatically retry on timeout
+  - 3 retry attempts with 2 second delay between retries
+  - Configurable via `QUERY_RETRY` constants
+
+### Changed
+- **Human-Readable Device Names in Logs**: Log messages now show device names instead of device IDs
+  - Query timeout messages show device name for easier identification
+  - Added `getDeviceDisplayName()` helper method to platform
+
+### Fixed
+- **Groups API Error**: Fixed "api not found" error when fetching groups
+  - Groups are now extracted from the same `/v2/device/thing` API response as devices
+  - Removed separate `/v2/group` API call that was returning errors
+- **UI Code Organization**: Extracted CSS and JavaScript into separate files
+  - `styles.css` - All CSS styles including dark mode support
+  - `ui.js` - All JavaScript logic for the configuration UI
+
 ## [1.0.2] - 2025-12-22
 
 ### Added

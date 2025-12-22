@@ -20,6 +20,8 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 🔐 **Secure Authentication** - HMAC-SHA256 signature-based login with token sharing
 - 🔄 **Automatic Session Management** - UI automatically detects and uses existing plugin sessions
 - 🔁 **Smart Reconnection** - Handles concurrent sessions gracefully with automatic fresh login and exponential backoff
+- 🔄 **Query Retry Logic** - Automatic retry on device state query timeouts with configurable attempts
+- 🌍 **60+ Country Codes** - Comprehensive country code support organized by region
 - 🎯 **Smart Device Detection** - Automatically detects device types based on UIID and parameters
 - 🎮 **Programmable Switches** - Full support for SONOFF Mini (S-MAN) and SONOFF Mate (S-MATE) with single, double, and long press detection
 - 📡 **RF Bridge Support** - Automatic sub-device creation for RF buttons and sensors learned by RF Bridge (UIID 28, 98)
