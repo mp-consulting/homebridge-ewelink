@@ -405,14 +405,16 @@ export class WSClient {
    * Query device state to get current parameters
    */
   async queryDeviceState(deviceId: string): Promise<boolean> {
+    const displayName = this.platform.getDeviceDisplayName(deviceId);
+
     if (!this.ws || !this.connected || !this.platform.ewelinkApi) {
-      this.platform.log.warn(`Cannot query device ${deviceId}: WebSocket not connected`);
+      this.platform.log.warn(`Cannot query device ${displayName}: WebSocket not connected`);
       return false;
     }
 
     const apiKey = this.platform.ewelinkApi.getApiKey();
     if (!apiKey) {
-      this.platform.log.warn(`Cannot query device ${deviceId}: No API key available`);
+      this.platform.log.warn(`Cannot query device ${displayName}: No API key available`);
       return false;
     }
 
@@ -427,12 +429,12 @@ export class WSClient {
       userAgent: 'app',
     };
 
-    this.platform.log.debug(`Querying device state for ${deviceId}`);
+    this.platform.log.debug(`Querying device state for ${displayName}`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(sequence);
-        this.platform.log.warn(`Query timeout for ${deviceId}`);
+        this.platform.log.warn(`Query timeout for ${displayName}`);
         reject(new Error('Query timeout'));
       }, API_TIMEOUTS.WEBSOCKET_COMMAND);
 
@@ -440,11 +442,11 @@ export class WSClient {
 
       try {
         this.ws!.send(JSON.stringify(message));
-        this.platform.log.debug(`Query sent for ${deviceId}`);
+        this.platform.log.debug(`Query sent for ${displayName}`);
       } catch (error) {
         clearTimeout(timeout);
         this.pendingRequests.delete(sequence);
-        this.platform.log.error(`Failed to query device ${deviceId}:`, error);
+        this.platform.log.error(`Failed to query device ${displayName}:`, error);
         reject(error);
       }
     });

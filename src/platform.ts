@@ -999,11 +999,21 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   }
 
   /**
+   * Get device display name for logging (name or ID if not found)
+   */
+  public getDeviceDisplayName(deviceId: string): string {
+    const device = this.deviceCache.get(deviceId);
+    return device?.name || deviceId;
+  }
+
+  /**
    * Query device state and update accessory
    */
   async queryDeviceState(deviceId: string): Promise<boolean> {
+    const displayName = this.getDeviceDisplayName(deviceId);
+
     if (!this.wsClient || !this.wsClient.isConnected()) {
-      this.log.debug(`Cannot query ${deviceId}: WebSocket not connected`);
+      this.log.debug(`Cannot query ${displayName}: WebSocket not connected`);
       return false;
     }
 
@@ -1011,7 +1021,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       await this.wsClient.queryDeviceState(deviceId);
       return true;
     } catch (error) {
-      this.log.warn(`Failed to query device ${deviceId}:`, error instanceof Error ? error.message : String(error));
+      this.log.warn(`Failed to query device ${displayName}:`, error instanceof Error ? error.message : String(error));
       return false;
     }
   }
