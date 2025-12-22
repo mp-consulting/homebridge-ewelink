@@ -35,6 +35,13 @@ export const MOTION_SENSOR_UIIDS = [102, 107, 136];
 export const CONTACT_SENSOR_UIIDS = [102, 137, 154];
 export const WATER_LEAK_SENSOR_UIIDS = [138];
 
+// Power Monitoring UIIDs
+// Devices that support basic power monitoring (wattage only)
+export const POWER_MONITORING_UIIDS = [5, 32];
+
+// Devices that support full power readings (wattage, voltage, current)
+export const FULL_POWER_READINGS_UIIDS = [32, 182, 190];
+
 // Thermostat ranges
 export const THERMOSTAT_TEMP_MIN = 5;
 export const THERMOSTAT_TEMP_MAX = 45;
