@@ -391,13 +391,16 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       let handler: RFButtonAccessory | RFSensorAccessory | any;
       const remoteType = rfDevice.remote_type;
 
-      // Parse button names
+      // Parse button names from the buttonName array
+      // buttonName is an array of objects like [{0: "Button 1"}, {1: "Button 2"}]
       const buttons: Record<string, string> = {};
       if (rfDevice.buttonName && Array.isArray(rfDevice.buttonName)) {
         rfDevice.buttonName.forEach((btnMap) => {
           Object.assign(buttons, btnMap);
         });
       }
+
+      this.log.debug(`RF sub-device ${rfDevice.name}: buttons=${JSON.stringify(buttons)}`);
 
       // Determine type: 1-4 = button, 5 = curtain, 6-7 = sensor
       if (['1', '2', '3', '4'].includes(remoteType)) {
@@ -438,11 +441,14 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         subAccessory.context.buttons = buttons;
         subAccessory.context.subType = subType;
         subAccessory.context.hbDeviceId = fullDeviceId;
+        subAccessory.context.name = rfDevice.name;
 
         // Set accessory info
         const infoService = subAccessory.getService(this.Service.AccessoryInformation);
         if (infoService) {
           infoService
+            .setCharacteristic(this.Characteristic.Name, rfDevice.name)
+            .setCharacteristic(this.Characteristic.ConfiguredName, rfDevice.name)
             .setCharacteristic(this.Characteristic.Manufacturer, bridgeDevice.brandName || 'eWeLink')
             .setCharacteristic(this.Characteristic.Model, `RF ${subType}`)
             .setCharacteristic(this.Characteristic.SerialNumber, fullDeviceId)
@@ -455,12 +461,25 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       } else {
         // Update existing
         this.log.info(`Restoring RF sub-device: ${rfDevice.name} (type: ${subType})`);
+
+        // Update display name if it changed
+        if (subAccessory.displayName !== rfDevice.name) {
+          subAccessory.displayName = rfDevice.name;
+          const infoService = subAccessory.getService(this.Service.AccessoryInformation);
+          if (infoService) {
+            infoService
+              .setCharacteristic(this.Characteristic.Name, rfDevice.name)
+              .setCharacteristic(this.Characteristic.ConfiguredName, rfDevice.name);
+          }
+        }
+
         subAccessory.context.device = bridgeDevice;
         subAccessory.context.deviceId = fullDeviceId;
         subAccessory.context.rfButtonIndex = channelCounter;
         subAccessory.context.buttons = buttons;
         subAccessory.context.subType = subType;
         subAccessory.context.hbDeviceId = fullDeviceId;
+        subAccessory.context.name = rfDevice.name;
       }
 
       // Initialize appropriate handler

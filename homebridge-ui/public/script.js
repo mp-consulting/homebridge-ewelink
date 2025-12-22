@@ -1,165 +1,179 @@
 (async () => {
-  try {
-    const currentConfig = await homebridge.getPluginConfig();
+  // State
+  let credentials = { accessToken: null, region: null, apiKey: null };
+  let devices = [];
 
-    const showIntro = () => {
-      homebridge.disableSaveButton?.();
-      const introContinue = document.getElementById('introContinue');
-      introContinue.addEventListener('click', () => {
-        homebridge.showSpinner();
-        document.getElementById('pageIntro').style.display = 'none';
-        document.getElementById('menuWrapper').style.display = 'inline-flex';
-        showSettings();
-        homebridge.hideSpinner();
-      });
-      document.getElementById('pageIntro').style.display = 'block';
-    };
+  // DOM elements
+  const $ = id => document.getElementById(id);
+  const steps = { login: $('step-login'), devices: $('step-devices'), complete: $('step-complete') };
 
-    const showDevices = async () => {
-      homebridge.showSpinner();
-      homebridge.disableSaveButton?.();
-      homebridge.hideSchemaForm();
-      document.getElementById('menuHome').classList.remove('btn-elegant');
-      document.getElementById('menuHome').classList.add('btn-primary');
-      document.getElementById('menuDevices').classList.add('btn-elegant');
-      document.getElementById('menuDevices').classList.remove('btn-primary');
-      document.getElementById('menuSettings').classList.remove('btn-elegant');
-      document.getElementById('menuSettings').classList.add('btn-primary');
-      document.getElementById('pageSupport').style.display = 'none';
-      document.getElementById('pageDevices').style.display = 'block';
+  // Load existing config
+  const pluginConfig = await homebridge.getPluginConfig();
+  const config = pluginConfig[0] || {};
 
-      const cachedAccessories =
-        typeof homebridge.getCachedAccessories === 'function'
-          ? await homebridge.getCachedAccessories()
-          : await homebridge.request('/getCachedAccessories');
-
-      if (cachedAccessories.length > 0) {
-        cachedAccessories.sort((a, b) => {
-          const nameA = a.displayName.toLowerCase();
-          const nameB = b.displayName.toLowerCase();
-          if (nameA > nameB) return 1;
-          if (nameB > nameA) return -1;
-          return 0;
-        });
-      }
-
-      const deviceSelect = document.getElementById('deviceSelect');
-      deviceSelect.innerHTML = '';
-
-      cachedAccessories.forEach((a) => {
-        const option = document.createElement('option');
-        option.text = a.displayName;
-        option.value = a.context.hbDeviceId;
-        deviceSelect.add(option);
-      });
-
-      const showDeviceInfo = async (hbDeviceId) => {
-        homebridge.showSpinner();
-        const thisAcc = cachedAccessories.find((x) => x.context.hbDeviceId === hbDeviceId);
-        const context = thisAcc.context;
-
-        document.getElementById('displayName').innerHTML = thisAcc.displayName;
-        document.getElementById('reachableWAN').innerHTML = context.reachableWAN
-          ? '<i class="fas fa-circle mr-1 green-text"></i> Online'
-          : '<i class="fas fa-circle mr-1 red-text"></i> Offline';
-        document.getElementById('reachableLAN').innerHTML = context.reachableLAN
-          ? '<i class="fas fa-circle mr-1 green-text"></i> Online'
-          : '<i class="fas fa-circle mr-1 red-text"></i> Offline';
-        document.getElementById('lanIP').innerHTML = context.ip || 'N/A';
-        document.getElementById('hbDeviceId').innerHTML = context.hbDeviceId || 'N/A';
-        document.getElementById('eweDeviceId').innerHTML = context.eweDeviceId || 'N/A';
-        document.getElementById('eweBrandName').innerHTML = context.eweBrandName || 'N/A';
-        document.getElementById('eweFirmware').innerHTML = context.firmware || 'N/A';
-        document.getElementById('eweMacAddress').innerHTML = context.macAddress || 'N/A';
-        document.getElementById('eweModel').innerHTML =
-          (context.eweModel || 'N/A') + ' (' + (context.eweUIID || 'N/A') + ')';
-        document.getElementById('eweShared').innerHTML = context.eweShared
-          ? 'Yes (by ' + context.eweShared + ')'
-          : 'No';
-        document.getElementById('imgIcon').innerHTML = context.eweBrandLogo
-          ? '<img src="' + context.eweBrandLogo + '" style="width: 150px;">'
-          : '';
-        document.getElementById('deviceTable').style.display = 'inline-table';
-
-        homebridge.hideSpinner();
-      };
-
-      deviceSelect.addEventListener('change', (event) => showDeviceInfo(event.target.value));
-
-      if (cachedAccessories.length > 0) {
-        showDeviceInfo(cachedAccessories[0].context.hbDeviceId);
-      } else {
-        const option = document.createElement('option');
-        option.text = 'No Devices';
-        deviceSelect.add(option);
-        deviceSelect.disabled = true;
-      }
-
-      homebridge.hideSpinner();
-    };
-
-    const showSupport = () => {
-      homebridge.showSpinner();
-      homebridge.disableSaveButton?.();
-      homebridge.hideSchemaForm();
-      document.getElementById('menuHome').classList.add('btn-elegant');
-      document.getElementById('menuHome').classList.remove('btn-primary');
-      document.getElementById('menuDevices').classList.remove('btn-elegant');
-      document.getElementById('menuDevices').classList.add('btn-primary');
-      document.getElementById('menuSettings').classList.remove('btn-elegant');
-      document.getElementById('menuSettings').classList.add('btn-primary');
-      document.getElementById('pageSupport').style.display = 'block';
-      document.getElementById('pageDevices').style.display = 'none';
-      homebridge.hideSpinner();
-    };
-
-    const showSettings = () => {
-      homebridge.showSpinner();
-      homebridge.enableSaveButton?.();
-      document.getElementById('menuHome').classList.remove('btn-elegant');
-      document.getElementById('menuHome').classList.add('btn-primary');
-      document.getElementById('menuDevices').classList.remove('btn-elegant');
-      document.getElementById('menuDevices').classList.add('btn-primary');
-      document.getElementById('menuSettings').classList.add('btn-elegant');
-      document.getElementById('menuSettings').classList.remove('btn-primary');
-      document.getElementById('pageSupport').style.display = 'none';
-      document.getElementById('pageDevices').style.display = 'none';
-      homebridge.showSchemaForm();
-      homebridge.hideSpinner();
-    };
-
-    const showDisabledBanner = () => {
-      document.getElementById('disabledBanner').style.display = 'block';
-    };
-
-    const enablePlugin = async () => {
-      homebridge.showSpinner();
-      document.getElementById('disabledBanner').style.display = 'none';
-      currentConfig[0].disablePlugin = false;
-      await homebridge.updatePluginConfig(currentConfig);
-      await homebridge.savePluginConfig();
-      homebridge.hideSpinner();
-    };
-
-    document.getElementById('menuHome').addEventListener('click', () => showSupport());
-    document.getElementById('menuDevices').addEventListener('click', () => showDevices());
-    document.getElementById('menuSettings').addEventListener('click', () => showSettings());
-    document.getElementById('disabledEnable').addEventListener('click', () => enablePlugin());
-
-    if (currentConfig.length) {
-      document.getElementById('menuWrapper').style.display = 'inline-flex';
-      showSettings();
-      if (currentConfig[0].disablePlugin) {
-        showDisabledBanner();
-      }
-    } else {
-      currentConfig.push({ name: 'eWeLink' });
-      await homebridge.updatePluginConfig(currentConfig);
-      showIntro();
+  // Pre-fill form
+  const formFields = ['username', 'password', 'countryCode', 'mode'];
+  const checkFields = ['debug', 'offlineAsOff'];
+  formFields.forEach((f) => {
+    if (config[f]) {
+      $(f).value = config[f];
     }
-  } catch (err) {
-    homebridge.toast.error(err.message, 'Error');
-  } finally {
-    homebridge.hideSpinner();
-  }
+  });
+  checkFields.forEach((f) => {
+    if (config[f]) {
+      $(f).checked = config[f];
+    }
+  });
+
+  // Show/hide step
+  const showStep = step => Object.entries(steps).forEach(([k, el]) => el.classList.toggle('hidden', k !== step));
+
+  // Escape HTML
+  const escapeHtml = text => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  // Render device list
+  const renderDevices = () => {
+    const list = $('device-list');
+    if (!devices.length) {
+      list.innerHTML = '<div class="text-center text-muted py-4">No devices found</div>';
+      return;
+    }
+    list.innerHTML = devices.map(d => `
+      <div class="device-item">
+        <div class="device-info">
+          <div class="device-name">${escapeHtml(d.name)}</div>
+          <div class="device-id">ID: ${d.deviceId}</div>
+          <div class="device-model">${d.brand || 'Unknown'} - ${d.model || 'Unknown'} (UIID: ${d.uiid || 'N/A'})</div>
+        </div>
+        <div class="device-status">
+          <span class="status-badge ${d.online ? 'status-online' : 'status-offline'}">${d.online ? 'Online' : 'Offline'}</span>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  // Load devices
+  const loadDevices = async () => {
+    $('refresh-spinner').classList.remove('hidden');
+    $('btn-refresh').disabled = true;
+
+    try {
+      const res = await homebridge.request('/get-devices', credentials);
+      if (res.success) {
+        devices = res.devices;
+        $('device-count').textContent = devices.length;
+        renderDevices();
+      }
+    } catch (e) {
+      homebridge.toast.error(e.message || 'Failed to load devices');
+    } finally {
+      $('refresh-spinner').classList.add('hidden');
+      $('btn-refresh').disabled = false;
+    }
+  };
+
+  // Check for existing session
+  const checkSession = async () => {
+    try {
+      const res = await homebridge.request('/get-tokens');
+      if (res.success) {
+        credentials = { accessToken: res.accessToken, region: res.region, apiKey: res.apiKey };
+        $('active-session-notice').classList.remove('hidden');
+        $('login-form').classList.add('hidden');
+        await loadDevices();
+        showStep('devices');
+        return true;
+      }
+    } catch {
+      // No session, show login
+    }
+    return false;
+  };
+
+  await checkSession();
+
+  // Login with different account
+  $('btn-new-login')?.addEventListener('click', () => {
+    $('active-session-notice').classList.add('hidden');
+    $('login-form').classList.remove('hidden');
+  });
+
+  // Login
+  $('btn-login').addEventListener('click', async () => {
+    const username = $('username').value.trim();
+    const password = $('password').value;
+    const countryCode = $('countryCode').value;
+
+    if (!username || !password) {
+      homebridge.toast.error('Please enter your username and password');
+      return;
+    }
+
+    $('login-spinner').classList.remove('hidden');
+    $('btn-login').disabled = true;
+
+    try {
+      const res = await homebridge.request('/login', { username, password, countryCode });
+      if (res.success) {
+        credentials = { accessToken: res.accessToken, region: res.region, apiKey: res.apiKey };
+        homebridge.toast.success('Successfully connected to eWeLink!');
+
+        await homebridge.updatePluginConfig([{
+          ...config, platform: 'eWeLink', name: config.name || 'eWeLink',
+          username, password, countryCode,
+        }]);
+
+        await loadDevices();
+        showStep('devices');
+      }
+    } catch (e) {
+      homebridge.toast.error(e.message || 'Login failed');
+    } finally {
+      $('login-spinner').classList.add('hidden');
+      $('btn-login').disabled = false;
+    }
+  });
+
+  // Refresh
+  $('btn-refresh').addEventListener('click', loadDevices);
+
+  // Advanced settings
+  $('btn-schema').addEventListener('click', () => homebridge.showSchemaForm());
+
+  // Save
+  $('btn-save').addEventListener('click', async () => {
+    homebridge.showSpinner();
+    try {
+      await homebridge.updatePluginConfig([{
+        ...config, platform: 'eWeLink', name: config.name || 'eWeLink',
+        username: $('username').value.trim(),
+        password: $('password').value,
+        countryCode: $('countryCode').value,
+        mode: $('mode').value,
+        debug: $('debug').checked,
+        offlineAsOff: $('offlineAsOff').checked,
+      }]);
+      await homebridge.savePluginConfig();
+      homebridge.toast.success('Configuration saved!');
+      showStep('complete');
+    } catch (e) {
+      homebridge.toast.error(e.message || 'Failed to save configuration');
+    } finally {
+      homebridge.hideSpinner();
+    }
+  });
+
+  // Restart
+  $('btn-restart').addEventListener('click', () => {
+    if (confirm('Are you sure you want to restart Homebridge?')) {
+      homebridge.closeSettings();
+    }
+  });
+
+  // Config changes from schema form
+  homebridge.addEventListener('configChanged', e => Object.assign(config, e.data));
 })();

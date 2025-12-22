@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-12-22
+
+### Changed
+- **RF Sub-Device Naming**: RF sub-devices now properly display names from eWeLink configuration
+  - Uses button names from `zyx_info.buttonName` for switch services
+  - Updates display name for existing accessories when name changes
+- **UI Code Refactoring**: Simplified and cleaned up UI server and client code
+  - Reduced `server.js` from 262 to 165 lines
+  - Reduced `script.js` from 259 to 180 lines
+  - Improved error handling and code organization
+
+### Fixed
+- **UI Device List Error**: Fixed "devices.map is not a function" error when refreshing devices
+  - Now handles both array and object response formats from API
+
 ## [1.0.4] - 2025-12-22
 
 ### Fixed
@@ -34,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed separate `/v2/group` API call that was returning errors
 - **UI Code Organization**: Extracted CSS and JavaScript into separate files
   - `styles.css` - All CSS styles including dark mode support
-  - `ui.js` - All JavaScript logic for the configuration UI
+  - `script.js` - All JavaScript logic for the configuration UI
 
 ## [1.0.2] - 2025-12-22
 

@@ -1,53 +1,33 @@
-/* eslint-disable no-console */
 import fs from 'node:fs';
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
 
+const PLUGIN_NAME = '@mp-consulting/homebridge-ewelink';
+
 /**
  * eWeLink Plugin UI Server
- * This server uses the compiled TypeScript API from the main plugin
  */
 class EWeLinkUiServer extends HomebridgePluginUiServer {
   constructor() {
     super();
 
-    // Register request handlers
     this.onRequest('/login', this.handleLogin.bind(this));
     this.onRequest('/get-tokens', this.handleGetTokens.bind(this));
     this.onRequest('/get-devices', this.handleGetDevices.bind(this));
     this.onRequest('/test-device', this.handleTestDevice.bind(this));
     this.onRequest('/getCachedAccessories', this.handleGetCachedAccessories.bind(this));
 
-    // Signal that we're ready
     this.ready();
   }
 
   /**
-   * Create a mock platform object for API usage
-   * @param {object} config - Configuration options
-   * @returns {object} Mock platform with logger and config
-   */
-  createMockPlatform(config = {}) {
-    return {
-      log: {
-        info: (...args) => console.log('[API INFO]', ...args),
-        debug: (...args) => console.log('[API DEBUG]', ...args),
-        warn: (...args) => console.warn('[API WARN]', ...args),
-        error: (...args) => console.error('[API ERROR]', ...args),
-      },
-      config,
-    };
-  }
-
-  /**
    * Create an authenticated API instance
-   * @param {object} config - Configuration options
-   * @param {string} accessToken - Optional access token for authentication
-   * @returns {Promise<object>} Configured API instance
    */
-  async createApiInstance(config, accessToken = null) {
+  async createApi(config, accessToken = null) {
     const { EWeLinkAPI } = await import('./api/ewelink-api.js');
-    const mockPlatform = this.createMockPlatform(config);
-    const api = new EWeLinkAPI(mockPlatform);
+    const api = new EWeLinkAPI({
+      log: console,
+      config,
+    });
 
     if (accessToken) {
       api.setCredentials(accessToken);
@@ -58,53 +38,22 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
 
   /**
    * Validate required payload fields
-   * @param {object} payload - Request payload
-   * @param {string[]} requiredFields - Array of required field names
-   * @throws {RequestError} If any required field is missing
    */
-  validatePayload(payload, requiredFields) {
-    const missingFields = requiredFields.filter(field => !payload[field]);
-
-    if (missingFields.length > 0) {
-      throw new RequestError(
-        `Missing required fields: ${missingFields.join(', ')}`,
-        { status: 400 },
-      );
+  validate(payload, fields) {
+    const missing = fields.filter(f => !payload[f]);
+    if (missing.length > 0) {
+      throw new RequestError(`Missing required fields: ${missing.join(', ')}`, { status: 400 });
     }
-  }
-
-  /**
-   * Handle errors consistently across all handlers
-   * @param {Error} error - The error to handle
-   * @param {string} defaultMessage - Default error message
-   * @throws {RequestError} Formatted error for client
-   */
-  handleError(error, defaultMessage) {
-    if (error instanceof RequestError) {
-      throw error;
-    }
-
-    const message = error.message || defaultMessage;
-    const status = error.response?.status || 500;
-    throw new RequestError(message, { status });
   }
 
   /**
    * Handle login request
-   * Creates a mock platform instance to use the EWeLinkAPI class
    */
   async handleLogin(payload) {
-    this.validatePayload(payload, ['username', 'password']);
-
-    const { username, password, countryCode } = payload;
+    this.validate(payload, ['username', 'password']);
 
     try {
-      const api = await this.createApiInstance({
-        username,
-        password,
-        countryCode,
-      });
-
+      const api = await this.createApi(payload);
       await api.login();
 
       return {
@@ -115,33 +64,21 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
         region: api.region,
       };
     } catch (error) {
-      this.handleError(error, 'Login failed');
+      throw new RequestError(error.message || 'Login failed', { status: 401 });
     }
   }
 
   /**
    * Handle get tokens request
-   * Returns the currently stored tokens from the plugin
    */
   async handleGetTokens() {
     try {
       const { TokenStorage } = await import('./utils/token-storage.js');
-      const tokenStorage = new TokenStorage(this.homebridgeStoragePath);
+      const storage = new TokenStorage(this.homebridgeStoragePath);
+      const tokens = storage.load();
 
-      const tokens = tokenStorage.load();
-
-      if (!tokens) {
-        return {
-          success: false,
-          message: 'No tokens found. Please login from the plugin first.',
-        };
-      }
-
-      if (!tokenStorage.isValid()) {
-        return {
-          success: false,
-          message: 'Tokens expired. Please restart Homebridge to refresh tokens.',
-        };
+      if (!tokens || !storage.isValid()) {
+        return { success: false, message: 'No valid session found' };
       }
 
       return {
@@ -151,8 +88,8 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
         apiKey: tokens.apiKey,
         region: tokens.region,
       };
-    } catch (error) {
-      this.handleError(error, 'Failed to get tokens');
+    } catch {
+      return { success: false, message: 'Failed to get tokens' };
     }
   }
 
@@ -160,33 +97,27 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    * Handle get devices request
    */
   async handleGetDevices(payload) {
-    this.validatePayload(payload, ['accessToken']);
-
-    const { accessToken, region } = payload;
+    this.validate(payload, ['accessToken']);
 
     try {
-      const api = await this.createApiInstance(
-        { countryCode: region || 'us' },
-        accessToken,
-      );
-
-      const devices = await api.getDevices();
+      const api = await this.createApi({ countryCode: payload.region || 'us' }, payload.accessToken);
+      const result = await api.getDevices();
+      const devices = Array.isArray(result) ? result : (result.devices || []);
 
       return {
         success: true,
-        devices: devices.map(device => ({
-          deviceId: device.deviceid,
-          name: device.name,
-          brand: device.brandName,
-          model: device.productModel || device.extra?.model,
-          uiid: device.extra?.uiid,
-          online: device.online,
-          params: device.params,
+        devices: devices.map(d => ({
+          deviceId: d.deviceid,
+          name: d.name,
+          brand: d.brandName,
+          model: d.productModel || d.extra?.model,
+          uiid: d.extra?.uiid,
+          online: d.online,
         })),
         total: devices.length,
       };
     } catch (error) {
-      this.handleError(error, 'Failed to get devices');
+      throw new RequestError(error.message || 'Failed to get devices', { status: 500 });
     }
   }
 
@@ -194,65 +125,40 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    * Handle test device request
    */
   async handleTestDevice(payload) {
-    this.validatePayload(payload, ['accessToken', 'deviceId']);
-
-    const { accessToken, region, deviceId, params } = payload;
+    this.validate(payload, ['accessToken', 'deviceId']);
 
     try {
-      const api = await this.createApiInstance(
-        { countryCode: region },
-        accessToken,
-      );
-
-      const success = await api.setDeviceState(
-        deviceId,
-        params || { switch: 'on' },
-      );
+      const api = await this.createApi({ countryCode: payload.region }, payload.accessToken);
+      const success = await api.setDeviceState(payload.deviceId, payload.params || { switch: 'on' });
 
       return {
         success,
-        error: success ? 0 : 1,
         message: success ? 'Command sent successfully' : 'Failed to send command',
       };
     } catch (error) {
-      this.handleError(error, 'Failed to test device');
+      throw new RequestError(error.message || 'Failed to test device', { status: 500 });
     }
   }
 
   /**
    * Handle get cached accessories request
-   * Provides backward compatibility with older config-ui-x versions
    */
   async handleGetCachedAccessories() {
     try {
-      const plugin = '@mp-consulting/homebridge-ewelink';
-      const devicesToReturn = [];
-
-      // The path and file of the cached accessories
       const accFile = `${this.homebridgeStoragePath}/accessories/cachedAccessories`;
 
-      // Check the file exists
-      if (fs.existsSync(accFile)) {
-        // Read the cached accessories file
-        let cachedAccessories = await fs.promises.readFile(accFile);
-
-        // Parse the JSON
-        cachedAccessories = JSON.parse(cachedAccessories);
-
-        // We only want the accessories for this plugin
-        cachedAccessories
-          .filter(accessory => accessory.plugin === plugin)
-          .forEach(accessory => devicesToReturn.push(accessory));
+      if (!fs.existsSync(accFile)) {
+        return [];
       }
 
-      // Return the array
-      return devicesToReturn;
+      const data = await fs.promises.readFile(accFile, 'utf8');
+      const accessories = JSON.parse(data);
+
+      return accessories.filter(a => a.plugin === PLUGIN_NAME);
     } catch {
-      // Just return an empty accessory list in case of any errors
       return [];
     }
   }
 }
 
-// Start the server
 (() => new EWeLinkUiServer())();

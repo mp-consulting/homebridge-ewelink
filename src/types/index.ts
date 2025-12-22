@@ -693,4 +693,6 @@ export interface AccessoryContext {
   macAddress?: string | boolean;
   /** LAN device key */
   lanKey?: string;
+  /** RF sub-device name (from zyx_info) */
+  name?: string;
 }
