@@ -1,0 +1,2 @@
+# Empty file to override .gitignore for npm publishing
+# This ensures api/, types/, utils/, settings.js are included in the package
