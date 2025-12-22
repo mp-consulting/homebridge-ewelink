@@ -13,6 +13,14 @@ export const API_TIMEOUTS = {
 } as const;
 
 /**
+ * Retry configuration for query operations
+ */
+export const QUERY_RETRY = {
+  MAX_ATTEMPTS: 3,          // Maximum number of retry attempts
+  DELAY_MS: 2000,           // Delay between retries in milliseconds
+} as const;
+
+/**
  * API region to HTTP host mapping
  */
 export const REGION_HOSTS: Record<string, string> = {

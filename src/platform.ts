@@ -11,6 +11,7 @@ import {
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
 import { DEVICE_CHANNEL_COUNT } from './constants/device-constants.js';
+import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
@@ -1007,7 +1008,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Query device state and update accessory
+   * Query device state and update accessory with retry logic
    */
   async queryDeviceState(deviceId: string): Promise<boolean> {
     const displayName = this.getDeviceDisplayName(deviceId);
@@ -1017,13 +1018,23 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       return false;
     }
 
-    try {
-      await this.wsClient.queryDeviceState(deviceId);
-      return true;
-    } catch (error) {
-      this.log.warn(`Failed to query device ${displayName}:`, error instanceof Error ? error.message : String(error));
-      return false;
+    for (let attempt = 1; attempt <= QUERY_RETRY.MAX_ATTEMPTS; attempt++) {
+      try {
+        await this.wsClient.queryDeviceState(deviceId);
+        return true;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        if (attempt < QUERY_RETRY.MAX_ATTEMPTS) {
+          this.log.debug(`Query attempt ${attempt}/${QUERY_RETRY.MAX_ATTEMPTS} failed for ${displayName}: ${errorMsg}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, QUERY_RETRY.DELAY_MS));
+        } else {
+          this.log.warn(`Failed to query device ${displayName} after ${QUERY_RETRY.MAX_ATTEMPTS} attempts: ${errorMsg}`);
+        }
+      }
     }
+
+    return false;
   }
 
   /**
