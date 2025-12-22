@@ -14,11 +14,12 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 🎉 **100% Functional Parity** - Complete TypeScript rewrite with full feature parity from original JavaScript implementation
 - 🏠 **Native HomeKit Support** - Control your eWeLink devices via Siri, Home app, and automations
 - 🌐 **Hybrid Connection** - Automatic LAN/cloud failover for reliable connectivity
-- ⚡ **Real-time Updates** - Instant status updates via WebSocket
+- ⚡ **Real-time Updates** - Instant status updates via WebSocket with intelligent reconnection handling
 - 🎨 **Custom UI** - Beautiful configuration interface built into Homebridge
 - 📱 **Multi-device Support** - 22 core device types with 47+ total accessory types including switches, lights, sensors, fans, thermostats, and simulation accessories
 - 🔐 **Secure Authentication** - HMAC-SHA256 signature-based login with token sharing
 - 🔄 **Automatic Session Management** - UI automatically detects and uses existing plugin sessions
+- 🔁 **Smart Reconnection** - Handles concurrent sessions gracefully with automatic fresh login and exponential backoff
 - 🎯 **Smart Device Detection** - Automatically detects device types based on UIID and parameters
 - 🎮 **Programmable Switches** - Full support for SONOFF Mini (S-MAN) and SONOFF Mate (S-MATE) with single, double, and long press detection
 

@@ -83,11 +83,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - motorTurn: 2 = Closing
   - motorTurn: 0 = Stop
 - Incorrect HomeKit service types for various devices
-- WebSocket 406 authentication errors via token reload
+- **WebSocket 406 authentication errors** when logged in elsewhere:
+  - Detects token invalidation (concurrent session)
+  - Forces fresh login instead of reconnecting with stale tokens
+  - Implements exponential backoff (5s, 10s, 20s, 40s, up to 300s)
+  - Max reconnection attempts limit (10) to prevent infinite loops
+  - Clear user-friendly error messages about concurrent sessions
 - Device discovery returning 0 devices (fixed with proper API flow)
 - Country code format in authentication
 - JSON key ordering in signature generation
 - Service type conflicts when device category changes
+- Custom UI not loading in Homebridge config (added customUiPath property)
 
 ### Technical Details
 - Node.js 20/22/24 support
