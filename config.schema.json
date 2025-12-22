@@ -370,6 +370,103 @@
           "description": "Device ID to ignore"
         },
         "description": "List of device IDs to completely ignore."
+      },
+      "bridgeSensors": {
+        "title": "RF Bridge Sensors",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "fullDeviceId": {
+              "title": "Sensor Device ID",
+              "type": "string",
+              "required": true,
+              "minLength": 13,
+              "maxLength": 15,
+              "description": "Enter the Device ID of the sensor (13 digits normally in the format 1000ab23cdSW2)."
+            },
+            "label": {
+              "title": "Label",
+              "type": "string",
+              "description": "This setting has no effect except to help identify this device."
+            },
+            "deviceType": {
+              "title": "Sensor Type",
+              "type": "string",
+              "default": "button",
+              "oneOf": [
+                { "title": "Button", "enum": ["button"] },
+                { "title": "Water Sensor", "enum": ["water"] },
+                { "title": "Fire Sensor", "enum": ["fire"] },
+                { "title": "Smoke Sensor", "enum": ["smoke"] },
+                { "title": "CO Sensor", "enum": ["co"] },
+                { "title": "Motion Sensor", "enum": ["motion"] },
+                { "title": "Contact Sensor", "enum": ["contact"] },
+                { "title": "Doorbell", "enum": ["doorbell"] },
+                { "title": "Curtain", "enum": ["curtain"] }
+              ]
+            },
+            "curtainType": {
+              "title": "Curtain Type",
+              "type": "string",
+              "default": "oneButton",
+              "condition": {
+                "functionBody": "return model.bridgeSensors && model.bridgeSensors[arrayIndices] && model.bridgeSensors[arrayIndices].deviceType === 'curtain';"
+              },
+              "oneOf": [
+                { "title": "One Button", "enum": ["oneButton"] },
+                { "title": "Two Buttons", "enum": ["twoButtons"] },
+                { "title": "Three Buttons", "enum": ["threeButtons"] }
+              ]
+            },
+            "operationTime": {
+              "title": "Operation Time (Up, seconds)",
+              "type": "integer",
+              "default": 100,
+              "minimum": 0,
+              "maximum": 300,
+              "condition": {
+                "functionBody": "return model.bridgeSensors && model.bridgeSensors[arrayIndices] && model.bridgeSensors[arrayIndices].deviceType === 'curtain';"
+              },
+              "description": "Time to fully open the curtain."
+            },
+            "operationTimeDown": {
+              "title": "Operation Time (Down, seconds)",
+              "type": "integer",
+              "default": 100,
+              "minimum": 0,
+              "maximum": 300,
+              "condition": {
+                "functionBody": "return model.bridgeSensors && model.bridgeSensors[arrayIndices] && model.bridgeSensors[arrayIndices].deviceType === 'curtain';"
+              },
+              "description": "Time to fully close the curtain."
+            },
+            "sensorTimeLength": {
+              "title": "Sensor Active Time (seconds)",
+              "type": "integer",
+              "default": 60,
+              "minimum": 1,
+              "maximum": 300,
+              "condition": {
+                "functionBody": "return model.bridgeSensors && model.bridgeSensors[arrayIndices] && ['motion', 'smoke', 'co', 'water', 'fire'].includes(model.bridgeSensors[arrayIndices].deviceType);"
+              },
+              "description": "How long the sensor stays active before resetting."
+            },
+            "sensorTimeDifference": {
+              "title": "Sensor Time Difference (seconds)",
+              "type": "integer",
+              "default": 60,
+              "minimum": 1,
+              "maximum": 300,
+              "description": "Minimum time between sensor triggers to prevent duplicates."
+            },
+            "sensorWebHook": {
+              "title": "Sensor Webhook URL",
+              "type": "string",
+              "description": "Optional webhook URL to call when sensor is triggered."
+            }
+          }
+        }
       }
     }
   },
@@ -460,6 +557,30 @@
           "type": "array",
           "expandable": true,
           "buttonText": "Add Group"
+        }
+      ]
+    },
+    {
+      "key": "bridgeSensors",
+      "title": "RF Subdevices",
+      "description": "Optional settings for RF Bridge subdevices to expose different sensor types (<a href=\"https://github.com/homebridge-plugins/homebridge-ewelink/wiki/RF-Bridge-Sensors\" target=\"_blank\">more info</a>).",
+      "expandable": true,
+      "add": "Add RF Subdevices",
+      "type": "array",
+      "items": [
+        {
+          "type": "fieldset",
+          "items": [
+            "bridgeSensors[].label",
+            "bridgeSensors[].fullDeviceId",
+            "bridgeSensors[].deviceType",
+            "bridgeSensors[].curtainType",
+            "bridgeSensors[].operationTime",
+            "bridgeSensors[].operationTimeDown",
+            "bridgeSensors[].sensorTimeLength",
+            "bridgeSensors[].sensorTimeDifference",
+            "bridgeSensors[].sensorWebHook"
+          ]
         }
       ]
     },
