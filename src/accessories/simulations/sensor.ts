@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
+import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 
 /**
  * Sensor Simulation Accessory
@@ -179,19 +180,19 @@ export class SensorAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-    const CurrentConsumptionUUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
-    const VoltageUUID = 'E863F10A-079E-48FF-8F27-9C2605A29F52';
-    const ElectricCurrentUUID = 'E863F126-079E-48FF-8F27-9C2605A29F52';
+    
+    
+    
 
-    if (!this.service.testCharacteristic(CurrentConsumptionUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
       this.service.addCharacteristic(CurrentConsumption);
     }
 
     if (this.hasFullPowerReadings) {
-      if (!this.service.testCharacteristic(VoltageUUID)) {
+      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
         this.service.addCharacteristic(Voltage);
       }
-      if (!this.service.testCharacteristic(ElectricCurrentUUID)) {
+      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
         this.service.addCharacteristic(ElectricCurrent);
       }
     }
@@ -263,41 +264,41 @@ export class SensorAccessory extends BaseAccessory {
    * Update power readings from device params
    */
   private updatePowerReadings(params: DeviceParams): void {
-    const CurrentConsumptionUUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
-    const VoltageUUID = 'E863F10A-079E-48FF-8F27-9C2605A29F52';
-    const ElectricCurrentUUID = 'E863F126-079E-48FF-8F27-9C2605A29F52';
+    
+    
+    
 
     let hasUpdate = false;
 
     // Check for Dual R3 format (with _00 suffix)
     if (params.actPow_00 !== undefined) {
       const power = parseInt(String(params.actPow_00), 10) / 100;
-      this.service.updateCharacteristic(CurrentConsumptionUUID, power);
+      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       hasUpdate = true;
     } else if (params.power !== undefined) {
       const power = parseFloat(String(params.power));
-      this.service.updateCharacteristic(CurrentConsumptionUUID, power);
+      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       hasUpdate = true;
     }
 
     if (this.hasFullPowerReadings) {
       if (params.voltage_00 !== undefined) {
         const voltage = parseInt(String(params.voltage_00), 10) / 100;
-        this.service.updateCharacteristic(VoltageUUID, voltage);
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
         hasUpdate = true;
       } else if (params.voltage !== undefined) {
         const voltage = parseFloat(String(params.voltage));
-        this.service.updateCharacteristic(VoltageUUID, voltage);
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
         hasUpdate = true;
       }
 
       if (params.current_00 !== undefined) {
         const current = parseInt(String(params.current_00), 10) / 100;
-        this.service.updateCharacteristic(ElectricCurrentUUID, current);
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
         hasUpdate = true;
       } else if (params.current !== undefined) {
         const current = parseFloat(String(params.current));
-        this.service.updateCharacteristic(ElectricCurrentUUID, current);
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
         hasUpdate = true;
       }
     }
