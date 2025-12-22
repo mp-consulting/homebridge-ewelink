@@ -1,7 +1,7 @@
 import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
+import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 
@@ -21,9 +21,6 @@ export class SwitchAccessory extends BaseAccessory {
   /** Ignore updates flag for inching mode debouncing (wrapped in object for reference passing) */
   private ignoreUpdatesRef = { value: false };
 
-  /** Device configuration */
-  private readonly deviceConfig?: SingleDeviceConfig;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -32,11 +29,6 @@ export class SwitchAccessory extends BaseAccessory {
 
     // For multi-channel devices, use switchNumber from context
     this.channelIndex = accessory.context.switchNumber ?? accessory.context.channelIndex ?? 0;
-
-    // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
 
     // Check if inching mode is enabled
     this.isInched = this.deviceConfig?.isInched || false;

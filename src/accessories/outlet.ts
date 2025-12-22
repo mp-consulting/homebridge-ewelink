@@ -1,7 +1,7 @@
 import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
+import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
@@ -25,9 +25,6 @@ export class OutletAccessory extends BaseAccessory {
   /** Ignore updates flag for inching mode debouncing (wrapped in object for reference passing) */
   private ignoreUpdatesRef = { value: false };
 
-  /** Device configuration */
-  private readonly deviceConfig?: SingleDeviceConfig;
-
   /** Power threshold for "in use" state */
   private readonly inUsePowerThreshold: number;
 
@@ -41,11 +38,6 @@ export class OutletAccessory extends BaseAccessory {
     super(platform, accessory);
 
     this.channelIndex = accessory.context.channelIndex || 0;
-
-    // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
 
     // Check if inching mode is enabled
     this.isInched = this.deviceConfig?.isInched || false;
