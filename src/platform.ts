@@ -886,6 +886,24 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         continue;
       }
 
+      // Skip RF sub-devices (check if parent bridge exists)
+      if (accessory.context.rfButtonIndex !== undefined) {
+        // Extract parent device ID (remove SWx suffix)
+        const parentId = deviceId.replace(/SW\d+$/, '');
+        if (currentDeviceIds.has(parentId)) {
+          continue;
+        }
+      }
+
+      // Skip multi-channel sub-devices (check if parent device exists)
+      if (accessory.context.switchNumber !== undefined) {
+        // Extract parent device ID (remove SWx suffix)
+        const parentId = deviceId.replace(/SW\d+$/, '');
+        if (currentDeviceIds.has(parentId)) {
+          continue;
+        }
+      }
+
       if (!currentDeviceIds.has(deviceId)) {
         this.log.info('Removing stale accessory:', accessory.displayName);
         this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
