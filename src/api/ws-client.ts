@@ -17,6 +17,8 @@ export class WSClient {
   private heartbeatIntervalMs: number = NETWORK_INTERVALS.WEBSOCKET_HEARTBEAT;
   private reconnecting = false;
   private connected = false;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
   private pendingRequests: Map<string, {
     resolve: (value: boolean) => void;
     reject: (reason?: unknown) => void;
@@ -49,6 +51,7 @@ export class WSClient {
           this.authenticate()
             .then(() => {
               this.connected = true;
+              this.reconnectAttempts = 0; // Reset on successful connection
               this.startHeartbeat();
               resolve();
             })
@@ -125,7 +128,16 @@ export class WSClient {
           } else if (message.error !== undefined && message.error !== 0) {
             clearTimeout(timeout);
             this.ws?.off('message', handleAuth);
-            reject(new Error(`Authentication failed: ${message.error}`));
+
+            // Error 406 means token invalidated (concurrent session/login elsewhere)
+            if (message.error === 406) {
+              this.platform.log.warn('WebSocket authentication failed: Token invalidated (concurrent session detected)');
+              const error = new Error('AUTH_TOKEN_INVALIDATED');
+              (error as any).code = 406;
+              reject(error);
+            } else {
+              reject(new Error(`Authentication failed: ${message.error}`));
+            }
           }
         } catch (error) {
           // Not a JSON message, ignore
@@ -283,31 +295,69 @@ export class WSClient {
   /**
    * Schedule reconnection
    */
-  private scheduleReconnect(): void {
+  private scheduleReconnect(forceLogin = false): void {
     if (this.reconnecting) {
       return;
     }
 
+    // Check if max reconnect attempts reached
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.platform.log.error(
+        `WebSocket max reconnection attempts (${this.maxReconnectAttempts}) reached. ` +
+        'Please check your credentials or restart Homebridge.',
+      );
+      return;
+    }
+
     this.reconnecting = true;
+    this.reconnectAttempts++;
+
+    // Exponential backoff: 5s, 10s, 20s, 40s, 80s, ... (capped at 300s)
+    const baseDelay = NETWORK_INTERVALS.WEBSOCKET_RECONNECT;
+    const backoffDelay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), 300000);
+
+    this.platform.log.info(
+      `Scheduling WebSocket reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} ` +
+      `in ${Math.round(backoffDelay / 1000)}s...`,
+    );
 
     this.reconnectTimeout = setTimeout(async () => {
       this.platform.log.info('Attempting to reconnect to WebSocket...');
 
       try {
-        // Reload tokens from storage in case they were updated by the UI
         if (this.platform.ewelinkApi) {
-          this.platform.log.debug('Reloading tokens from storage before reconnect...');
-          await this.platform.ewelinkApi.reloadTokensFromStorage();
+          if (forceLogin) {
+            // Force fresh login when token was invalidated (406 error)
+            this.platform.log.info('Performing fresh login due to token invalidation...');
+            await this.platform.ewelinkApi.login();
+          } else {
+            // Normal reconnect - reload tokens in case they were updated
+            this.platform.log.debug('Reloading tokens from storage before reconnect...');
+            await this.platform.ewelinkApi.reloadTokensFromStorage();
+          }
         }
 
         await this.connect();
         this.reconnecting = false;
       } catch (error) {
-        this.platform.log.error('Reconnection failed:', error);
-        this.reconnecting = false;
-        this.scheduleReconnect();
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorCode = (error as any)?.code;
+
+        // Check if this is a 406 token invalidation error
+        if (errorCode === 406 || errorMessage.includes('AUTH_TOKEN_INVALIDATED')) {
+          this.platform.log.error(
+            'Reconnection failed: Token invalidated. ' +
+            'This usually means you logged in elsewhere. Will retry with fresh login...',
+          );
+          this.reconnecting = false;
+          this.scheduleReconnect(true); // Force login on next attempt
+        } else {
+          this.platform.log.error('Reconnection failed:', errorMessage);
+          this.reconnecting = false;
+          this.scheduleReconnect(false); // Normal retry
+        }
       }
-    }, NETWORK_INTERVALS.WEBSOCKET_RECONNECT);
+    }, backoffDelay);
   }
 
   /**
