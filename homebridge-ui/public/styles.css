@@ -1,3 +1,4 @@
+/* Dark mode support */
 .dark-mode {
   background-color: #242424;
   color: lightgrey;
@@ -32,4 +33,121 @@ select {
     5px 5px,
     1px 1.5em;
   background-repeat: no-repeat;
+}
+
+/* Header */
+.ewelink-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.ewelink-header img {
+  max-width: 300px;
+  margin-bottom: 1rem;
+}
+
+/* Step wizard */
+.step-container {
+  margin-bottom: 2rem;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--bs-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-right: 0.75rem;
+}
+
+.step-title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Device list */
+.device-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.device-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.device-item:last-child {
+  border-bottom: none;
+}
+
+.device-info {
+  flex: 1;
+}
+
+.device-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.device-id {
+  font-size: 0.85rem;
+  color: var(--bs-secondary);
+}
+
+.device-model {
+  font-size: 0.8rem;
+  color: var(--bs-secondary);
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Status badges */
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-online {
+  background-color: var(--bs-success);
+  color: white;
+}
+
+.status-offline {
+  background-color: var(--bs-danger);
+  color: white;
+}
+
+/* Utility classes */
+.hidden {
+  display: none !important;
+}
+
+.btn-sm-icon {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
 }

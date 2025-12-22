@@ -233,9 +233,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       this.log.info('Attempting login...');
       await this.ewelinkApi.login();
 
-      // Get device list
-      const devices = await this.ewelinkApi.getDevices();
-      this.log.info(`Discovered ${devices.length} devices from eWeLink`);
+      // Get device list and groups
+      const { devices, groups } = await this.ewelinkApi.getDevices();
+      this.log.info(`Discovered ${devices.length} devices and ${groups.length} groups from eWeLink`);
 
       // Cache devices
       for (const device of devices) {
@@ -260,7 +260,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       }
 
       // Process device groups
-      await this.processGroups();
+      await this.processGroups(groups);
 
       // Remove stale accessories
       this.removeStaleAccessories(devices);
@@ -835,45 +835,33 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /**
    * Process device groups from eWeLink cloud
    */
-  private async processGroups(): Promise<void> {
-    if (!this.ewelinkApi) {
+  private async processGroups(groups: any[]): Promise<void> {
+    if (!this.ewelinkApi || groups.length === 0) {
       return;
     }
 
-    try {
-      this.log.debug('Fetching groups from eWeLink API...');
-      const groups = await this.ewelinkApi.getGroups();
+    this.log.info(`Processing ${groups.length} group(s) from eWeLink account`);
 
-      if (groups.length === 0) {
-        this.log.debug('No groups found in eWeLink account');
-        return;
-      }
+    // Process each group and create as a device
+    for (const group of groups) {
+      // Create a pseudo-device object for the group
+      const groupDevice: EWeLinkDevice = {
+        ...group,
+        extra: { uiid: 5000 }, // Groups use UIID 5000
+        deviceid: group.id,
+        productModel: 'Group [5000]',
+        brandName: 'eWeLink',
+        online: true,
+        params: group.params || {},
+        devicekey: '', // Groups don't have device keys
+        apikey: this.ewelinkApi!.getApiKey(),
+        name: group.name || `Group ${group.id}`,
+        deviceStatus: 'online',
+        createdAt: new Date().toISOString(),
+      } as EWeLinkDevice;
 
-      this.log.info(`Found ${groups.length} group(s) in eWeLink account`);
-
-      // Process each group and create as a device
-      for (const group of groups) {
-        // Create a pseudo-device object for the group
-        const groupDevice: EWeLinkDevice = {
-          ...group,
-          extra: { uiid: 5000 }, // Groups use UIID 5000
-          deviceid: group.id,
-          productModel: 'Group [5000]',
-          brandName: 'eWeLink',
-          online: true,
-          params: group.params || {},
-          devicekey: '', // Groups don't have device keys
-          apikey: this.ewelinkApi!.getApiKey(),
-          name: group.name || `Group ${group.id}`,
-          deviceStatus: 'online',
-          createdAt: new Date().toISOString(),
-        } as EWeLinkDevice;
-
-        // Initialize the group as a regular device
-        await this.addAccessory(groupDevice);
-      }
-    } catch (error) {
-      this.log.error('Failed to process groups:', error);
+      // Initialize the group as a regular device
+      await this.addAccessory(groupDevice);
     }
   }
 

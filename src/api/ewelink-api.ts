@@ -305,25 +305,26 @@ export class EWeLinkAPI {
   }
 
   /**
-   * Get list of devices
+   * Get list of devices and groups
    */
-  async getDevices(): Promise<EWeLinkDevice[]> {
+  async getDevices(): Promise<{ devices: EWeLinkDevice[]; groups: any[] }> {
     try {
       // First get the list of homes
       const homeIds = await this.getHomes();
 
       if (homeIds.length === 0) {
         this.platform.log.warn('No homes found in eWeLink account');
-        return [];
+        return { devices: [], groups: [] };
       }
 
       const allDevices: EWeLinkDevice[] = [];
+      const allGroups: any[] = [];
 
       // Get devices for each home
       for (const homeId of homeIds) {
         this.platform.log.debug(`Fetching devices for home: ${homeId}`);
 
-        const response = await this.httpClient.get<APIResponse<{ thingList: Array<{ itemData: EWeLinkDevice }> }>>(
+        const response = await this.httpClient.get<APIResponse<{ thingList: Array<{ itemType: number; itemData: EWeLinkDevice }> }>>(
           '/v2/device/thing',
           {
             params: {
@@ -338,18 +339,21 @@ export class EWeLinkAPI {
           continue;
         }
 
-        // Extract devices from thingList
+        // Extract devices and groups from thingList
         const thingList = response.data.data?.thingList || [];
         for (const thing of thingList) {
-          // Only add actual devices (items with itemData and uiid)
           if (thing.itemData?.extra?.uiid) {
+            // Regular device (has uiid)
             allDevices.push(thing.itemData);
+          } else if (thing.itemType === 3) {
+            // Group (itemType === 3)
+            allGroups.push(thing.itemData);
           }
         }
       }
 
-      this.platform.log.debug(`Retrieved ${allDevices.length} devices from API`);
-      return allDevices;
+      this.platform.log.debug(`Retrieved ${allDevices.length} devices and ${allGroups.length} groups from API`);
+      return { devices: allDevices, groups: allGroups };
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -405,37 +409,6 @@ export class EWeLinkAPI {
     } catch (error) {
       this.platform.log.error('Failed to update device:', deviceId, error);
       return false;
-    }
-  }
-
-  /**
-   * Get list of groups
-   */
-  async getGroups(): Promise<any[]> {
-    try {
-      const response = await this.httpClient.get<APIResponse<{ groupList: any[] }>>(
-        '/v2/group',
-        {
-          params: {
-            lang: 'en',
-          },
-        },
-      );
-
-      if (response.data.error !== 0) {
-        this.platform.log.warn(`Failed to get groups: ${response.data.msg}`);
-        return [];
-      }
-
-      const groups = response.data.data?.groupList || [];
-      this.platform.log.debug(`Retrieved ${groups.length} groups from API`);
-      return groups;
-
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        this.platform.log.error(`Failed to get groups: ${error.response?.data?.msg || error.message}`);
-      }
-      return [];
     }
   }
 

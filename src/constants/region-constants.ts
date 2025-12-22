@@ -4,29 +4,155 @@
 
 /**
  * Country codes mapped to their respective regions
+ * Based on eWeLink API regional assignments
  */
 export const REGION_COUNTRY_CODES: Record<string, readonly string[]> = {
+  // China region
   cn: ['86', 'cn'],
-  as: ['91', '65', '60', '66', '81', '82', '852', '853', '886', 'as'],
-  eu: [
-    '30', '31', '32', '33', '34', '36', '39', '40', '41', '43', '44', '45',
-    '46', '47', '48', '49', '51', '52', '53', '54', '55', '56', '57', '58',
-    '90', '212', '213', '216', '218', '220', '221', '222', '223', '224',
-    '225', '226', '227', '228', '229', '230', '231', '232', '233', '234',
-    '235', '236', '237', '238', '239', '240', '241', '242', '243', '244',
-    '245', '246', '248', '249', '250', '251', '252', '253', '254', '255',
-    '256', '257', '258', '260', '261', '262', '263', '264', '265', '266',
-    '267', '268', '269', '27', '290', '291', '297', '298', '299', '350',
-    '351', '352', '353', '354', '355', '356', '357', '358', '359', '370',
-    '371', '372', '373', '374', '375', '376', '377', '378', '380', '381',
-    '382', '383', '385', '386', '387', '389', '417', '420', '421', '423',
-    '500', '501', '502', '503', '504', '505', '506', '507', '508', '509',
-    '590', '591', '592', '593', '594', '595', '596', '597', '598', '599',
-    '672', '674', '679', '680', '850', '92', '961', '962', '963', '964',
-    '965', '966', '967', '968', '970', '971', '972', '973', '974', '975',
-    '976', '977', '992', '993', '994', '995', '996', '998', 'eu',
+
+  // Asia-Pacific region
+  as: [
+    '81',   // Japan
+    '82',   // South Korea
+    '852',  // Hong Kong
+    '853',  // Macau
+    '886',  // Taiwan
+    '91',   // India
+    '65',   // Singapore
+    '60',   // Malaysia
+    '66',   // Thailand
+    '84',   // Vietnam
+    '62',   // Indonesia
+    '63',   // Philippines
+    '61',   // Australia
+    '64',   // New Zealand
+    'as',
   ],
-  us: [], // Default region
+
+  // Europe region (includes Middle East, Africa, and parts of Americas)
+  eu: [
+    // Western Europe
+    '44',   // United Kingdom
+    '33',   // France
+    '49',   // Germany
+    '39',   // Italy
+    '34',   // Spain
+    '31',   // Netherlands
+    '32',   // Belgium
+    '41',   // Switzerland
+    '43',   // Austria
+    '351',  // Portugal
+    '353',  // Ireland
+    '352',  // Luxembourg
+    '356',  // Malta
+    '377',  // Monaco
+    // Nordic
+    '45',   // Denmark
+    '46',   // Sweden
+    '47',   // Norway
+    '358',  // Finland
+    '354',  // Iceland
+    // Central/Eastern Europe
+    '48',   // Poland
+    '420',  // Czech Republic
+    '421',  // Slovakia
+    '36',   // Hungary
+    '40',   // Romania
+    '359',  // Bulgaria
+    '380',  // Ukraine
+    '7',    // Russia
+    '370',  // Lithuania
+    '371',  // Latvia
+    '372',  // Estonia
+    '375',  // Belarus
+    '373',  // Moldova
+    '381',  // Serbia
+    '385',  // Croatia
+    '386',  // Slovenia
+    '387',  // Bosnia
+    '389',  // North Macedonia
+    '355',  // Albania
+    '383',  // Kosovo
+    '382',  // Montenegro
+    // Southern Europe
+    '30',   // Greece
+    '357',  // Cyprus
+    '90',   // Turkey
+    // Middle East
+    '971',  // UAE
+    '966',  // Saudi Arabia
+    '972',  // Israel
+    '974',  // Qatar
+    '965',  // Kuwait
+    '968',  // Oman
+    '973',  // Bahrain
+    '962',  // Jordan
+    '961',  // Lebanon
+    '963',  // Syria
+    '964',  // Iraq
+    '967',  // Yemen
+    '970',  // Palestine
+    '98',   // Iran
+    '92',   // Pakistan
+    // Central Asia
+    '992',  // Tajikistan
+    '993',  // Turkmenistan
+    '994',  // Azerbaijan
+    '995',  // Georgia
+    '996',  // Kyrgyzstan
+    '998',  // Uzbekistan
+    '374',  // Armenia
+    '976',  // Mongolia
+    '977',  // Nepal
+    '975',  // Bhutan
+    // Africa
+    '27',   // South Africa
+    '20',   // Egypt
+    '234',  // Nigeria
+    '212',  // Morocco
+    '213',  // Algeria
+    '216',  // Tunisia
+    '218',  // Libya
+    '249',  // Sudan
+    '254',  // Kenya
+    '255',  // Tanzania
+    '256',  // Uganda
+    '233',  // Ghana
+    '225',  // Ivory Coast
+    '221',  // Senegal
+    '237',  // Cameroon
+    '251',  // Ethiopia
+    '260',  // Zambia
+    '263',  // Zimbabwe
+    '244',  // Angola
+    '258',  // Mozambique
+    '261',  // Madagascar
+    // Latin America (mapped to EU by eWeLink)
+    '51',   // Peru
+    '52',   // Mexico
+    '53',   // Cuba
+    '54',   // Argentina
+    '55',   // Brazil
+    '56',   // Chile
+    '57',   // Colombia
+    '58',   // Venezuela
+    '591',  // Bolivia
+    '593',  // Ecuador
+    '595',  // Paraguay
+    '598',  // Uruguay
+    '506',  // Costa Rica
+    '507',  // Panama
+    '502',  // Guatemala
+    '503',  // El Salvador
+    '504',  // Honduras
+    '505',  // Nicaragua
+    'eu',
+  ],
+
+  // US region (default)
+  us: [
+    '1',    // USA / Canada
+  ],
 };
 
 /**
