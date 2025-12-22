@@ -7,6 +7,8 @@ import {
 } from 'homebridge';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, EWeLinkDevice } from '../types/index.js';
+import { SwitchHelper } from '../utils/switch-helper.js';
+import { TIMING } from '../constants/timing-constants.js';
 
 /**
  * Base class for all accessory types
@@ -220,5 +222,58 @@ export abstract class BaseAccessory {
    */
   protected clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
+  }
+
+  /**
+   * Handle inching mode state change
+   * Inching mode always sends "on" command but toggles internal cached state
+   *
+   * @param service - Service to update
+   * @param characteristic - On characteristic
+   * @param deviceParams - Current device parameters
+   * @param channelIndex - Channel index for multi-channel devices
+   * @param cacheState - Current cached state
+   * @param ignoreUpdatesRef - Reference object for ignore flag {value: boolean}
+   * @returns New cached state
+   */
+  protected async handleInchingModeSet(
+    service: Service,
+    characteristic: typeof Characteristic.On,
+    deviceParams: DeviceParams,
+    channelIndex: number,
+    cacheState: boolean,
+    ignoreUpdatesRef: { value: boolean },
+  ): Promise<boolean> {
+    try {
+      // Toggle the cached state
+      const newState = !cacheState;
+
+      // Always send "on" command for inching mode
+      const params = SwitchHelper.buildSwitchParams(deviceParams, channelIndex, true);
+
+      // Set ignore flag to prevent echo updates
+      ignoreUpdatesRef.value = true;
+      setTimeout(() => {
+        ignoreUpdatesRef.value = false;
+      }, TIMING.INCHING_DEBOUNCE_MS);
+
+      await this.sendCommand(params);
+
+      // Update characteristic with new cached state
+      service.updateCharacteristic(characteristic, newState);
+
+      this.logDebug(`Inching mode state toggled: ${newState ? 'ON' : 'OFF'}`);
+
+      return newState;
+    } catch (err) {
+      this.logError('Failed to set inching mode state', err);
+
+      // Revert characteristic to previous state
+      setTimeout(() => {
+        service.updateCharacteristic(characteristic, cacheState);
+      }, TIMING.FAILED_COMMAND_RESET_MS);
+
+      throw err;
+    }
   }
 }

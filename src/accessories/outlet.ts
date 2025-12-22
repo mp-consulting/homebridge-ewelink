@@ -22,8 +22,8 @@ export class OutletAccessory extends BaseAccessory {
   /** Cached state for inching mode (toggles internally) */
   private cacheState: boolean = false;
 
-  /** Ignore updates flag for inching mode debouncing */
-  private ignoreUpdates: boolean = false;
+  /** Ignore updates flag for inching mode debouncing (wrapped in object for reference passing) */
+  private ignoreUpdatesRef = { value: false };
 
   /** Device configuration */
   private readonly deviceConfig?: SingleDeviceConfig;
@@ -145,7 +145,14 @@ export class OutletAccessory extends BaseAccessory {
    */
   private async setOn(value: CharacteristicValue): Promise<void> {
     if (this.isInched) {
-      await this.handleInchingModeSet(value as boolean);
+      this.cacheState = await this.handleInchingModeSet(
+        this.service,
+        this.Characteristic.On,
+        this.deviceParams,
+        this.channelIndex,
+        this.cacheState,
+        this.ignoreUpdatesRef,
+      );
     } else {
       await this.handleSet(value as boolean, 'On', async (on) => {
         const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
@@ -154,39 +161,6 @@ export class OutletAccessory extends BaseAccessory {
     }
   }
 
-  /**
-   * Handle inching mode set - always sends "on", toggles internal state
-   */
-  private async handleInchingModeSet(value: boolean): Promise<void> {
-    try {
-      // Toggle the cached state
-      const newState = !this.cacheState;
-
-      // Always send "on" command for inching mode
-      const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, true);
-
-      // Set ignore flag to prevent echo updates
-      this.ignoreUpdates = true;
-      setTimeout(() => {
-        this.ignoreUpdates = false;
-      }, TIMING.INCHING_DEBOUNCE_MS);
-
-      await this.sendCommand(params);
-
-      // Update cached state
-      this.cacheState = newState;
-      this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
-
-      this.logDebug(`Inching mode state toggled: ${this.cacheState ? 'ON' : 'OFF'}`);
-    } catch (err) {
-      this.logError('Failed to set inching mode state', err);
-      // Revert characteristic to previous state
-      setTimeout(() => {
-        this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
-      }, TIMING.FAILED_COMMAND_RESET_MS);
-      throw err;
-    }
-  }
 
   /**
    * Get outlet in use state (based on power consumption)
@@ -224,11 +198,11 @@ export class OutletAccessory extends BaseAccessory {
         ? params.switches?.[this.channelIndex]?.switch === 'on'
         : params.switch === 'on';
 
-      if (receivedOn && !this.ignoreUpdates) {
+      if (receivedOn && !this.ignoreUpdatesRef.value) {
         // Set ignore flag
-        this.ignoreUpdates = true;
+        this.ignoreUpdatesRef.value = true;
         setTimeout(() => {
-          this.ignoreUpdates = false;
+          this.ignoreUpdatesRef.value = false;
         }, TIMING.INCHING_DEBOUNCE_MS);
 
         // Toggle cached state
