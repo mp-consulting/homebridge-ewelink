@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
+import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
 
@@ -168,7 +169,7 @@ export class OutletAccessory extends BaseAccessory {
       this.ignoreUpdates = true;
       setTimeout(() => {
         this.ignoreUpdates = false;
-      }, 1500);
+      }, TIMING.INCHING_DEBOUNCE_MS);
 
       await this.sendCommand(params);
 
@@ -182,7 +183,7 @@ export class OutletAccessory extends BaseAccessory {
       // Revert characteristic to previous state
       setTimeout(() => {
         this.service.updateCharacteristic(this.Characteristic.On, this.cacheState);
-      }, 2000);
+      }, TIMING.FAILED_COMMAND_RESET_MS);
       throw err;
     }
   }
@@ -228,7 +229,7 @@ export class OutletAccessory extends BaseAccessory {
         this.ignoreUpdates = true;
         setTimeout(() => {
           this.ignoreUpdates = false;
-        }, 1500);
+        }, TIMING.INCHING_DEBOUNCE_MS);
 
         // Toggle cached state
         this.cacheState = !this.cacheState;

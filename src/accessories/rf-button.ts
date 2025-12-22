@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { TIMING } from '../constants/timing-constants.js';
 
 /**
  * RF Button Accessory
@@ -80,7 +81,7 @@ export class RFButtonAccessory extends BaseAccessory {
       setTimeout(() => {
         const service = this.buttonServices.get(channel);
         service?.updateCharacteristic(this.Characteristic.On, false);
-      }, 2000);
+      }, TIMING.RF_BUTTON_PRESS_MS);
 
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
@@ -91,7 +92,7 @@ export class RFButtonAccessory extends BaseAccessory {
     setTimeout(() => {
       const service = this.buttonServices.get(channel);
       service?.updateCharacteristic(this.Characteristic.On, false);
-    }, 1000);
+    }, TIMING.BUTTON_PRESS_MS);
   }
 
   /**
@@ -119,7 +120,7 @@ export class RFButtonAccessory extends BaseAccessory {
     // Turn off after delay
     setTimeout(() => {
       service.updateCharacteristic(this.Characteristic.On, false);
-    }, 3000);
+    }, TIMING.RF_BUTTON_TRIGGER_MS);
   }
 
   /**
