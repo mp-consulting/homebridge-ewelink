@@ -31,9 +31,23 @@ export class RFButtonAccessory extends BaseAccessory {
       const channelNum = Number.parseInt(channel, 10);
       this.buttonNames.set(channelNum, name);
 
-      // Get or create service
-      const service = accessory.getService(name) ||
-        accessory.addService(this.Service.Switch, name, `switch${channel}`);
+      // Use subtype to identify service (stable across name changes)
+      const subtype = `switch${channel}`;
+
+      // Get or create service by subtype
+      let service = accessory.getServiceById(this.Service.Switch, subtype);
+
+      if (!service) {
+        // Create new service
+        service = accessory.addService(this.Service.Switch, name, subtype);
+      } else {
+        // Update display name if it changed
+        if (service.displayName !== name) {
+          service.setCharacteristic(this.Characteristic.Name, name);
+          service.setCharacteristic(this.Characteristic.ConfiguredName, name);
+          service.displayName = name;
+        }
+      }
 
       // Configure the switch
       service.getCharacteristic(this.Characteristic.On)
