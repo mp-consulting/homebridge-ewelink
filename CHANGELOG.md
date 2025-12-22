@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-12-22
+
+### Changed
+- **Code Quality Improvements**: Major refactoring to improve maintainability and reduce code duplication
+  - Extracted Eve characteristic UUIDs to centralized constants (eliminated 69 duplications across 11 files)
+  - Created timing constants file for all timeout values (replaced 30+ magic numbers)
+  - Extracted inching mode logic to base class method (removed 45 lines of duplicate code)
+  - Added utility functions for error handling, number parsing, and type conversion
+  - Added power monitoring UIID constants for capability detection
+  - Added `channelIndex` getter to BaseAccessory (removed duplicate properties from 15 accessories)
+  - Overall: 24 files modified, net reduction of 30 lines while improving code organization
+
+### Fixed
+- **RF Button Service Names**: RF button services now correctly update when button names change in eWeLink
+  - Changed from name-based to stable subtype-based service identification
+  - Display names now update dynamically when configuration changes
+
 ## [1.0.5] - 2025-12-22
 
 ### Changed

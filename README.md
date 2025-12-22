@@ -29,6 +29,15 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 👥 **Group Control** - Full support for eWeLink cloud groups with automatic discovery
 - 📊 **Device Status Tracking** - Real-time online/offline status with NO RESPONSE display in HomeKit
 
+## Recent Updates (v1.0.6)
+
+- 🔧 **Code Quality Improvements** - Major refactoring for better maintainability
+- 🏷️ **RF Button Names** - Button names now update automatically when changed in eWeLink
+- 📦 **Reduced Code Duplication** - Centralized constants, utilities, and base class methods
+- ⚡ **Performance** - More efficient code organization with improved type safety
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
+
 ## Installation
 
 ### Through Homebridge UI
