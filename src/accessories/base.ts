@@ -108,6 +108,23 @@ export abstract class BaseAccessory {
   abstract updateState(params: DeviceParams): void;
 
   /**
+   * Mark device as online or offline
+   * Called by platform when device status changes
+   */
+  markStatus(isOnline: boolean): void {
+    // Update the device online status in context
+    this.accessory.context.device.online = isOnline;
+
+    // If device is offline and disableNoResponse is not enabled, do nothing
+    // HomeKit will show NO RESPONSE automatically when commands fail
+    if (!isOnline) {
+      this.logDebug('Device marked as offline');
+    } else {
+      this.logDebug('Device marked as online');
+    }
+  }
+
+  /**
    * Handle characteristic get request
    */
   protected async handleGet<T extends CharacteristicValue>(

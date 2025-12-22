@@ -105,9 +105,10 @@ export class ThermostatAccessory extends BaseAccessory {
     await this.handleSet(value, 'TargetHeatingCoolingState', async (val) => {
       const newState = val === 1 ? 'on' : 'off';
 
-      // Update device via API
+      // Update device via API (TH10/16 requires deviceType and mainSwitch)
       const success = await this.sendCommand({
         switch: newState,
+        mainSwitch: newState,
         deviceType: 'normal',
       });
 

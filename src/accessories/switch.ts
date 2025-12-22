@@ -29,7 +29,8 @@ export class SwitchAccessory extends BaseAccessory {
   ) {
     super(platform, accessory);
 
-    this.channelIndex = accessory.context.channelIndex || 0;
+    // For multi-channel devices, use switchNumber from context
+    this.channelIndex = accessory.context.switchNumber ?? accessory.context.channelIndex ?? 0;
 
     // Get device-specific config
     this.deviceConfig = platform.config.singleDevices?.find(
@@ -149,9 +150,19 @@ export class SwitchAccessory extends BaseAccessory {
       }
     } else {
       // Standard mode - update from device state
-      const isOn = this.getCurrentState();
+      let isOn = this.getCurrentState();
+
+      // For multi-channel devices, master switch (channel 0) shows ON if ANY channel is ON
+      if (this.channelIndex === 0 && this.accessory.context.channelCount) {
+        const isSCM = SwitchHelper.isSCMDevice(this.deviceParams);
+        if (isSCM && params.switches) {
+          // Check if ANY switch is on (primary state logic)
+          isOn = params.switches.some(sw => sw.switch === 'on');
+        }
+      }
+
       this.service.updateCharacteristic(this.Characteristic.On, isOn);
-      this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}`);
+      this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}${this.channelIndex === 0 && this.accessory.context.channelCount ? ' (primary state)' : ''}`);
     }
   }
 }

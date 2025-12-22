@@ -10,6 +10,7 @@ import {
 
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
+import { DEVICE_CHANNEL_COUNT } from './constants/device-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
@@ -350,6 +351,244 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       this.accessories.set(uuid, accessory);
     }
+
+    // Create RF sub-devices if this is an RF Bridge
+    if (category === DeviceCategory.RF_BRIDGE) {
+      await this.createRFSubDevices(device);
+      return; // RF Bridge doesn't need single accessory
+    }
+
+    // Create multi-channel sub-devices if this is a multi-switch device
+    if (category === DeviceCategory.MULTI_SWITCH) {
+      await this.createMultiChannelSubDevices(device, category);
+      return; // Multi-switch creates its own sub-accessories
+    }
+  }
+
+  /**
+   * Create RF sub-devices for RF Bridge
+   */
+  private async createRFSubDevices(bridgeDevice: EWeLinkDevice): Promise<void> {
+    // Check if bridge has learned RF devices
+    if (!bridgeDevice.tags?.zyx_info || bridgeDevice.tags.zyx_info.length === 0) {
+      this.log.debug(`RF Bridge ${bridgeDevice.name} has no learned RF devices`);
+      return;
+    }
+
+    this.log.info(`Creating RF sub-devices for bridge ${bridgeDevice.name}...`);
+
+    let channelCounter = 0;
+
+    // Process each learned RF device
+    for (const rfDevice of bridgeDevice.tags.zyx_info) {
+      const swNumber = channelCounter + 1;
+      const fullDeviceId = `${bridgeDevice.deviceid}SW${swNumber}`;
+      const uuid = this.api.hap.uuid.generate(fullDeviceId);
+
+      // Determine sub-device type based on remote_type
+      let subType: string;
+      let handler: RFButtonAccessory | RFSensorAccessory | any;
+      const remoteType = rfDevice.remote_type;
+
+      // Parse button names
+      const buttons: Record<string, string> = {};
+      if (rfDevice.buttonName && Array.isArray(rfDevice.buttonName)) {
+        rfDevice.buttonName.forEach((btnMap) => {
+          Object.assign(buttons, btnMap);
+        });
+      }
+
+      // Determine type: 1-4 = button, 5 = curtain, 6-7 = sensor
+      if (['1', '2', '3', '4'].includes(remoteType)) {
+        subType = 'button';
+      } else if (remoteType === '5') {
+        // Curtain - check config for simulation type
+        const deviceConfig = this.config.bridgeSensors?.find(
+          s => s.fullDeviceId === fullDeviceId,
+        );
+        if (deviceConfig?.curtainType && ['blind', 'door', 'window'].includes(deviceConfig.curtainType)) {
+          subType = deviceConfig.curtainType;
+        } else {
+          subType = 'curtain';
+        }
+      } else if (['6', '7'].includes(remoteType)) {
+        subType = 'sensor';
+      } else {
+        this.log.warn(`Unknown RF device type ${remoteType} for ${rfDevice.name}, skipping`);
+        continue;
+      }
+
+      // Create or update accessory
+      let subAccessory = this.accessories.get(uuid);
+
+      if (!subAccessory) {
+        // Create new sub-accessory
+        this.log.info(`Adding RF sub-device: ${rfDevice.name} (type: ${subType})`);
+
+        subAccessory = new this.api.platformAccessory<AccessoryContext>(
+          rfDevice.name,
+          uuid,
+        );
+
+        // Set context
+        subAccessory.context.device = bridgeDevice;
+        subAccessory.context.deviceId = fullDeviceId;
+        subAccessory.context.rfButtonIndex = channelCounter;
+        subAccessory.context.buttons = buttons;
+        subAccessory.context.subType = subType;
+        subAccessory.context.hbDeviceId = fullDeviceId;
+
+        // Set accessory info
+        const infoService = subAccessory.getService(this.Service.AccessoryInformation);
+        if (infoService) {
+          infoService
+            .setCharacteristic(this.Characteristic.Manufacturer, bridgeDevice.brandName || 'eWeLink')
+            .setCharacteristic(this.Characteristic.Model, `RF ${subType}`)
+            .setCharacteristic(this.Characteristic.SerialNumber, fullDeviceId)
+            .setCharacteristic(this.Characteristic.FirmwareRevision, bridgeDevice.params?.fwVersion || '1.0.0');
+        }
+
+        // Register accessory
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [subAccessory]);
+        this.accessories.set(uuid, subAccessory);
+      } else {
+        // Update existing
+        this.log.info(`Restoring RF sub-device: ${rfDevice.name} (type: ${subType})`);
+        subAccessory.context.device = bridgeDevice;
+        subAccessory.context.deviceId = fullDeviceId;
+        subAccessory.context.rfButtonIndex = channelCounter;
+        subAccessory.context.buttons = buttons;
+        subAccessory.context.subType = subType;
+        subAccessory.context.hbDeviceId = fullDeviceId;
+      }
+
+      // Initialize appropriate handler
+      if (subType === 'button' || subType === 'curtain') {
+        handler = new RFButtonAccessory(this, subAccessory);
+      } else if (subType === 'sensor') {
+        handler = new RFSensorAccessory(this, subAccessory);
+      } else if (subType === 'blind') {
+        const { RFBlindAccessory } = await import('./accessories/simulations/rf-blind.js');
+        handler = new RFBlindAccessory(this, subAccessory);
+      } else if (subType === 'door') {
+        const { RFDoorAccessory } = await import('./accessories/simulations/rf-door.js');
+        handler = new RFDoorAccessory(this, subAccessory);
+      } else if (subType === 'window') {
+        const { RFWindowAccessory } = await import('./accessories/simulations/rf-window.js');
+        handler = new RFWindowAccessory(this, subAccessory);
+      }
+
+      if (handler) {
+        this.accessoryHandlers.set(subAccessory.UUID, handler);
+        this.api.updatePlatformAccessories([subAccessory]);
+      }
+
+      // Increment channel counter by number of buttons
+      channelCounter += Object.keys(buttons).length;
+    }
+
+    this.log.info(`Created ${bridgeDevice.tags.zyx_info.length} RF sub-devices for bridge ${bridgeDevice.name}`);
+  }
+
+  /**
+   * Create sub-accessories for multi-channel devices
+   */
+  private async createMultiChannelSubDevices(device: EWeLinkDevice, category: DeviceCategory): Promise<void> {
+    const uiid = device.extra?.uiid || 0;
+    const channelCount = DEVICE_CHANNEL_COUNT[uiid];
+
+    if (!channelCount || channelCount === 1) {
+      // Single channel device, no sub-accessories needed
+      return;
+    }
+
+    this.log.info(`Creating ${channelCount + 1} channels for multi-switch device ${device.name}...`);
+
+    // Get device configuration
+    const deviceConfig = this.config.multiDevices?.find(d => d.deviceId === device.deviceid);
+    const hideChannels = deviceConfig?.hideChannels?.split(',').map(c => c.trim()) || [];
+    const inchChannels = deviceConfig?.inchChannels || false;
+
+    // Remove any leftover single accessory from a previous simulation
+    const singleUuid = this.api.hap.uuid.generate(device.deviceid);
+    if (this.accessories.has(singleUuid)) {
+      const oldAccessory = this.accessories.get(singleUuid)!;
+      this.log.info(`Removing old single accessory for ${device.name}`);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [oldAccessory]);
+      this.accessories.delete(singleUuid);
+      this.accessoryHandlers.delete(oldAccessory.UUID);
+    }
+
+    // Create sub-accessories for each channel (0 = master, 1-N = individual channels)
+    for (let channel = 0; channel <= channelCount; channel++) {
+      const fullDeviceId = `${device.deviceid}SW${channel}`;
+      const uuid = this.api.hap.uuid.generate(fullDeviceId);
+      const isHidden = hideChannels.includes(`${device.deviceid}SW${channel}`)
+        || (channel === 0 && inchChannels);
+
+      let subAccessory = this.accessories.get(uuid);
+
+      // Determine if we need to create or update the accessory
+      if (!subAccessory) {
+        // Create new sub-accessory
+        const displayName = channel === 0
+          ? device.name
+          : `${device.name} ${channel}`;
+
+        subAccessory = new this.api.platformAccessory<AccessoryContext>(displayName, uuid);
+
+        // Register with Homebridge
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [subAccessory]);
+        this.accessories.set(uuid, subAccessory);
+      }
+
+      // Update context
+      subAccessory.context.device = device;
+      subAccessory.context.deviceId = fullDeviceId;
+      subAccessory.context.switchNumber = channel;
+      subAccessory.context.channelCount = channelCount;
+      subAccessory.context.category = category;
+
+      // Add metadata context (following original implementation)
+      subAccessory.context.firmware = device.params?.fwVersion;
+      subAccessory.context.reachableWAN = !!this.wsClient && device.online;
+      subAccessory.context.reachableLAN = !!this.lanControl; // Will be updated when LAN discovers device
+      subAccessory.context.eweBrandName = device.brandName;
+      subAccessory.context.eweBrandLogo = device.brandLogoUrl;
+      subAccessory.context.eweShared = device.sharedTo && device.sharedTo.length > 0 ? device.sharedTo[0] : false;
+      subAccessory.context.macAddress = device.extra?.staMac?.replace(/:+/g, '').replace(/..\B/g, '$&:');
+      subAccessory.context.lanKey = device.devicekey;
+
+      // Update accessory information
+      this.updateAccessoryInfo(subAccessory, device);
+
+      // Initialize handler based on showAs config
+      const showAs = deviceConfig?.showAs || 'default';
+
+      if (showAs === 'outlet') {
+        // Create outlet handler
+        const { OutletAccessory } = await import('./accessories/outlet.js');
+        const handler = new OutletAccessory(this, subAccessory);
+        this.accessoryHandlers.set(subAccessory.UUID, handler);
+      } else {
+        // Create switch handler
+        const { SwitchAccessory } = await import('./accessories/switch.js');
+        const handler = new SwitchAccessory(this, subAccessory);
+        this.accessoryHandlers.set(subAccessory.UUID, handler);
+      }
+
+      // Update the accessory
+      this.api.updatePlatformAccessories([subAccessory]);
+
+      // Mark accessory as hidden if configured
+      if (isHidden && channel === 0) {
+        this.log.debug(`Channel ${channel} (master) is hidden for ${device.name}`);
+      } else if (isHidden) {
+        this.log.debug(`Channel ${channel} is hidden for ${device.name}`);
+      }
+    }
+
+    this.log.info(`Created ${channelCount + 1} channel accessories for ${device.name}`);
   }
 
   /**
@@ -593,17 +832,47 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Process device groups
+   * Process device groups from eWeLink cloud
    */
   private async processGroups(): Promise<void> {
-    if (!this.config.groups || this.config.groups.length === 0) {
+    if (!this.ewelinkApi) {
       return;
     }
 
-    for (const group of this.config.groups) {
-      this.log.debug('Processing group:', group.label || group.type);
-      // Group processing logic would go here
-      // This creates virtual accessories that control multiple devices
+    try {
+      this.log.debug('Fetching groups from eWeLink API...');
+      const groups = await this.ewelinkApi.getGroups();
+
+      if (groups.length === 0) {
+        this.log.debug('No groups found in eWeLink account');
+        return;
+      }
+
+      this.log.info(`Found ${groups.length} group(s) in eWeLink account`);
+
+      // Process each group and create as a device
+      for (const group of groups) {
+        // Create a pseudo-device object for the group
+        const groupDevice: EWeLinkDevice = {
+          ...group,
+          extra: { uiid: 5000 }, // Groups use UIID 5000
+          deviceid: group.id,
+          productModel: 'Group [5000]',
+          brandName: 'eWeLink',
+          online: true,
+          params: group.params || {},
+          devicekey: '', // Groups don't have device keys
+          apikey: this.ewelinkApi!.getApiKey(),
+          name: group.name || `Group ${group.id}`,
+          deviceStatus: 'online',
+          createdAt: new Date().toISOString(),
+        } as EWeLinkDevice;
+
+        // Initialize the group as a regular device
+        await this.addAccessory(groupDevice);
+      }
+    } catch (error) {
+      this.log.error('Failed to process groups:', error);
     }
   }
 
@@ -641,13 +910,58 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    * Handle device state updates
    */
   public handleDeviceUpdate(deviceId: string, params: DeviceParams): void {
-    const uuid = this.api.hap.uuid.generate(deviceId);
-    const handler = this.accessoryHandlers.get(uuid);
+    // Check if this is a multi-channel device
+    const device = this.deviceCache.get(deviceId);
+    if (!device) {
+      this.log.debug('Device not found in cache for update:', deviceId);
+      return;
+    }
 
-    if (handler) {
-      handler.updateState(params);
+    const uiid = device.extra?.uiid || 0;
+    const channelCount = DEVICE_CHANNEL_COUNT[uiid];
+
+    // For multi-channel devices, broadcast to all sub-accessories
+    if (channelCount && channelCount > 1) {
+      // Update all channel sub-accessories (SW0, SW1, SW2, etc.)
+      for (let channel = 0; channel <= channelCount; channel++) {
+        const subDeviceId = `${deviceId}SW${channel}`;
+        const subUuid = this.api.hap.uuid.generate(subDeviceId);
+        const subHandler = this.accessoryHandlers.get(subUuid);
+
+        if (subHandler) {
+          subHandler.updateState(params);
+
+          // Mark online/offline status
+          if (params.online !== undefined && 'markStatus' in subHandler && typeof subHandler.markStatus === 'function') {
+            subHandler.markStatus(params.online === true);
+          }
+
+          // Update reachability context for sub-accessories
+          const subAccessory = this.accessories.get(subUuid);
+          if (subAccessory) {
+            subAccessory.context.reachableWAN = !!this.wsClient && device.online;
+            if (params.updateSource === 'LAN') {
+              subAccessory.context.reachableLAN = true;
+            }
+            this.api.updatePlatformAccessories([subAccessory]);
+          }
+        }
+      }
     } else {
-      this.log.debug('No handler found for device update:', deviceId);
+      // Single-channel device or RF Bridge - update directly
+      const uuid = this.api.hap.uuid.generate(deviceId);
+      const handler = this.accessoryHandlers.get(uuid);
+
+      if (handler) {
+        handler.updateState(params);
+
+        // Mark online/offline status
+        if (params.online !== undefined && 'markStatus' in handler && typeof handler.markStatus === 'function') {
+          handler.markStatus(params.online === true);
+        }
+      } else {
+        this.log.debug('No handler found for device update:', deviceId);
+      }
     }
   }
 
@@ -659,6 +973,12 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     if (!device) {
       this.log.error('Device not found in cache:', deviceId);
       return false;
+    }
+
+    // Groups (UIID 5000) must use HTTP API with type=2
+    if (device.extra?.uiid === 5000 && this.ewelinkApi) {
+      this.log.debug(`Sending group command to ${deviceId} via HTTP API`);
+      return await this.ewelinkApi.updateGroup(deviceId, params);
     }
 
     // Try LAN control first (if available and device supports it)

@@ -408,6 +408,58 @@ export class EWeLinkAPI {
     }
   }
 
+  /**
+   * Get list of groups
+   */
+  async getGroups(): Promise<any[]> {
+    try {
+      const response = await this.httpClient.get<APIResponse<{ groupList: any[] }>>(
+        '/v2/group',
+        {
+          params: {
+            lang: 'en',
+          },
+        },
+      );
+
+      if (response.data.error !== 0) {
+        this.platform.log.warn(`Failed to get groups: ${response.data.msg}`);
+        return [];
+      }
+
+      const groups = response.data.data?.groupList || [];
+      this.platform.log.debug(`Retrieved ${groups.length} groups from API`);
+      return groups;
+
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        this.platform.log.error(`Failed to get groups: ${error.response?.data?.msg || error.message}`);
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Update group state (groups use a different API endpoint)
+   */
+  async updateGroup(groupId: string, params: Record<string, unknown>): Promise<boolean> {
+    try {
+      const response = await this.httpClient.post<APIResponse>(
+        '/v2/device/thing/status',
+        {
+          type: 2, // Type 2 indicates group update
+          id: groupId,
+          params,
+        },
+      );
+
+      return response.data.error === 0;
+
+    } catch (error) {
+      this.platform.log.error('Failed to update group:', groupId, error);
+      return false;
+    }
+  }
 
   /**
    * Get API key

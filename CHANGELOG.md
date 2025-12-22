@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-12-22
+
+### Added
+- **RF Bridge Sub-Device Support**: RF Bridge devices (UIID 28, 98) now automatically create sub-devices for learned RF buttons and sensors
+  - Parses `device.tags.zyx_info` to create individual accessories
+  - Supports button types 1-4 (RF buttons)
+  - Supports sensor types 6-7 (RF sensors)
+  - Supports curtain type 5 with configurable simulations (blind/door/window)
+  - Each sub-device gets its own UUID pattern: `${bridgeDeviceId}SW${index}`
+- **Multi-Channel Device Sub-Accessories**: Multi-channel switches and outlets now create individual accessories for each channel
+  - Automatic sub-accessory creation for all multi-channel UIIDs (2, 3, 4, 7, 8, 9, 29, 30, 31, 41, 82, 83, 84, 113, 114, 126, 161, 162, 165, 210-212, etc.)
+  - Each channel gets its own accessory with UUID pattern: `${deviceId}SW0`, `SW1`, `SW2`, etc.
+  - Channel 0 is the master switch, channels 1-N are individual outlets/switches
+  - Support for `hideChannels` configuration to hide specific channels
+  - Support for `inchChannels` configuration for inching mode on specific channels
+- **Group Device Support**: eWeLink cloud groups now fully supported
+  - Automatic group discovery from eWeLink API
+  - Groups use HTTP API endpoint with `type: 2` parameter
+  - Groups assigned special UIID 5000
+  - Full control and state synchronization
+- **Device Context Enrichment**: All accessories now include comprehensive metadata
+  - Firmware version tracking
+  - WAN reachability status
+  - LAN reachability status
+  - Brand name and logo URL
+  - MAC address
+  - Shared device status
+  - Device key for LAN control
+
+### Fixed
+- **Multi-Channel Update Broadcasting**: Device state updates now properly broadcast to ALL sub-accessories
+  - When a multi-channel device updates, all channels (SW0-SW4) receive the update simultaneously
+  - Fixes synchronization issues where only one channel would update
+  - Reachability status (WAN/LAN) propagated to all sub-accessories
+- **Master Switch Primary State Logic**: Master switch (channel 0) now correctly shows ON if ANY channel is ON
+  - Implements "primary state" logic from original plugin
+  - Uses `params.switches.some()` to check all channels
+  - Fixes UX issue where master switch didn't reflect true device state
+- **WebSocket Sub-Device Message Handling**: Added handlers for `reportSubDevice` and `subDevice` WebSocket actions
+  - Prevents "Unknown action" warnings in logs
+  - Properly handles Zigbee bridge sub-device state reports
+- **TH10/16 Device Parameters**: Thermostat devices now send correct parameters
+  - Added `mainSwitch` parameter alongside `switch`
+  - Ensures `deviceType: 'normal'` is sent for all TH device commands
+  - Fixes compatibility with TH10/16 devices in all modes
+- **Device Online/Offline Status**: Implemented proper device status tracking
+  - Added `markStatus()` method to all accessories
+  - Device online/offline status updates tracked in context
+  - HomeKit shows NO RESPONSE when devices are offline
+  - Platform calls `markStatus()` when WebSocket reports status changes
+- **RF Bridge sub-device creation** - RF devices now appear in HomeKit
+- **Custom UI not loading in Homebridge config** - Already fixed in 1.0.0 (added customUiPath property)
+
+### Technical Details
+- Added `DEVICE_CHANNEL_COUNT` constant mapping all UIIDs to channel counts
+- Enhanced `handleDeviceUpdate()` to broadcast to multi-channel sub-accessories
+- Implemented `createRFSubDevices()` method for RF Bridge sub-device creation
+- Implemented `createMultiChannelSubDevices()` method for multi-channel devices
+- Added `getGroups()` and `updateGroup()` methods to eWeLink API client
+- Enhanced `AccessoryContext` with metadata fields (firmware, reachability, brand info, MAC, etc.)
+- Added `markStatus()` base method for online/offline tracking
+- Multi-channel devices now use `switchNumber` context property
+
 ## [1.0.0] - 2025-12-21
 
 ### Added

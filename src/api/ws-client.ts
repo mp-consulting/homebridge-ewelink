@@ -180,6 +180,14 @@ export class WSClient {
         return;
       }
 
+      // Handle Zigbee bridge sub-device reports
+      // These messages are sent by Zigbee bridges when sub-devices report state changes
+      if (message.action === 'reportSubDevice' || message.action === 'subDevice') {
+        this.platform.log.debug(`Zigbee sub-device report received (${message.action})`);
+        // These are informational - the actual device updates come via 'update' messages
+        return;
+      }
+
       // Handle response to our commands
       if (message.sequence) {
         const pending = this.pendingRequests.get(message.sequence);

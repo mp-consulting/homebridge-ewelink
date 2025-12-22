@@ -22,6 +22,10 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 🔁 **Smart Reconnection** - Handles concurrent sessions gracefully with automatic fresh login and exponential backoff
 - 🎯 **Smart Device Detection** - Automatically detects device types based on UIID and parameters
 - 🎮 **Programmable Switches** - Full support for SONOFF Mini (S-MAN) and SONOFF Mate (S-MATE) with single, double, and long press detection
+- 📡 **RF Bridge Support** - Automatic sub-device creation for RF buttons and sensors learned by RF Bridge (UIID 28, 98)
+- 🔌 **Multi-Channel Devices** - Individual accessories for each channel in multi-channel switches (SONOFF 4CH, DUALR3, etc.)
+- 👥 **Group Control** - Full support for eWeLink cloud groups with automatic discovery
+- 📊 **Device Status Tracking** - Real-time online/offline status with NO RESPONSE display in HomeKit
 
 ## Installation
 

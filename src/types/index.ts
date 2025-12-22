@@ -172,6 +172,8 @@ export interface MultiDeviceConfig extends BaseDeviceConfig {
   disableTimer?: boolean;
   /** Override logging level */
   overrideLogging?: string;
+  /** Inching mode - master switch hidden, channels only */
+  inchChannels?: boolean;
 }
 
 /**
@@ -349,6 +351,18 @@ export interface GroupConfig {
 }
 
 /**
+ * RF Device information from RF Bridge
+ */
+export interface RFDeviceInfo {
+  /** RF device name */
+  name: string;
+  /** RF device type (1-4: button, 5: curtain, 6-7: sensor) */
+  remote_type: string;
+  /** Button name mappings */
+  buttonName: Array<Record<string, string>>;
+}
+
+/**
  * eWeLink device from API
  */
 export interface EWeLinkDevice {
@@ -389,6 +403,7 @@ export interface EWeLinkDevice {
   tags?: {
     m_2180_ops?: number;
     m_2186_ops?: number;
+    zyx_info?: RFDeviceInfo[];
     [key: string]: unknown;
   };
   /** Device family */
@@ -656,4 +671,26 @@ export interface AccessoryContext {
   cachePositionState?: number;
   /** Cache last start time for position calculations (in deciseconds) */
   cacheLastStartTime?: number;
+  /** Channel count for multi-channel devices */
+  channelCount?: number;
+  /** Switch number (0=master, 1-N=individual channels) */
+  switchNumber?: number;
+  /** Firmware version */
+  firmware?: string;
+  /** Reachable via WAN (cloud) */
+  reachableWAN?: boolean;
+  /** Reachable via LAN (local network) */
+  reachableLAN?: boolean | string;
+  /** eWeLink brand name */
+  eweBrandName?: string;
+  /** eWeLink brand logo URL */
+  eweBrandLogo?: string;
+  /** Shared by email (if device is shared) */
+  eweShared?: string | boolean;
+  /** IP address (if available on LAN) */
+  ip?: string | boolean;
+  /** MAC address */
+  macAddress?: string | boolean;
+  /** LAN device key */
+  lanKey?: string;
 }
