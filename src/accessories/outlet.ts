@@ -5,6 +5,7 @@ import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/ind
 import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
+import { hasFullPowerReadings as hasFullPowerReadingsUIID } from '../constants/device-constants.js';
 
 /**
  * Outlet Accessory with power monitoring support and optional inching mode
@@ -55,7 +56,7 @@ export class OutletAccessory extends BaseAccessory {
 
     // Check if device has full power readings (voltage + current)
     const uiid = this.device.extra?.uiid || 0;
-    this.hasFullPowerReadings = [32, 182, 190].includes(uiid);
+    this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
 
     // Set up the outlet service
     this.service = this.getOrAddService(this.Service.Outlet);
