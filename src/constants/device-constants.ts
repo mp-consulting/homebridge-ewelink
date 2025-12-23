@@ -39,6 +39,8 @@ export {
   getSwitchParamName,
   getSwitchStyle,
   isCurtainDevice,
+  hasCurtainParams,
+  isCurtainByParams,
   normalizeBrightness,
   denormalizeBrightness,
 } from './device-catalog.js';
@@ -105,3 +107,41 @@ export const DIFFUSER_SPEED = {
 export const THERMOSTAT_TEMP_MIN = 5;
 export const THERMOSTAT_TEMP_MAX = 45;
 export const THERMOSTAT_TEMP_STEP = 0.5;
+
+// RF Bridge remote types (from zyx_info.remote_type)
+export const RF_REMOTE_TYPE = {
+  BUTTON_1: '1',
+  BUTTON_2: '2',
+  BUTTON_3: '3',
+  BUTTON_4: '4',
+  CURTAIN: '5',
+  SENSOR_MOTION: '6',
+  SENSOR_CONTACT: '7',
+} as const;
+
+// RF remote type categories
+export const RF_BUTTON_TYPES = ['1', '2', '3', '4'] as const;
+export const RF_SENSOR_TYPES = ['6', '7'] as const;
+
+// HomeKit programmable switch events
+export const SWITCH_EVENT = {
+  SINGLE_PRESS: 0,
+  DOUBLE_PRESS: 1,
+  LONG_PRESS: 2,
+} as const;
+
+// Multi-channel device suffix pattern
+export const CHANNEL_SUFFIX_PATTERN = /SW\d+$/;
+
+// Helper to check RF remote type category
+export function isRFButtonType(remoteType: string): boolean {
+  return RF_BUTTON_TYPES.includes(remoteType as typeof RF_BUTTON_TYPES[number]);
+}
+
+export function isRFSensorType(remoteType: string): boolean {
+  return RF_SENSOR_TYPES.includes(remoteType as typeof RF_SENSOR_TYPES[number]);
+}
+
+export function isRFCurtainType(remoteType: string): boolean {
+  return remoteType === RF_REMOTE_TYPE.CURTAIN;
+}

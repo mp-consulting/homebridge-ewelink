@@ -17,6 +17,11 @@ import {
   isGroupDevice,
   isProgrammableSwitch,
   getChannelCount,
+  isRFButtonType,
+  isRFSensorType,
+  isRFCurtainType,
+  CHANNEL_SUFFIX_PATTERN,
+  hasCurtainParams,
 } from './constants/device-constants.js';
 import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
@@ -303,15 +308,10 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     let category = DEVICE_UIID_MAP[uiid] || DeviceCategory.UNKNOWN;
 
     // Special handling for UIID 126 - can be multi-switch OR curtain depending on params
-    // If device has curtain-specific params (currLocation, setclose), treat as curtain
-    if (uiid === 126 && device.params) {
-      const hasCurtainParams = device.params.currLocation !== undefined ||
-                               device.params.setclose !== undefined ||
-                               device.params.location !== undefined;
-      if (hasCurtainParams) {
-        category = DeviceCategory.CURTAIN;
-        this.log.debug(`UIID 126 device "${device.name}" has curtain params, treating as curtain`);
-      }
+    // If device has curtain-specific params (currLocation, setclose, location), treat as curtain
+    if (uiid === 126 && hasCurtainParams(device.params)) {
+      category = DeviceCategory.CURTAIN;
+      this.log.debug(`UIID 126 device "${device.name}" has curtain params, treating as curtain`);
     }
 
     // Log device UIID for debugging
@@ -414,10 +414,10 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
       this.log.debug(`RF sub-device ${rfDevice.name}: buttons=${JSON.stringify(buttons)}`);
 
-      // Determine type: 1-4 = button, 5 = curtain, 6-7 = sensor
-      if (['1', '2', '3', '4'].includes(remoteType)) {
+      // Determine type using RF remote type helpers
+      if (isRFButtonType(remoteType)) {
         subType = 'button';
-      } else if (remoteType === '5') {
+      } else if (isRFCurtainType(remoteType)) {
         // Curtain - check config for simulation type
         const deviceConfig = this.config.bridgeSensors?.find(
           s => s.fullDeviceId === fullDeviceId,
@@ -427,7 +427,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         } else {
           subType = 'curtain';
         }
-      } else if (['6', '7'].includes(remoteType)) {
+      } else if (isRFSensorType(remoteType)) {
         subType = 'sensor';
       } else {
         this.log.warn(`Unknown RF device type ${remoteType} for ${rfDevice.name}, skipping`);
@@ -804,7 +804,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Skip RF sub-devices (check if parent bridge exists)
       if (accessory.context.rfButtonIndex !== undefined) {
         // Extract parent device ID (remove SWx suffix)
-        const parentId = deviceId.replace(/SW\d+$/, '');
+        const parentId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
         if (currentDeviceIds.has(parentId)) {
           continue;
         }
@@ -813,7 +813,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Skip multi-channel sub-devices (check if parent device exists)
       if (accessory.context.switchNumber !== undefined) {
         // Extract parent device ID (remove SWx suffix)
-        const parentId = deviceId.replace(/SW\d+$/, '');
+        const parentId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
         if (currentDeviceIds.has(parentId)) {
           continue;
         }
@@ -942,6 +942,14 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   public getDeviceTemperature(deviceId: string): number | undefined {
     return this.temperatureCache.get(deviceId);
+  }
+
+  /**
+   * Get accessory handler by UUID
+   * Used by RF bridges to trigger sub-device updates
+   */
+  public getAccessoryHandler(uuid: string): BaseAccessory | undefined {
+    return this.accessoryHandlers.get(uuid);
   }
 
   /**

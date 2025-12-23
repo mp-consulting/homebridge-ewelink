@@ -624,6 +624,19 @@ export interface RefreshTokenResponse {
 }
 
 /**
+ * WebSocket authentication error with error code
+ */
+export class WebSocketAuthError extends Error {
+  code: number;
+
+  constructor(message: string, code: number) {
+    super(message);
+    this.name = 'WebSocketAuthError';
+    this.code = code;
+  }
+}
+
+/**
  * Accessory context stored in Homebridge
  */
 export interface AccessoryContext {

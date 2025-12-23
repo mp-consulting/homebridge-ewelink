@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { EWeLinkPlatform } from '../platform.js';
-import { WSMessage, DeviceParams } from '../types/index.js';
+import { WSMessage, DeviceParams, WebSocketAuthError } from '../types/index.js';
 import { EWELINK_APP_ID } from '../settings.js';
 import { CryptoUtils } from '../utils/crypto-utils.js';
 import { API_TIMEOUTS } from '../constants/api-constants.js';
@@ -132,9 +132,7 @@ export class WSClient {
             // Error 406 means token invalidated (concurrent session/login elsewhere)
             if (message.error === 406) {
               this.platform.log.warn('WebSocket authentication failed: Token invalidated (concurrent session detected)');
-              const error = new Error('AUTH_TOKEN_INVALIDATED');
-              (error as any).code = 406;
-              reject(error);
+              reject(new WebSocketAuthError('AUTH_TOKEN_INVALIDATED', 406));
             } else {
               reject(new Error(`Authentication failed: ${message.error}`));
             }
@@ -349,10 +347,10 @@ export class WSClient {
         this.reconnecting = false;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        const errorCode = (error as any)?.code;
+        const isAuthError = error instanceof WebSocketAuthError;
 
         // Check if this is a 406 token invalidation error
-        if (errorCode === 406 || errorMessage.includes('AUTH_TOKEN_INVALIDATED')) {
+        if ((isAuthError && error.code === 406) || errorMessage.includes('AUTH_TOKEN_INVALIDATED')) {
           this.platform.log.error(
             'Reconnection failed: Token invalidated. ' +
             'This usually means you logged in elsewhere. Will retry with fresh login...',

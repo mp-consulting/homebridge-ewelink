@@ -11,7 +11,7 @@ import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
  * Buttons: open, stop, close (stored in accessory.context.buttons)
  */
 export class RFBlindAccessory extends BaseAccessory {
-  /** Device configuration from platform.rfSubdevices */
+  /** Device configuration from platform.config.rfDevices */
   private readonly deviceConfig?: RFSubdeviceConfig;
 
   /** Operation time for upward movement in deciseconds */
@@ -34,10 +34,14 @@ export class RFBlindAccessory extends BaseAccessory {
   ) {
     super(platform, accessory);
 
-    // Get RF subdevice configuration from platform
-    // Note: platform.rfSubdevices would need to be added to the platform class
-    const rfSubdevices = (platform as any).rfSubdevices || {};
-    this.deviceConfig = rfSubdevices[accessory.context.hbDeviceId || ''];
+    // Get RF subdevice configuration from platform config
+    // Look up subdevice config in rfDevices array by matching device ID
+    const rfDeviceConfig = platform.config.rfDevices?.find(
+      d => d.deviceId === accessory.context.device?.deviceid,
+    );
+    this.deviceConfig = rfDeviceConfig?.subdevices?.find(
+      s => s.label === accessory.context.name,
+    );
 
     // Set operation times (convert seconds to deciseconds)
     this.operationTimeUp = (this.deviceConfig?.operationTime || SIMULATION_TIMING.DEFAULT_OPERATION_TIME_S) * 10;

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2025-12-23
+
+### Added
+- **Cross-Device Temperature Sharing**: Heater/cooler simulations can now use temperature from nearby TH sensors
+  - New `temperatureSource` configuration option to specify a device ID to read temperature from
+  - Temperature is cached and shared between devices using platform-level temperature cache
+  - Supports TH sensors, thermostats, panels, and air conditioners as temperature sources
+
+### Changed
+- **Type Safety Improvements**: Removed all `as any` casts for better type safety
+  - Added `WebSocketAuthError` class for proper error handling in WebSocket reconnection
+  - Added `getAccessoryHandler()` method to platform for type-safe handler access
+  - Fixed battery service types in sensor accessories
+  - Fixed RF device config lookup to use proper `platform.config.rfDevices` path
+- **New Helper Functions**: Added reusable helpers to device catalog
+  - `hasCurtainParams()` - Check if device params indicate curtain mode
+  - `isCurtainByParams()` - Determine curtain category from UIID and params
+  - `isRFButtonType()`, `isRFSensorType()`, `isRFCurtainType()` - RF remote type helpers
+- **New Constants**: Extracted magic values to named constants
+  - `RF_REMOTE_TYPE` - RF Bridge remote type values
+  - `RF_BUTTON_TYPES`, `RF_SENSOR_TYPES` - RF type categories
+  - `SWITCH_EVENT` - HomeKit programmable switch event values
+  - `CHANNEL_SUFFIX_PATTERN` - Regex for multi-channel device ID matching
+- **Base Accessory Enhancement**: Added `mergeDeviceParams()` method to reduce code duplication
+
+### Fixed
+- **Memory Leak in LAN Control**: Fixed uncleaned mDNS query interval in `stop()` method
+- **RF Simulation Config**: Fixed RF blind/door/window accessories to properly load config from `platform.config.rfDevices`
+
 ## [1.0.6] - 2025-12-22
 
 ### Changed

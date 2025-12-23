@@ -2789,6 +2789,34 @@ export function isCurtainDevice(uiid: number): boolean {
 }
 
 /**
+ * Check if UIID 126 device has curtain params (determines if it's a curtain or multi-switch)
+ * UIID 126 (DualR3) can be either a multi-switch or curtain depending on configuration
+ */
+export function hasCurtainParams(params?: Record<string, unknown>): boolean {
+  if (!params) {
+    return false;
+  }
+  return params.currLocation !== undefined ||
+         params.setclose !== undefined ||
+         params.location !== undefined;
+}
+
+/**
+ * Check if a device should be treated as a curtain based on UIID and params
+ * For UIID 126, checks params to distinguish between multi-switch and curtain mode
+ */
+export function isCurtainByParams(uiid: number, params?: Record<string, unknown>): boolean {
+  if (isCurtainDevice(uiid)) {
+    return true;
+  }
+  // UIID 126 can be either multi-switch or curtain
+  if (uiid === 126 && hasCurtainParams(params)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Normalize brightness value from device-specific range to 0-100
  */
 export function normalizeBrightness(uiid: number, value: number): number {

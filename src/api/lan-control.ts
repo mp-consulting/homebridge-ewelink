@@ -14,6 +14,7 @@ export class LANControl {
   private readonly devices: Map<string, LANDevice> = new Map();
   private mdnsClient: ReturnType<typeof mdns> | null = null;
   private udpSocket: dgram.Socket | null = null;
+  private mdnsQueryInterval: NodeJS.Timeout | null = null;
   private running = false;
 
   constructor(platform: EWeLinkPlatform) {
@@ -64,7 +65,7 @@ export class LANControl {
       });
 
       // Periodic re-query
-      setInterval(() => {
+      this.mdnsQueryInterval = setInterval(() => {
         if (this.mdnsClient && this.running) {
           this.mdnsClient.query({
             questions: [{
@@ -345,6 +346,12 @@ export class LANControl {
    */
   stop(): void {
     this.running = false;
+
+    // Clear mDNS query interval
+    if (this.mdnsQueryInterval) {
+      clearInterval(this.mdnsQueryInterval);
+      this.mdnsQueryInterval = null;
+    }
 
     if (this.mdnsClient) {
       this.mdnsClient.destroy();

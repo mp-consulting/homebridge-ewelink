@@ -69,9 +69,9 @@ export class RFBridgeAccessory extends BaseAccessory {
     }
 
     // Trigger the button through its handler
-    const handler = (this.platform as any).accessoryHandlers.get(buttonAccessory.UUID);
+    const handler = this.platform.getAccessoryHandler(buttonAccessory.UUID);
     if (handler && 'triggerButton' in handler && typeof handler.triggerButton === 'function') {
-      handler.triggerButton();
+      (handler as { triggerButton: () => void }).triggerButton();
     }
   }
 
@@ -113,9 +113,9 @@ export class RFBridgeAccessory extends BaseAccessory {
     }
 
     // Trigger the sensor through its handler
-    const handler = (this.platform as any).accessoryHandlers.get(sensorAccessory.UUID);
+    const handler = this.platform.getAccessoryHandler(sensorAccessory.UUID);
     if (handler && 'triggerSensor' in handler && typeof handler.triggerSensor === 'function') {
-      handler.triggerSensor(timestamp);
+      (handler as { triggerSensor: (ts: string) => void }).triggerSensor(timestamp);
     }
   }
 }

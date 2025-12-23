@@ -110,6 +110,14 @@ export abstract class BaseAccessory {
   abstract updateState(params: DeviceParams): void;
 
   /**
+   * Merge incoming device params into the local cache
+   * Call this at the start of updateState() implementations
+   */
+  protected mergeDeviceParams(params: DeviceParams): void {
+    Object.assign(this.deviceParams, params);
+  }
+
+  /**
    * Mark device as online or offline
    * Called by platform when device status changes
    */

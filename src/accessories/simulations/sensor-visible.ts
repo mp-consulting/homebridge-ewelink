@@ -1,4 +1,4 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
@@ -22,13 +22,13 @@ export class SensorVisibleAccessory extends BaseAccessory {
   private readonly scaleBattery: boolean;
 
   /** Battery service */
-  private batteryService?: typeof this.Service.Battery.prototype;
+  private batteryService?: ReturnType<typeof this.getOrAddService>;
 
   /** Sub-accessory for garage/lock simulation */
   private subAccessory?: PlatformAccessory<AccessoryContext>;
 
   /** Sub-service for garage/lock */
-  private subService?: typeof this.Service.GarageDoorOpener.prototype | typeof this.Service.LockMechanism.prototype;
+  private subService?: Service;
 
   /** Is garage door simulation */
   private readonly isGarage: boolean;
@@ -128,7 +128,7 @@ export class SensorVisibleAccessory extends BaseAccessory {
 
     // Add battery service if supported
     if (this.hasBattery) {
-      this.batteryService = this.getOrAddService(this.Service.Battery) as any;
+      this.batteryService = this.getOrAddService(this.Service.Battery);
     }
 
     // Set up sub-accessory if provided
@@ -157,7 +157,7 @@ export class SensorVisibleAccessory extends BaseAccessory {
     if (this.isGarage) {
       // Set up garage door opener service
       this.subService = this.subAccessory.getService(this.Service.GarageDoorOpener) ||
-                        this.subAccessory.addService(this.Service.GarageDoorOpener) as any;
+                        this.subAccessory.addService(this.Service.GarageDoorOpener);
 
       // Add Eve characteristics for garage
       if (this.subService && !this.subService.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation)) {
@@ -181,7 +181,7 @@ export class SensorVisibleAccessory extends BaseAccessory {
     } else {
       // Set up lock mechanism service
       this.subService = this.subAccessory.getService(this.Service.LockMechanism) ||
-                        this.subAccessory.addService(this.Service.LockMechanism) as any;
+                        this.subAccessory.addService(this.Service.LockMechanism);
 
       // Configure lock characteristics
       if (this.subService) {

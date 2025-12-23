@@ -18,7 +18,7 @@ export class SensorLeakAccessory extends BaseAccessory {
   private readonly lowBattThreshold: number;
 
   /** Battery service */
-  private batteryService?: typeof this.Service.Battery.prototype;
+  private batteryService?: ReturnType<typeof this.getOrAddService>;
 
   /** Last activation time (Eve initial time) */
   private eveInitialTime = 0;
@@ -58,7 +58,7 @@ export class SensorLeakAccessory extends BaseAccessory {
       .onGet(this.getLeakDetected.bind(this));
 
     // Add battery service
-    this.batteryService = this.getOrAddService(this.Service.Battery) as any;
+    this.batteryService = this.getOrAddService(this.Service.Battery);
 
     // Initialize Eve history service
     this.eveInitialTime = Math.floor(Date.now() / 1000);
