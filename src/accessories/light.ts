@@ -3,7 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { ColorUtils } from '../utils/color-utils.js';
-import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, COLOR_TEMP_RANGE } from '../constants/device-constants.js';
+import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, COLOR_TEMP_RANGE, DEFAULT_COLOR_TEMP_MIRED } from '../constants/device-constants.js';
 
 /**
  * Light Accessory with brightness and color support
@@ -127,7 +127,7 @@ export class LightAccessory extends BaseAccessory {
       } else if (this.deviceParams.colorTemp !== undefined) {
         ct = this.deviceParams.colorTemp;
       } else {
-        ct = 320; // Default to neutral
+        ct = DEFAULT_COLOR_TEMP_MIRED;
       }
 
       return this.clamp(ct, COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED);
@@ -236,7 +236,7 @@ export class LightAccessory extends BaseAccessory {
       if (params.white?.ct !== undefined) {
         ct = Math.round(COLOR_TEMP_MIN_MIRED + (params.white.ct / 100) * COLOR_TEMP_RANGE);
       } else {
-        ct = params.colorTemp ?? 320;
+        ct = params.colorTemp ?? DEFAULT_COLOR_TEMP_MIRED;
       }
       this.service.updateCharacteristic(
         this.Characteristic.ColorTemperature,
