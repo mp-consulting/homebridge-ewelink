@@ -1,4 +1,4 @@
-import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
+import { PlatformAccessory, CharacteristicValue, Service, WithUUID } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../types/index.js';
@@ -151,8 +151,8 @@ export class RFSensorAccessory extends BaseAccessory {
   /**
    * Check if a service type matches the current sensor type
    */
-  private isCurrentSensorType(serviceType: any): boolean {
-    const serviceMap: Record<SensorType, any> = {
+  private isCurrentSensorType(serviceType: WithUUID<typeof Service>): boolean {
+    const serviceMap: Record<SensorType, WithUUID<typeof Service>> = {
       water: this.Service.LeakSensor,
       smoke: this.Service.SmokeSensor,
       co: this.Service.CarbonMonoxideSensor,

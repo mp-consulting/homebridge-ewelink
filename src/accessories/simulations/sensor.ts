@@ -1,4 +1,4 @@
-import { PlatformAccessory, CharacteristicValue, Service, WithUUID } from 'homebridge';
+import { PlatformAccessory, CharacteristicValue, Service, WithUUID, Characteristic } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
@@ -29,7 +29,7 @@ export class SensorAccessory extends BaseAccessory {
   private readonly sensorType: string;
 
   /** Current sensor characteristic */
-  private readonly sensorCharacteristic: any;
+  private readonly sensorCharacteristic: WithUUID<new () => Characteristic>;
 
   /** Whether to use LastActivation characteristic */
   private readonly useLastActivation: boolean;
@@ -224,14 +224,14 @@ export class SensorAccessory extends BaseAccessory {
   private async getSensorState(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
       return this.service.getCharacteristic(this.sensorCharacteristic).value;
-    }, this.sensorCharacteristic.displayName || 'SensorState');
+    }, 'SensorState');
   }
 
   /**
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update sensor state based on switch state
     const isOn = SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);

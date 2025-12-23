@@ -1,4 +1,4 @@
-import { PlatformAccessory } from 'homebridge';
+import { PlatformAccessory, Service } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
@@ -11,7 +11,7 @@ import { POLLING } from '../constants/timing-constants.js';
  */
 export class SwitchMiniAccessory extends BaseAccessory {
   /** Service instances for each channel */
-  private readonly services: Map<number, any> = new Map();
+  private readonly services: Map<number, Service> = new Map();
 
   /** Timeout tracking to prevent duplicate events */
   private readonly timeouts: Map<number, boolean> = new Map();
@@ -69,7 +69,7 @@ export class SwitchMiniAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     try {
       // Check for button press event
