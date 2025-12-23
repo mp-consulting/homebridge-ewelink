@@ -4,10 +4,6 @@ import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
 import {
-  TEMPERATURE_MIN,
-  TEMPERATURE_MAX,
-  HUMIDITY_MIN,
-  HUMIDITY_MAX,
   BATTERY_MIN,
   BATTERY_MAX,
   DEFAULT_BATTERY,
@@ -220,11 +216,8 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getCurrentTemperature(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
-      if (this.deviceConfig?.tempOffset) {
-        temp += this.deviceConfig.tempOffset;
-      }
-      return this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX);
+      const rawTemp = DeviceValueParser.parseTemperature(this.deviceParams);
+      return this.applyTemperatureOffset(rawTemp, this.deviceConfig?.tempOffset || 0);
     }, 'CurrentTemperature');
   }
 
@@ -233,11 +226,8 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getCurrentHumidity(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
-      if (this.deviceConfig?.humidityOffset) {
-        humidity += this.deviceConfig.humidityOffset;
-      }
-      return this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX);
+      const rawHumidity = DeviceValueParser.parseHumidity(this.deviceParams);
+      return this.applyHumidityOffset(rawHumidity, this.deviceConfig?.humidityOffset || 0);
     }, 'CurrentRelativeHumidity');
   }
 
@@ -306,25 +296,21 @@ export class SensorAccessory extends BaseAccessory {
 
     // Update temperature
     if (this.temperatureService) {
-      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
-      if (this.deviceConfig?.tempOffset) {
-        temp += this.deviceConfig.tempOffset;
-      }
+      const rawTemp = DeviceValueParser.parseTemperature(this.deviceParams);
+      const temp = this.applyTemperatureOffset(rawTemp, this.deviceConfig?.tempOffset || 0);
       this.temperatureService.updateCharacteristic(
         this.Characteristic.CurrentTemperature,
-        this.clamp(temp, TEMPERATURE_MIN, TEMPERATURE_MAX),
+        temp,
       );
     }
 
     // Update humidity
     if (this.humidityService) {
-      let humidity = DeviceValueParser.parseHumidity(this.deviceParams);
-      if (this.deviceConfig?.humidityOffset) {
-        humidity += this.deviceConfig.humidityOffset;
-      }
+      const rawHumidity = DeviceValueParser.parseHumidity(this.deviceParams);
+      const humidity = this.applyHumidityOffset(rawHumidity, this.deviceConfig?.humidityOffset || 0);
       this.humidityService.updateCharacteristic(
         this.Characteristic.CurrentRelativeHumidity,
-        this.clamp(humidity, HUMIDITY_MIN, HUMIDITY_MAX),
+        humidity,
       );
     }
 
