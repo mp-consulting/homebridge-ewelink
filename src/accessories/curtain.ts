@@ -56,17 +56,16 @@ export class CurtainAccessory extends BaseAccessory {
    */
   private async refreshState(): Promise<void> {
     try {
-      const name = this.accessory.displayName;
-      this.platform.log.info(`[${name}] Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      this.logInfo(`Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
       await this.platform.queryDeviceState(this.deviceId);
 
       // Wait a bit for the WebSocket response to be processed
       await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
 
-      this.platform.log.info(`[${name}] State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      this.logInfo(`State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.platform.log.warn(`[${this.accessory.displayName}] Failed to refresh state: ${errMsg}`);
+      this.logError(`Failed to refresh state: ${errMsg}`);
     }
   }
 
@@ -224,8 +223,7 @@ export class CurtainAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     const uiid = this.device.extra?.uiid || 0;
     const positionConfig = getPositionParams(uiid);
@@ -244,9 +242,7 @@ export class CurtainAccessory extends BaseAccessory {
       const newPosition = inverted ? 100 - rawValue : rawValue;
 
       if (newPosition !== this.currentPosition) {
-        this.platform.log.info(
-          `[${this.accessory.displayName}] Current position changing from ${this.currentPosition}% to ${newPosition}%`,
-        );
+        this.logInfo(`Current position changing from ${this.currentPosition}% to ${newPosition}%`);
         this.currentPosition = newPosition;
         this.service.updateCharacteristic(
           this.Characteristic.CurrentPosition,
