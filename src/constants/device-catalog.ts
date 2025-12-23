@@ -2723,3 +2723,64 @@ export function getBrightnessParams(uiid: number): DeviceParamsDef['brightness']
   const device = DEVICE_CATALOG[uiid];
   return device?.params?.brightness;
 }
+
+/**
+ * Get position parameter definition for a UIID (curtains, blinds, etc.)
+ * Returns the position parameter config from catalog, or undefined if not a position device
+ */
+export function getPositionParams(uiid: number): DeviceParamsDef['position'] | undefined {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.position;
+}
+
+/**
+ * Get the on/off parameter name for a UIID
+ * Returns the parameter name used for on/off control (e.g., 'switch', 'state')
+ */
+export function getSwitchParamName(uiid: number): string {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.onOffParam ?? 'switch';
+}
+
+/**
+ * Get the switch parameter style for a UIID
+ * Returns 'single', 'multi', or 'state' indicating how the device handles switch commands
+ */
+export function getSwitchStyle(uiid: number): SwitchParamStyle {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.switchStyle ?? 'single';
+}
+
+/**
+ * Check if a UIID is a curtain/blind device
+ */
+export function isCurtainDevice(uiid: number): boolean {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.category === 'curtain';
+}
+
+/**
+ * Normalize brightness value from device-specific range to 0-100
+ */
+export function normalizeBrightness(uiid: number, value: number): number {
+  const params = getBrightnessParams(uiid);
+  if (!params) {
+    return value;
+  }
+  const { min, max } = params;
+  // Convert from device range to 0-100
+  return Math.round(((value - min) / (max - min)) * 100);
+}
+
+/**
+ * Convert 0-100 brightness to device-specific range
+ */
+export function denormalizeBrightness(uiid: number, percent: number): number {
+  const params = getBrightnessParams(uiid);
+  if (!params) {
+    return percent;
+  }
+  const { min, max } = params;
+  // Convert from 0-100 to device range
+  return Math.round((percent / 100) * (max - min) + min);
+}

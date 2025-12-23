@@ -33,6 +33,12 @@ export {
   isNSPanelPro,
   isPanelDevice,
   getBrightnessParams,
+  getPositionParams,
+  getSwitchParamName,
+  getSwitchStyle,
+  isCurtainDevice,
+  normalizeBrightness,
+  denormalizeBrightness,
 } from './device-catalog.js';
 
 // Temperature ranges
