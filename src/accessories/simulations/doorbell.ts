@@ -3,7 +3,8 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR, isDualR3Device } from '../../constants/device-constants.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { isDualR3Device } from '../../constants/device-catalog.js';
 import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**

@@ -5,7 +5,7 @@ import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig }
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { POLLING } from '../../constants/timing-constants.js';
-import { hasPowerMonitoring, hasFullPowerReadings as hasFullPowerReadingsUIID } from '../../constants/device-constants.js';
+import { hasPowerMonitoring, hasFullPowerReadings as hasFullPowerReadingsUIID } from '../../constants/device-catalog.js';
 
 /**
  * Valve Simulation Accessory

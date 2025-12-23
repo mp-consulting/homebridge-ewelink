@@ -4,7 +4,7 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
-import { isContactSensor, hasBattery, getBatteryType } from '../../constants/device-constants.js';
+import { isContactSensor, hasBattery, getBatteryType } from '../../constants/device-catalog.js';
 
 /**
  * Visible Sensor Accessory

@@ -10,18 +10,15 @@ import {
 
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
+import { isRFButtonType, isRFSensorType, isRFCurtainType, CHANNEL_SUFFIX_PATTERN } from './constants/device-constants.js';
 import {
   isTHSensorDevice,
   isDimmableLightForFan,
   isGroupDevice,
   isProgrammableSwitch,
   getChannelCount,
-  isRFButtonType,
-  isRFSensorType,
-  isRFCurtainType,
-  CHANNEL_SUFFIX_PATTERN,
   hasCurtainParams,
-} from './constants/device-constants.js';
+} from './constants/device-catalog.js';
 import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';

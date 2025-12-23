@@ -1,49 +1,16 @@
 /**
  * Device-related constants
  *
- * NOTE: Device UIID mappings, channel counts, and sensor/power monitoring UIIDs
- * are now derived from the centralized device catalog in device-catalog.ts.
- * This file re-exports those for backward compatibility.
+ * NOTE: Device UIID mappings, channel counts, and catalog-derived helper functions
+ * are now in device-catalog.ts. Import directly from there for:
+ * - getChannelCount(), hasPowerMonitoring(), hasFullPowerReadings()
+ * - isMotionSensor(), isContactSensor(), isLeakSensor()
+ * - isTHSensorDevice(), isDualR3Device(), isDimmableLightForFan()
+ * - getBatteryType(), hasBattery(), getBrightnessParams()
+ * - getPositionParams(), getMotorTurnParam(), etc.
+ *
+ * This file contains only non-catalog constants like divisors, ranges, and RF helpers.
  */
-
-// Re-export catalog-derived constants for backward compatibility
-export {
-  // Channel count map (use getChannelCount() function for new code)
-  DEVICE_CHANNEL_COUNT_MAP as DEVICE_CHANNEL_COUNT,
-  // Power monitoring UIIDs
-  ALL_POWER_MONITORING_UIIDS as POWER_MONITORING_UIIDS,
-  FULL_POWER_MONITORING_UIIDS as FULL_POWER_READINGS_UIIDS,
-  // Sensor UIIDs
-  MOTION_SENSOR_UIIDS,
-  CONTACT_SENSOR_UIIDS,
-  LEAK_SENSOR_UIIDS as WATER_LEAK_SENSOR_UIIDS,
-  // Helper functions
-  getChannelCount,
-  hasPowerMonitoring,
-  hasFullPowerReadings,
-  isMotionSensor,
-  isContactSensor,
-  isLeakSensor,
-  isTHSensorDevice,
-  isDualR3Device,
-  isDimmableLightForFan,
-  hasBattery,
-  getBatteryType,
-  isProgrammableSwitch,
-  isGroupDevice,
-  isNSPanelPro,
-  isPanelDevice,
-  getBrightnessParams,
-  getPositionParams,
-  getMotorTurnParam,
-  getSwitchParamName,
-  getSwitchStyle,
-  isCurtainDevice,
-  hasCurtainParams,
-  isCurtainByParams,
-  normalizeBrightness,
-  denormalizeBrightness,
-} from './device-catalog.js';
 
 // Temperature ranges
 export const TEMPERATURE_MIN = -270;

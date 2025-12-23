@@ -10,7 +10,7 @@ import {
   getSwitchParamName,
   normalizeBrightness,
   denormalizeBrightness,
-} from '../../constants/device-constants.js';
+} from '../../constants/device-catalog.js';
 
 /**
  * Light-Fan Simulation Accessory

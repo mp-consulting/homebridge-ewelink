@@ -6,7 +6,7 @@ import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
-import { hasFullPowerReadings as hasFullPowerReadingsUIID } from '../constants/device-constants.js';
+import { hasFullPowerReadings as hasFullPowerReadingsUIID } from '../constants/device-catalog.js';
 
 /**
  * Outlet Accessory with power monitoring support and optional inching mode

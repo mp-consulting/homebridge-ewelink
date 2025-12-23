@@ -3,7 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
-import { getPositionParams, getMotorTurnParam } from '../constants/device-constants.js';
+import { getPositionParams, getMotorTurnParam } from '../constants/device-catalog.js';
 
 export enum PositionState {
   DECREASING = 0,

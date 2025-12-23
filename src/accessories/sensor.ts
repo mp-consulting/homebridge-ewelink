@@ -3,13 +3,11 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
+import { BATTERY_MIN, BATTERY_MAX, DEFAULT_BATTERY } from '../constants/device-constants.js';
 import {
-  BATTERY_MIN,
-  BATTERY_MAX,
-  DEFAULT_BATTERY,
   isMotionSensor as isMotionSensorUIID,
   isContactSensor as isContactSensorUIID,
-} from '../constants/device-constants.js';
+} from '../constants/device-catalog.js';
 
 /**
  * Sensor Accessory for various sensor types with optional switch control

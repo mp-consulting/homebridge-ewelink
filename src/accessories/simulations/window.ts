@@ -4,7 +4,8 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
 import { sleep } from '../../utils/sleep.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR, isDualR3Device } from '../../constants/device-constants.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { isDualR3Device } from '../../constants/device-catalog.js';
 import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
 import { PositionState } from '../curtain.js';
 

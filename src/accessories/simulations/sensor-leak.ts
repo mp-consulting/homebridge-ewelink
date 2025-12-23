@@ -3,7 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { getBatteryType } from '../../constants/device-constants.js';
+import { getBatteryType } from '../../constants/device-catalog.js';
 
 /**
  * Leak Sensor Accessory
