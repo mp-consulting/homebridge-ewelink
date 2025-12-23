@@ -2,10 +2,11 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
-import { sleep, generateRandomString } from '../../utils/sleep.js';
+import { sleep } from '../../utils/sleep.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR, isDualR3Device } from '../../constants/device-constants.js';
 import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
+import { PositionState } from '../curtain.js';
 
 /**
  * Window Simulation Accessory
@@ -55,7 +56,7 @@ export class WindowAccessory extends BaseAccessory {
     // Initialize cache if not present
     if (this.accessory.context.cacheCurrentPosition === undefined) {
       this.accessory.context.cacheCurrentPosition = 0;
-      this.accessory.context.cachePositionState = 2; // Stopped
+      this.accessory.context.cachePositionState = PositionState.STOPPED;
       this.accessory.context.cacheTargetPosition = 0;
     }
 
@@ -73,7 +74,7 @@ export class WindowAccessory extends BaseAccessory {
     );
     this.service.updateCharacteristic(
       this.Characteristic.PositionState,
-      this.accessory.context.cachePositionState || 2,
+      this.accessory.context.cachePositionState ?? PositionState.STOPPED,
     );
 
     // Add power monitoring characteristics if supported
@@ -152,14 +153,14 @@ export class WindowAccessory extends BaseAccessory {
 
     try {
       const params: DeviceParams = { switches: [] };
-      const prevState = this.accessory.context.cachePositionState || 2;
+      const prevState = this.accessory.context.cachePositionState ?? PositionState.STOPPED;
       const percentStepUpPerDS = this.operationTimeUp / 100;
       const percentStepDownPerDS = this.operationTimeDown / 100;
-      const updateKey = generateRandomString(5);
+      const updateKey = this.generateRandomString(5);
       this.updateKey = updateKey;
 
       // If currently moving, stop and calculate current position
-      if (prevState !== 2) {
+      if (prevState !== PositionState.STOPPED) {
         // Stop both switches
         params.switches!.push({ switch: 'off', outlet: 0 });
         params.switches!.push({ switch: 'off', outlet: 1 });
@@ -171,7 +172,7 @@ export class WindowAccessory extends BaseAccessory {
         const posPercentChangeUp = Math.floor(percentStepUpPerDS * posPercentChange);
         const posPercentChangeDown = Math.floor(percentStepDownPerDS * posPercentChange);
 
-        if (prevState === 0) {
+        if (prevState === PositionState.DECREASING) {
           // Was going down
           prevPosition -= posPercentChangeDown;
         } else {
@@ -203,7 +204,7 @@ export class WindowAccessory extends BaseAccessory {
 
       // Update state
       this.accessory.context.cacheTargetPosition = targetPosition;
-      this.accessory.context.cachePositionState = setToMoveUp ? 1 : 0;
+      this.accessory.context.cachePositionState = setToMoveUp ? PositionState.INCREASING : PositionState.DECREASING;
       this.accessory.context.cacheLastStartTime = Math.floor(Date.now() / 100);
 
       this.service.updateCharacteristic(
@@ -231,7 +232,7 @@ export class WindowAccessory extends BaseAccessory {
       // Update final position
       this.service.updateCharacteristic(this.Characteristic.PositionState, this.Characteristic.PositionState.STOPPED);
       this.service.updateCharacteristic(this.Characteristic.CurrentPosition, targetPosition);
-      this.accessory.context.cachePositionState = 2;
+      this.accessory.context.cachePositionState = PositionState.STOPPED;
       this.accessory.context.cacheCurrentPosition = targetPosition;
 
       this.logInfo(`Window position set to ${targetPosition}%`);
