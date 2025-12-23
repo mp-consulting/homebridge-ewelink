@@ -4,6 +4,12 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, LightDeviceConfig } from '../../types/index.js';
 import { sleep } from '../../utils/sleep.js';
 import { TIMING } from '../../constants/timing-constants.js';
+import {
+  getBrightnessParams,
+  getSwitchParamName,
+  normalizeBrightness,
+  denormalizeBrightness,
+} from '../../constants/device-constants.js';
 
 /**
  * Light-Fan Simulation Accessory
@@ -60,20 +66,19 @@ export class LightFanAccessory extends BaseAccessory {
       .onGet(this.getSpeed.bind(this))
       .onSet(this.setSpeed.bind(this));
 
-    // Initialize cached values from params
+    // Initialize cached values from params using catalog
     const uiid = this.device.extra?.uiid || 0;
-    if (uiid === 57) {
-      this.cacheState = (this.deviceParams.state as string) === 'on' ? 'on' : 'off';
-      const ch0 = parseInt(String(this.deviceParams.channel0 || 25), 10);
-      this.cacheSpeed = Math.round(((ch0 - 25) * 10) / 23);
-    } else {
-      this.cacheState = (this.deviceParams.switch as string) === 'on' ? 'on' : 'off';
-      if (uiid === 36) {
-        const bright = parseInt(String(this.deviceParams.bright || 10), 10);
-        this.cacheSpeed = Math.round(((bright - 10) * 10) / 9);
-      } else if (uiid === 44) {
-        this.cacheSpeed = parseInt(String(this.deviceParams.brightness || 0), 10);
-      }
+    const switchParam = getSwitchParamName(uiid);
+    const brightnessConfig = getBrightnessParams(uiid);
+
+    // Get on/off state using catalog-defined parameter name
+    const switchValue = this.deviceParams[switchParam] as string;
+    this.cacheState = switchValue === 'on' ? 'on' : 'off';
+
+    // Get brightness/speed using catalog-defined parameter and normalize to 0-100
+    if (brightnessConfig) {
+      const rawValue = parseInt(String(this.deviceParams[brightnessConfig.param] || brightnessConfig.min), 10);
+      this.cacheSpeed = normalizeBrightness(uiid, rawValue);
     }
 
     // Set initial characteristic values
@@ -100,20 +105,10 @@ export class LightFanAccessory extends BaseAccessory {
         return true;
       }
 
-      const params: DeviceParams = {};
+      // Use catalog to get the correct on/off parameter name
       const uiid = this.device.extra?.uiid || 0;
-
-      switch (uiid) {
-        case 36:
-        case 44:
-          params.switch = newValue;
-          break;
-        case 57:
-          params.state = newValue;
-          break;
-        default:
-          return false;
-      }
+      const switchParam = getSwitchParamName(uiid);
+      const params: DeviceParams = { [switchParam]: newValue };
 
       await this.sendCommand(params);
       this.cacheState = newValue;
@@ -150,25 +145,22 @@ export class LightFanAccessory extends BaseAccessory {
     }
 
     await this.handleSet(speed, 'RotationSpeed', async (newSpeed) => {
-      const params: DeviceParams = {};
       const uiid = this.device.extra?.uiid || 0;
+      const brightnessConfig = getBrightnessParams(uiid);
 
-      switch (uiid) {
-        case 36:
-          // KING-M4 eWeLink scale is 10-100 and HomeKit scale is 0-100
-          params.bright = Math.round((newSpeed * 9) / 10 + 10);
-          break;
-        case 44:
-          // D1 eWeLink scale matches HomeKit scale of 0-100
-          params.brightness = newSpeed;
-          params.mode = 0;
-          break;
-        case 57:
-          // Device eWeLink scale is 25-255 and HomeKit scale is 0-100
-          params.channel0 = Math.round((newSpeed * 23) / 10 + 25).toString();
-          break;
-        default:
-          return false;
+      if (!brightnessConfig) {
+        return false;
+      }
+
+      // Convert 0-100 to device-specific range using catalog
+      const deviceValue = denormalizeBrightness(uiid, newSpeed);
+      const params: DeviceParams = {
+        [brightnessConfig.param]: uiid === 57 ? deviceValue.toString() : deviceValue,
+      };
+
+      // D1 (UIID 44) requires mode parameter
+      if (uiid === 44) {
+        params.mode = 0;
       }
 
       await this.sendCommand(params);
@@ -185,19 +177,13 @@ export class LightFanAccessory extends BaseAccessory {
     Object.assign(this.deviceParams, params);
 
     const uiid = this.device.extra?.uiid || 0;
+    const switchParam = getSwitchParamName(uiid);
+    const brightnessConfig = getBrightnessParams(uiid);
 
-    // Update on/off state
-    if (uiid === 57) {
-      if (params.state !== undefined) {
-        const newState = params.state === 'on' ? 'on' : 'off';
-        if (newState !== this.cacheState) {
-          this.cacheState = newState;
-          this.service.updateCharacteristic(this.Characteristic.On, this.cacheState === 'on');
-          this.logDebug(`Fan state updated: ${this.cacheState}`);
-        }
-      }
-    } else if (params.switch !== undefined) {
-      const newState = params.switch === 'on' ? 'on' : 'off';
+    // Update on/off state using catalog-defined parameter name
+    const switchValue = params[switchParam];
+    if (switchValue !== undefined) {
+      const newState = switchValue === 'on' ? 'on' : 'off';
       if (newState !== this.cacheState) {
         this.cacheState = newState;
         this.service.updateCharacteristic(this.Characteristic.On, this.cacheState === 'on');
@@ -205,43 +191,18 @@ export class LightFanAccessory extends BaseAccessory {
       }
     }
 
-    // Update speed
-    switch (uiid) {
-      case 36:
-        // KING-M4 eWeLink scale is 10-100 and HomeKit scale is 0-100
-        if (params.bright !== undefined) {
-          const bright = parseInt(String(params.bright), 10);
-          const newSpeed = Math.round(((bright - 10) * 10) / 9);
-          if (newSpeed !== this.cacheSpeed) {
-            this.cacheSpeed = newSpeed;
-            this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);
-            this.logDebug(`Fan speed updated: ${this.cacheSpeed}%`);
-          }
+    // Update speed using catalog-defined brightness parameter
+    if (brightnessConfig) {
+      const rawValue = params[brightnessConfig.param];
+      if (rawValue !== undefined) {
+        const deviceValue = parseInt(String(rawValue), 10);
+        const newSpeed = normalizeBrightness(uiid, deviceValue);
+        if (newSpeed !== this.cacheSpeed) {
+          this.cacheSpeed = newSpeed;
+          this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);
+          this.logDebug(`Fan speed updated: ${this.cacheSpeed}%`);
         }
-        break;
-      case 44:
-        // D1 eWeLink scale matches HomeKit scale of 0-100
-        if (params.brightness !== undefined) {
-          const newSpeed = parseInt(String(params.brightness), 10);
-          if (newSpeed !== this.cacheSpeed) {
-            this.cacheSpeed = newSpeed;
-            this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);
-            this.logDebug(`Fan speed updated: ${this.cacheSpeed}%`);
-          }
-        }
-        break;
-      case 57:
-        // Device eWeLink scale is 25-255 and HomeKit scale is 0-100
-        if (params.channel0 !== undefined) {
-          const ch0 = parseInt(String(params.channel0), 10);
-          const newSpeed = Math.round(((ch0 - 25) * 10) / 23);
-          if (newSpeed !== this.cacheSpeed) {
-            this.cacheSpeed = newSpeed;
-            this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);
-            this.logDebug(`Fan speed updated: ${this.cacheSpeed}%`);
-          }
-        }
-        break;
+      }
     }
 
     // Show as off if offlineAsOff is enabled and device is offline
