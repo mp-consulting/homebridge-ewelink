@@ -34,9 +34,7 @@ export class SwitchAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.switchNumber ?? accessory.context.channelIndex ?? 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig();
 
     // Check if inching mode is enabled
     this.isInched = this.deviceConfig?.isInched || false;

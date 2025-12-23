@@ -35,10 +35,7 @@ export class PanelAccessory extends BaseAccessory {
     this.isProPanel = isNSPanelPro(this.accessory.context.device?.extra?.uiid || 0);
 
     // Get device-specific configuration
-    const deviceConfig = this.platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
-
+    const deviceConfig = this.getSingleDeviceConfig();
     this.tempOffset = deviceConfig?.offset || 0;
     this.tempOffsetFactor = deviceConfig?.offsetFactor;
 
@@ -81,12 +78,8 @@ export class PanelAccessory extends BaseAccessory {
   private initializeFromParams(): void {
     // Temperature
     if (DeviceValueParser.hasTemperature(this.deviceParams)) {
-      let temp = DeviceValueParser.parseTemperature(this.deviceParams);
-      if (this.tempOffsetFactor) {
-        temp *= this.tempOffsetFactor;
-      }
-      temp += this.tempOffset;
-      this.cacheTemp = this.roundTemperature(temp);
+      const rawTemp = DeviceValueParser.parseTemperature(this.deviceParams);
+      this.cacheTemp = this.applyTemperatureOffset(rawTemp, this.tempOffset, this.tempOffsetFactor);
       this.tempService.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheTemp);
     }
 
@@ -167,12 +160,8 @@ export class PanelAccessory extends BaseAccessory {
 
     // Update temperature
     if (DeviceValueParser.hasTemperature(params)) {
-      let temp = DeviceValueParser.parseTemperature(params);
-      if (this.tempOffsetFactor) {
-        temp *= this.tempOffsetFactor;
-      }
-      temp += this.tempOffset;
-      const newTemp = this.roundTemperature(temp);
+      const rawTemp = DeviceValueParser.parseTemperature(params);
+      const newTemp = this.applyTemperatureOffset(rawTemp, this.tempOffset, this.tempOffsetFactor);
 
       if (newTemp !== this.cacheTemp) {
         this.cacheTemp = newTemp;

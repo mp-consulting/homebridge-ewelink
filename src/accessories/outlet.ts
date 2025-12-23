@@ -4,6 +4,7 @@ import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
 import { hasFullPowerReadings as hasFullPowerReadingsUIID } from '../constants/device-constants.js';
 
@@ -44,9 +45,7 @@ export class OutletAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.channelIndex || 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig();
 
     // Check if inching mode is enabled
     this.isInched = this.deviceConfig?.isInched || false;
@@ -88,9 +87,7 @@ export class OutletAccessory extends BaseAccessory {
    * Check if device supports power monitoring
    */
   private supportsPowerMonitoring(): boolean {
-    return this.deviceParams.power !== undefined ||
-           this.deviceParams.voltage !== undefined ||
-           this.deviceParams.current !== undefined;
+    return DeviceValueParser.hasPowerReadings(this.deviceParams);
   }
 
   /**
@@ -168,8 +165,8 @@ export class OutletAccessory extends BaseAccessory {
   private async getOutletInUse(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
       // If power monitoring is available, use it with threshold
-      if (this.deviceParams.power !== undefined) {
-        const power = parseFloat(String(this.deviceParams.power));
+      const { power } = DeviceValueParser.parsePowerReadings(this.deviceParams);
+      if (power !== undefined) {
         return power > this.inUsePowerThreshold;
       }
       // Otherwise, outlet is in use if it's on
@@ -212,9 +209,9 @@ export class OutletAccessory extends BaseAccessory {
 
       // Update OutletInUse based on power or cache state
       let inUse = this.cacheState;
-      if (params.power !== undefined) {
-        const power = parseFloat(String(params.power));
-        inUse = power > this.inUsePowerThreshold;
+      const { power: powerValue } = DeviceValueParser.parsePowerReadings(params);
+      if (powerValue !== undefined) {
+        inUse = powerValue > this.inUsePowerThreshold;
       }
       this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
     } else {
@@ -224,9 +221,9 @@ export class OutletAccessory extends BaseAccessory {
 
       // Update OutletInUse
       let inUse = isOn;
-      if (params.power !== undefined) {
-        const power = parseFloat(String(params.power));
-        inUse = power > this.inUsePowerThreshold;
+      const { power: powerVal } = DeviceValueParser.parsePowerReadings(params);
+      if (powerVal !== undefined) {
+        inUse = powerVal > this.inUsePowerThreshold;
       }
       this.service.updateCharacteristic(this.Characteristic.OutletInUse, inUse);
 
@@ -235,18 +232,17 @@ export class OutletAccessory extends BaseAccessory {
 
     // Update Eve power monitoring characteristics if supported
     if (this.supportsPowerMonitoring()) {
-      if (params.power !== undefined) {
-        const power = parseFloat(String(params.power));
+      const { power, voltage, current } = DeviceValueParser.parsePowerReadings(params);
+
+      if (power !== undefined) {
         this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       }
 
       if (this.hasFullPowerReadings) {
-        if (params.voltage !== undefined) {
-          const voltage = parseFloat(String(params.voltage));
+        if (voltage !== undefined) {
           this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
         }
-        if (params.current !== undefined) {
-          const current = parseFloat(String(params.current));
+        if (current !== undefined) {
           this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
         }
       }

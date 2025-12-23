@@ -25,10 +25,7 @@ export class AirConditionerAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific configuration
-    const deviceConfig = this.platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
-
+    const deviceConfig = this.getSingleDeviceConfig();
     this.tempOffset = deviceConfig?.offset || 0;
     this.tempOffsetFactor = deviceConfig?.offsetFactor;
 
@@ -115,12 +112,8 @@ export class AirConditionerAccessory extends BaseAccessory {
     }
 
     if (this.deviceParams.indoor_temperature !== undefined) {
-      let temp = Number(this.deviceParams.indoor_temperature);
-      if (this.tempOffsetFactor) {
-        temp *= this.tempOffsetFactor;
-      }
-      temp += this.tempOffset;
-      this.cacheCurrentTemp = this.roundTemperature(temp);
+      const rawTemp = Number(this.deviceParams.indoor_temperature);
+      this.cacheCurrentTemp = this.applyTemperatureOffset(rawTemp, this.tempOffset, this.tempOffsetFactor);
       this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheCurrentTemp);
     }
 
@@ -419,12 +412,8 @@ export class AirConditionerAccessory extends BaseAccessory {
 
     // Update current temperature
     if (params.indoor_temperature !== undefined) {
-      let temp = Number(params.indoor_temperature);
-      if (this.tempOffsetFactor) {
-        temp *= this.tempOffsetFactor;
-      }
-      temp += this.tempOffset;
-      this.cacheCurrentTemp = this.roundTemperature(temp);
+      const rawTemp = Number(params.indoor_temperature);
+      this.cacheCurrentTemp = this.applyTemperatureOffset(rawTemp, this.tempOffset, this.tempOffsetFactor);
       this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheCurrentTemp);
       this.logDebug(`Current temperature updated to ${this.cacheCurrentTemp}°C`);
 
