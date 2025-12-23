@@ -162,7 +162,6 @@ export class OutletAccessory extends BaseAccessory {
     }
   }
 
-
   /**
    * Get outlet in use state (based on power consumption)
    */

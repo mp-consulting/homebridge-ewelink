@@ -73,7 +73,6 @@ export class EWeLinkAPI {
     );
   }
 
-
   /**
    * Generate signature for API requests
    */

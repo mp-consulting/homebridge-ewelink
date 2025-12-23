@@ -214,7 +214,6 @@ export class LightAccessory extends BaseAccessory {
     });
   }
 
-
   /**
    * Update state from device params
    */

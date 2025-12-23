@@ -21,7 +21,7 @@ export default tseslint.config(
       'comma-spacing': ['error'],
       'no-multi-spaces': ['warn', { 'ignoreEOLComments': true }],
       'no-trailing-spaces': ['warn'],
-      'no-multiple-empty-lines': ['warn', { 'max': 1, 'maxEOF': 0, 'maxBOF': 0 }],
+      'no-multiple-empty-lines': ['error', { 'max': 1, 'maxEOF': 0, 'maxBOF': 0 }],
       'lines-between-class-members': ['warn', 'always', { 'exceptAfterSingleLine': true }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

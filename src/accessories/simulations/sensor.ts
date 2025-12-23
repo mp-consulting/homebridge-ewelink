@@ -182,10 +182,6 @@ export class SensorAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-
-
-
-
     if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
       this.service.addCharacteristic(CurrentConsumption);
     }
@@ -265,9 +261,6 @@ export class SensorAccessory extends BaseAccessory {
    * Update power readings from device params
    */
   private updatePowerReadings(params: DeviceParams): void {
-
-
-
 
     let hasUpdate = false;
 

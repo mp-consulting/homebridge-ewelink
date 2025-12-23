@@ -68,14 +68,11 @@ export class PurifierAccessory extends BaseAccessory {
     if (this.powerReadings) {
       const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-
       if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
         this.service.addCharacteristic(CurrentConsumption);
       }
 
       if (this.hasFullPowerReadings) {
-
-
 
         if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
           this.service.addCharacteristic(Voltage);
@@ -206,10 +203,6 @@ export class PurifierAccessory extends BaseAccessory {
     if (!this.powerReadings) {
       return;
     }
-
-
-
-
 
     // Update power
     if (params.actPow_00 !== undefined) {

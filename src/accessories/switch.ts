@@ -89,7 +89,6 @@ export class SwitchAccessory extends BaseAccessory {
     }
   }
 
-
   /**
    * Get current switch state from params
    */
