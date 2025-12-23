@@ -52,9 +52,6 @@ export class THHeaterAccessory extends BaseAccessory {
   /** Cached heating state */
   private cacheHeat: 'on' | 'off' = 'off';
 
-  /** Update interval */
-  private intervalPoll?: NodeJS.Timeout;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -148,16 +145,7 @@ export class THHeaterAccessory extends BaseAccessory {
 
     // Set up polling interval for temperature updates (only if not in LAN mode)
     if (platform.config.mode !== 'lan') {
-      setTimeout(() => {
-        this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-
-      platform.api.on('shutdown', () => {
-        if (this.intervalPoll) {
-          clearInterval(this.intervalPoll);
-        }
-      });
+      this.setupPollingInterval(() => this.requestUpdate());
     }
 
     // Set initial state

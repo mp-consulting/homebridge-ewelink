@@ -3,7 +3,6 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
-import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Heater Simulation Accessory
@@ -30,9 +29,6 @@ export class HeaterAccessory extends BaseAccessory {
 
   /** Cached heating state */
   private cacheHeat: 'on' | 'off' = 'off';
-
-  /** Update interval */
-  private intervalPoll?: NodeJS.Timeout;
 
   constructor(
     platform: EWeLinkPlatform,
@@ -107,16 +103,7 @@ export class HeaterAccessory extends BaseAccessory {
       : 'off';
 
     // Set up polling interval for temperature updates
-    setTimeout(() => {
-      this.updateTemperature();
-      this.intervalPoll = setInterval(() => this.updateTemperature(), POLLING.UPDATE_INTERVAL_MS);
-    }, POLLING.INITIAL_DELAY_MS);
-
-    platform.api.on('shutdown', () => {
-      if (this.intervalPoll) {
-        clearInterval(this.intervalPoll);
-      }
-    });
+    this.setupPollingInterval(() => this.updateTemperature());
 
     // Set initial state
     this.updateState(this.deviceParams);

@@ -30,9 +30,6 @@ export class DoorAccessory extends BaseAccessory {
   /** Update key to prevent race conditions */
   private updateKey?: string;
 
-  /** Polling interval for power updates */
-  private intervalPoll?: NodeJS.Timeout;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -79,17 +76,7 @@ export class DoorAccessory extends BaseAccessory {
 
     // Add power monitoring characteristics if supported
     if (this.powerReadings) {
-      const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-        this.service.addCharacteristic(CurrentConsumption);
-      }
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-        this.service.addCharacteristic(Voltage);
-      }
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-        this.service.addCharacteristic(ElectricCurrent);
-      }
+      this.setupPowerMonitoringCharacteristics(this.service, true);
     }
 
     // Configure TargetPosition characteristic
@@ -106,16 +93,7 @@ export class DoorAccessory extends BaseAccessory {
 
     // Set up polling interval for power updates
     if (this.powerReadings && platform.config.mode !== 'lan') {
-      setTimeout(() => {
-        this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-
-      platform.api.on('shutdown', () => {
-        if (this.intervalPoll) {
-          clearInterval(this.intervalPoll);
-        }
-      });
+      this.setupPollingInterval(() => this.requestUpdate());
     }
 
     this.logInfo(`Initialized as door (operation time: ${this.operationTimeUp / 10}s up, ${this.operationTimeDown / 10}s down)`);

@@ -35,9 +35,6 @@ export class ProgrammableButtonAccessory extends BaseAccessory {
   /** Prevents duplicate triggers */
   private inUse = false;
 
-  /** Update interval */
-  private intervalPoll?: NodeJS.Timeout;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -67,20 +64,7 @@ export class ProgrammableButtonAccessory extends BaseAccessory {
 
     // Add power monitoring characteristics if supported
     if (this.powerReadings) {
-      const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-        this.service.addCharacteristic(CurrentConsumption);
-      }
-
-      if (this.hasFullPowerReadings) {
-        if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-          this.service.addCharacteristic(Voltage);
-        }
-        if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-          this.service.addCharacteristic(ElectricCurrent);
-        }
-      }
+      this.setupPowerMonitoringCharacteristics(this.service, this.hasFullPowerReadings);
     }
 
     // Configure programmable switch event (single press only)
@@ -90,16 +74,7 @@ export class ProgrammableButtonAccessory extends BaseAccessory {
 
     // Set up polling interval for power updates
     if (this.powerReadings && (!this.isDualR3 || platform.config.mode !== 'lan')) {
-      setTimeout(() => {
-        this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-
-      platform.api.on('shutdown', () => {
-        if (this.intervalPoll) {
-          clearInterval(this.intervalPoll);
-        }
-      });
+      this.setupPollingInterval(() => this.requestUpdate());
     }
 
     // Set initial state (default to 0)

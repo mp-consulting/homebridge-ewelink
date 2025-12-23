@@ -31,9 +31,6 @@ export class WindowAccessory extends BaseAccessory {
   /** Update key to prevent race conditions */
   private updateKey?: string;
 
-  /** Polling interval for power updates */
-  private intervalPoll?: NodeJS.Timeout;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -97,16 +94,7 @@ export class WindowAccessory extends BaseAccessory {
 
     // Set up polling interval for power updates
     if (this.powerReadings && platform.config.mode !== 'lan') {
-      setTimeout(() => {
-        this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-
-      platform.api.on('shutdown', () => {
-        if (this.intervalPoll) {
-          clearInterval(this.intervalPoll);
-        }
-      });
+      this.setupPollingInterval(() => this.requestUpdate());
     }
 
     this.logInfo(`Initialized as window (operation time: ${this.operationTimeUp / 10}s up, ${this.operationTimeDown / 10}s down)`);

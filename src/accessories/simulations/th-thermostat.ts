@@ -52,9 +52,6 @@ export class THThermostatAccessory extends BaseAccessory {
   /** Cached cooling state */
   private cacheCool?: 'on' | 'off';
 
-  /** Update interval */
-  private intervalPoll?: NodeJS.Timeout;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -168,16 +165,7 @@ export class THThermostatAccessory extends BaseAccessory {
 
     // Set up polling interval
     if (platform.config.mode !== 'lan') {
-      setTimeout(() => {
-        this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-
-      platform.api.on('shutdown', () => {
-        if (this.intervalPoll) {
-          clearInterval(this.intervalPoll);
-        }
-      });
+      this.setupPollingInterval(() => this.requestUpdate());
     }
 
     // Set initial state
