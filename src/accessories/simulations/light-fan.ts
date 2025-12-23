@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, LightDeviceConfig } from '../../types/index.js';
 import { sleep } from '../../utils/sleep.js';
+import { DeviceValueParser } from '../../utils/device-parsers.js';
 import { TIMING } from '../../constants/timing-constants.js';
 import {
   getBrightnessParams,
@@ -73,7 +74,7 @@ export class LightFanAccessory extends BaseAccessory {
 
     // Get on/off state using catalog-defined parameter name
     const switchValue = this.deviceParams[switchParam] as string;
-    this.cacheState = switchValue === 'on' ? 'on' : 'off';
+    this.cacheState = DeviceValueParser.boolToSwitch(DeviceValueParser.switchToBool(switchValue));
 
     // Get brightness/speed using catalog-defined parameter and normalize to 0-100
     if (brightnessConfig) {
@@ -100,7 +101,7 @@ export class LightFanAccessory extends BaseAccessory {
    */
   private async setOn(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as boolean, 'On', async (on) => {
-      const newValue = on ? 'on' : 'off';
+      const newValue = DeviceValueParser.boolToSwitch(on);
       if (this.cacheState === newValue) {
         return true;
       }
@@ -184,7 +185,7 @@ export class LightFanAccessory extends BaseAccessory {
     // Update on/off state using catalog-defined parameter name
     const switchValue = params[switchParam];
     if (switchValue !== undefined) {
-      const newState = switchValue === 'on' ? 'on' : 'off';
+      const newState = DeviceValueParser.boolToSwitch(DeviceValueParser.switchToBool(switchValue as string));
       if (newState !== this.cacheState) {
         this.cacheState = newState;
         this.service.updateCharacteristic(this.Characteristic.On, this.cacheState === 'on');

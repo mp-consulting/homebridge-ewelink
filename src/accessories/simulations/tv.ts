@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
+import { DeviceValueParser } from '../../utils/device-parsers.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import {
   POWER_DIVISOR,
@@ -126,7 +127,7 @@ export class TVAccessory extends BaseAccessory {
   private async setActive(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as number, 'Active', async (active) => {
       const on = active === 1;
-      this.cacheState = on ? 'on' : 'off';
+      this.cacheState = DeviceValueParser.boolToSwitch(on);
 
       this.logDebug(`TV: ${this.cacheState}`);
 
@@ -160,7 +161,7 @@ export class TVAccessory extends BaseAccessory {
     const isOn = SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
 
     if (isOn !== (this.cacheState === 'on')) {
-      this.cacheState = isOn ? 'on' : 'off';
+      this.cacheState = DeviceValueParser.boolToSwitch(isOn);
       this.service.updateCharacteristic(this.Characteristic.Active, isOn ? 1 : 0);
       this.logDebug(`TV state updated: ${this.cacheState}`);
     }
