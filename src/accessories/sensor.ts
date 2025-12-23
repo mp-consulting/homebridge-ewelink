@@ -236,9 +236,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getMotionDetected(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      // Motion is typically indicated by switch state or motion param
-      return this.deviceParams.switch === 'on' ||
-             this.deviceParams.state === 1;
+      return DeviceValueParser.parseMotionState(this.deviceParams);
     }, 'MotionDetected');
   }
 
@@ -247,9 +245,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private async getContactState(): Promise<CharacteristicValue> {
     return this.handleGet(() => {
-      // Contact is typically 0 = closed, 1 = open
-      const isOpen = this.deviceParams.switch === 'on' ||
-                     this.deviceParams.state === 1;
+      const isOpen = DeviceValueParser.parseContactState(this.deviceParams);
       return isOpen
         ? this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
         : this.Characteristic.ContactSensorState.CONTACT_DETECTED;
@@ -316,7 +312,7 @@ export class SensorAccessory extends BaseAccessory {
 
     // Update motion
     if (this.motionService) {
-      const motion = params.switch === 'on' || params.state === 1;
+      const motion = DeviceValueParser.parseMotionState(params);
       this.motionService.updateCharacteristic(
         this.Characteristic.MotionDetected,
         motion,
@@ -325,7 +321,7 @@ export class SensorAccessory extends BaseAccessory {
 
     // Update contact
     if (this.contactService) {
-      const isOpen = params.switch === 'on' || params.state === 1;
+      const isOpen = DeviceValueParser.parseContactState(params);
       this.contactService.updateCharacteristic(
         this.Characteristic.ContactSensorState,
         isOpen
