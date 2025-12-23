@@ -64,6 +64,7 @@ export const DEFAULT_BATTERY = 100;
 export const COLOR_TEMP_MIN_MIRED = 140;
 export const COLOR_TEMP_MAX_MIRED = 500;
 export const COLOR_TEMP_RANGE = 360;
+export const DEFAULT_COLOR_TEMP_MIRED = 320; // Neutral white
 
 // Timeouts
 export const COMMAND_TIMEOUT_MS = 10000;
