@@ -15,7 +15,7 @@ import {
 } from '../types/index.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
-import { TIMING, TEMPERATURE } from '../constants/timing-constants.js';
+import { TIMING, TEMPERATURE, POLLING } from '../constants/timing-constants.js';
 import { TEMPERATURE_MIN, TEMPERATURE_MAX, HUMIDITY_MIN, HUMIDITY_MAX } from '../constants/device-constants.js';
 
 /**
@@ -307,6 +307,36 @@ export abstract class BaseAccessory {
       this.removeCharacteristicIfExists(service, EVE_CHARACTERISTIC_UUIDS.Voltage);
       this.removeCharacteristicIfExists(service, EVE_CHARACTERISTIC_UUIDS.ElectricCurrent);
     }
+  }
+
+  /**
+   * Setup polling interval for periodic updates (e.g., power monitoring)
+   * @param updateFn - Function to call on each interval
+   * @param intervalMs - Polling interval in milliseconds (default: POLLING.UPDATE_INTERVAL_MS)
+   * @param initialDelayMs - Initial delay before first poll (default: POLLING.INITIAL_DELAY_MS)
+   * @returns Cleanup function to clear the interval
+   */
+  protected setupPollingInterval(
+    updateFn: () => Promise<void>,
+    intervalMs: number = POLLING.UPDATE_INTERVAL_MS,
+    initialDelayMs: number = POLLING.INITIAL_DELAY_MS,
+  ): () => void {
+    let intervalPoll: NodeJS.Timeout | undefined;
+
+    setTimeout(() => {
+      updateFn();
+      intervalPoll = setInterval(() => updateFn(), intervalMs);
+    }, initialDelayMs);
+
+    const cleanup = () => {
+      if (intervalPoll) {
+        clearInterval(intervalPoll);
+      }
+    };
+
+    this.platform.api.on('shutdown', cleanup);
+
+    return cleanup;
   }
 
   /**
