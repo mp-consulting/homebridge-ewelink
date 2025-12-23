@@ -287,7 +287,7 @@ export class DiffuserAccessory extends BaseAccessory {
     // Debounce for color wheel
     const updateKeyColour = this.generateRandomString(5);
     this.updateKeyColour = updateKeyColour;
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => setTimeout(resolve, SIMULATION_TIMING.COLOR_DEBOUNCE_MS));
 
     if (updateKeyColour !== this.updateKeyColour) {
       return;
@@ -322,18 +322,6 @@ export class DiffuserAccessory extends BaseAccessory {
     this.cacheR = r;
     this.cacheG = g;
     this.cacheB = b;
-  }
-
-  /**
-   * Generate random string for debouncing
-   */
-  private generateRandomString(length: number): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
   }
 
   /**

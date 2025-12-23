@@ -158,7 +158,7 @@ export class CurtainAccessory extends BaseAccessory {
     const uiid = this.device.extra?.uiid || 0;
     const positionConfig = getPositionParams(uiid);
     const motorTurnParam = getMotorTurnParam(uiid);
-    const params: Record<string, any> = {};
+    const params: DeviceParams = {};
 
     if (positionConfig) {
       const { target, inverted } = positionConfig;

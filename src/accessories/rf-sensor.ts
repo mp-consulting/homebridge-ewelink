@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../types/index.js';
+import { SENSOR_TIMING } from '../constants/timing-constants.js';
 
 type SensorType = 'motion' | 'contact' | 'water' | 'smoke' | 'co' | 'co2' | 'occupancy' | 'button' | 'doorbell';
 
@@ -27,7 +28,7 @@ export class RFSensorAccessory extends BaseAccessory {
     const sensorConfig = this.getSensorConfig();
     this.sensorType = (sensorConfig?.showAs || 'motion') as SensorType;
     this.sensorTimeLength = sensorConfig?.resetTime || 60;
-    this.sensorTimeDifference = 60; // Maximum time difference for sensor activation
+    this.sensorTimeDifference = SENSOR_TIMING.MAX_TIME_DIFF_S;
 
     // Set up the appropriate sensor service
     this.setupSensorService();

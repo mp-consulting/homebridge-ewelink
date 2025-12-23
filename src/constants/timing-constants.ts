@@ -76,4 +76,25 @@ export const SIMULATION_TIMING = {
 
   /** Default operation time for blinds/doors/windows - 120 seconds */
   DEFAULT_OPERATION_TIME_S: 120,
+
+  /** Color wheel debounce delay for diffuser - 400ms */
+  COLOR_DEBOUNCE_MS: 400,
+} as const;
+
+/**
+ * Sensor timing constants
+ */
+export const SENSOR_TIMING = {
+  /** Maximum time difference for sensor activation validation - 60 seconds */
+  MAX_TIME_DIFF_S: 60,
+} as const;
+
+/**
+ * Temperature precision constants
+ */
+export const TEMPERATURE = {
+  /** Decimal places for temperature rounding */
+  DECIMAL_PLACES: 1,
+  /** Multiplier for rounding (10^DECIMAL_PLACES) */
+  ROUND_FACTOR: 10,
 } as const;

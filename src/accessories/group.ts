@@ -70,7 +70,7 @@ export class GroupAccessory extends BaseAccessory {
     this.logInfo(`Setting group to ${newState}`);
 
     // Determine command format based on device params
-    let params: Record<string, any>;
+    let params: DeviceParams;
 
     if (this.deviceParams.switches) {
       // SCM format - use switches array

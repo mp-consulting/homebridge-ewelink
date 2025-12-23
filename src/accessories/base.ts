@@ -8,7 +8,7 @@ import {
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, EWeLinkDevice } from '../types/index.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
-import { TIMING } from '../constants/timing-constants.js';
+import { TIMING, TEMPERATURE } from '../constants/timing-constants.js';
 
 /**
  * Base class for all accessory types
@@ -230,6 +230,26 @@ export abstract class BaseAccessory {
    */
   protected clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
+  }
+
+  /**
+   * Round temperature to configured decimal places (default: 1)
+   */
+  protected roundTemperature(temp: number): number {
+    return Math.round(temp * TEMPERATURE.ROUND_FACTOR) / TEMPERATURE.ROUND_FACTOR;
+  }
+
+  /**
+   * Generate random string for debouncing/update keys
+   * @param length Length of the string to generate
+   */
+  protected generateRandomString(length: number): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   }
 
   /**

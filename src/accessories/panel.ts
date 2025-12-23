@@ -86,7 +86,7 @@ export class PanelAccessory extends BaseAccessory {
         temp *= this.tempOffsetFactor;
       }
       temp += this.tempOffset;
-      this.cacheTemp = Math.round(temp * 10) / 10;
+      this.cacheTemp = this.roundTemperature(temp);
       this.tempService.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheTemp);
     }
 
@@ -173,7 +173,7 @@ export class PanelAccessory extends BaseAccessory {
         temp *= this.tempOffsetFactor;
       }
       temp += this.tempOffset;
-      const newTemp = Math.round(temp * 10) / 10;
+      const newTemp = this.roundTemperature(temp);
 
       if (newTemp !== this.cacheTemp) {
         this.cacheTemp = newTemp;

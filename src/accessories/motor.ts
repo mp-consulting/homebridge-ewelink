@@ -107,7 +107,7 @@ export class MotorAccessory extends BaseAccessory {
     this.service.updateCharacteristic(this.Characteristic.PositionState, this.positionState);
 
     // Prepare motor command
-    const params: Record<string, any> = {
+    const params: DeviceParams = {
       location: newTarget,
     };
 

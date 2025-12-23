@@ -120,7 +120,7 @@ export class AirConditionerAccessory extends BaseAccessory {
         temp *= this.tempOffsetFactor;
       }
       temp += this.tempOffset;
-      this.cacheCurrentTemp = Math.round(temp * 10) / 10;
+      this.cacheCurrentTemp = this.roundTemperature(temp);
       this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheCurrentTemp);
     }
 
@@ -425,7 +425,7 @@ export class AirConditionerAccessory extends BaseAccessory {
         temp *= this.tempOffsetFactor;
       }
       temp += this.tempOffset;
-      this.cacheCurrentTemp = Math.round(temp * 10) / 10;
+      this.cacheCurrentTemp = this.roundTemperature(temp);
       this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheCurrentTemp);
       this.logDebug(`Current temperature updated to ${this.cacheCurrentTemp}°C`);
 
