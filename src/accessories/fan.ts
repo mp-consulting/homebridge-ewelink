@@ -170,7 +170,7 @@ export class FanAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update fan active state
     let isActive = 0;

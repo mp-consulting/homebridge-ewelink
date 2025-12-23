@@ -296,7 +296,7 @@ export class SensorAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update switch state if present
     if (this.switchService && params.switch !== undefined) {

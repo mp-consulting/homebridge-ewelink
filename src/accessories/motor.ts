@@ -133,8 +133,7 @@ export class MotorAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Handle currLocation (current position)
     if (params.currLocation !== undefined) {

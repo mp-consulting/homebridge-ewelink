@@ -163,8 +163,7 @@ export class PanelAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update temperature
     if (DeviceValueParser.hasTemperature(params)) {

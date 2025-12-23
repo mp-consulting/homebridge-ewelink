@@ -109,8 +109,7 @@ export class VirtualAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     if (this.isButton) {
       // Handle button press events

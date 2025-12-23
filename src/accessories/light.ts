@@ -218,7 +218,7 @@ export class LightAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update On
     const isOn = params.switch === 'on';

@@ -223,7 +223,7 @@ export class ValveAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update valve state
     const isOn = SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);

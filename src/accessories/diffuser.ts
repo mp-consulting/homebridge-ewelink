@@ -333,8 +333,7 @@ export class DiffuserAccessory extends BaseAccessory {
       return;
     }
 
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update diffuser on/off state
     if (params.switch !== undefined) {

@@ -188,8 +188,7 @@ export class OutletAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     if (this.isInched) {
       // In inching mode, check for "on" command and toggle cached state

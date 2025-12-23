@@ -136,7 +136,7 @@ export class ProgrammableButtonAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Trigger button event when switch turns on
     if (!this.inUse) {

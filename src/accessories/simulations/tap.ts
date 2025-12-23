@@ -174,7 +174,7 @@ export class TapAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update tap state
     const isOn = SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);

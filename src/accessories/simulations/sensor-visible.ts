@@ -245,7 +245,7 @@ export class SensorVisibleAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update battery level if present
     if (params.battery !== undefined && this.batteryService) {

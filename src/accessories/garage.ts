@@ -116,7 +116,7 @@ export class GarageAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Parse door state from params
     // This depends on the specific device configuration

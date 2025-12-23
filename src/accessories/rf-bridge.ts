@@ -23,8 +23,7 @@ export class RFBridgeAccessory extends BaseAccessory {
    * Routes updates to appropriate RF sub-devices
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Handle RF button transmit commands
     if (params.cmd === 'transmit' && params.rfChl !== undefined) {

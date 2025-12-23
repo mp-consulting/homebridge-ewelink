@@ -271,7 +271,7 @@ export class BlindAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Update power readings if supported
     if (!this.powerReadings) {

@@ -175,7 +175,7 @@ export class LightFanAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     const uiid = this.device.extra?.uiid || 0;
     const switchParam = getSwitchParamName(uiid);

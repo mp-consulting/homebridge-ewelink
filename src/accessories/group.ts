@@ -102,8 +102,7 @@ export class GroupAccessory extends BaseAccessory {
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
-    // Update local cache
-    Object.assign(this.deviceParams, params);
+    this.mergeDeviceParams(params);
 
     // Handle standard switch format
     if (params.switch !== undefined) {
