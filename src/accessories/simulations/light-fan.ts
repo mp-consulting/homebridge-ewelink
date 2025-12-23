@@ -155,11 +155,12 @@ export class LightFanAccessory extends BaseAccessory {
       // Convert 0-100 to device-specific range using catalog
       const deviceValue = denormalizeBrightness(uiid, newSpeed);
       const params: DeviceParams = {
-        [brightnessConfig.param]: uiid === 57 ? deviceValue.toString() : deviceValue,
+        // Use asString flag from catalog to determine if value should be string
+        [brightnessConfig.param]: brightnessConfig.asString ? deviceValue.toString() : deviceValue,
       };
 
-      // D1 (UIID 44) requires mode parameter
-      if (uiid === 44) {
+      // Add mode parameter if required by catalog
+      if (brightnessConfig.requiresMode) {
         params.mode = 0;
       }
 
