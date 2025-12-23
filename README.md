@@ -1,8 +1,5 @@
 # homebridge-ewelink
 
-[![npm](https://img.shields.io/npm/v/@mp-consulting/homebridge-ewelink/latest?label=latest)](https://www.npmjs.com/package/@mp-consulting/homebridge-ewelink)
-[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=flat)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-
 Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 <p align="center">
@@ -29,12 +26,12 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 👥 **Group Control** - Full support for eWeLink cloud groups with automatic discovery
 - 📊 **Device Status Tracking** - Real-time online/offline status with NO RESPONSE display in HomeKit
 
-## Recent Updates (v1.0.6)
+## Recent Updates (v1.0.8)
 
-- 🔧 **Code Quality Improvements** - Major refactoring for better maintainability
-- 🏷️ **RF Button Names** - Button names now update automatically when changed in eWeLink
-- 📦 **Reduced Code Duplication** - Centralized constants, utilities, and base class methods
-- ⚡ **Performance** - More efficient code organization with improved type safety
+- 📚 **Comprehensive Documentation** - Added README files in each src folder with architecture diagrams and usage examples
+- 🔧 **Code Refactoring** - Standardized patterns using helper functions across 15+ files
+- 🧹 **Reduced Code Duplication** - Removed 183+ lines of duplicate polling/service code
+- ⚡ **Better Maintainability** - Consistent use of `setupPollingInterval()`, `setupPowerMonitoringCharacteristics()`, and `getOrAddService()` helpers
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
@@ -214,12 +211,10 @@ Enable debug logging in the plugin settings to see detailed logs:
 
 - [GitHub Issues](https://github.com/mp-consulting/homebridge-ewelink/issues)
 - [GitHub Wiki](https://github.com/mp-consulting/homebridge-ewelink/wiki)
-- [Discord](https://discord.com/channels/432663330281226270/742733745743855627)
 
 ## Credits
 
-- Original plugin maintainer: [@gbro115](https://github.com/gbro115)
-- Successive contributors: [@MrTomAsh](https://github.com/MrTomAsh), [@howanghk](https://github.com/howanghk), [@bwp91](https://github.com/bwp91)
+- Original plugin implementation: [homebridge-ewelink](https://github.com/homebridge-plugins/homebridge-ewelink)
 - [Homebridge](https://homebridge.io) creators and contributors
 
 ## License

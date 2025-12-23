@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2025-12-23
+
+### Added
+- **Comprehensive Documentation**: Added README files in each src folder documenting:
+  - Architecture overview and communication flow diagrams
+  - File listings with descriptions for all modules
+  - Usage examples and code patterns
+  - Helper function documentation
+
+### Changed
+- **Code Refactoring**: Standardized code patterns across accessories
+  - Replaced manual polling setup with `setupPollingInterval()` helper in 12 simulation files
+  - Replaced manual power monitoring setup with `setupPowerMonitoringCharacteristics()` helper
+  - Standardized service creation with `getOrAddService()` helper in diffuser, panel, switch-mini
+  - Used `ColorUtils` helpers for color temperature conversions in light.ts
+  - Removed 183 lines of duplicate interval management code
+- **Device Catalog Usage**: Refactored to use catalog helper functions directly
+  - `getChannelCount()` instead of `DEVICE_CHANNEL_COUNT` map access
+  - Direct imports from `device-catalog.ts` for better tree-shaking
+
+### Fixed
+- Consistent service lookup by subtype instead of display name (more reliable on restore)
+
 ## [1.0.7] - 2025-12-23
 
 ### Added
