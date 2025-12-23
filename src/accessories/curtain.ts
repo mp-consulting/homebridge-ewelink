@@ -5,7 +5,7 @@ import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
 import { getPositionParams, getMotorTurnParam } from '../constants/device-constants.js';
 
-enum PositionState {
+export enum PositionState {
   DECREASING = 0,
   INCREASING = 1,
   STOPPED = 2,
