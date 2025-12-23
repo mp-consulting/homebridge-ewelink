@@ -129,4 +129,29 @@ export class DeviceValueParser {
   static hasBattery(params: DeviceParams): boolean {
     return params.battery !== undefined;
   }
+
+  /**
+   * Check if device params have power monitoring data
+   */
+  static hasPowerReadings(params: DeviceParams): boolean {
+    return params.power !== undefined ||
+           params.voltage !== undefined ||
+           params.current !== undefined;
+  }
+
+  /**
+   * Parse power monitoring readings from device params
+   * @returns Object with power, voltage, and current values
+   */
+  static parsePowerReadings(params: DeviceParams): {
+    power: number | undefined;
+    voltage: number | undefined;
+    current: number | undefined;
+  } {
+    return {
+      power: params.power !== undefined ? parseFloat(String(params.power)) : undefined,
+      voltage: params.voltage !== undefined ? parseFloat(String(params.voltage)) : undefined,
+      current: params.current !== undefined ? parseFloat(String(params.current)) : undefined,
+    };
+  }
 }
