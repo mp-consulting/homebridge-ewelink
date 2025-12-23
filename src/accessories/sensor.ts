@@ -11,8 +11,8 @@ import {
   BATTERY_MIN,
   BATTERY_MAX,
   DEFAULT_BATTERY,
-  MOTION_SENSOR_UIIDS,
-  CONTACT_SENSOR_UIIDS,
+  isMotionSensor as isMotionSensorUIID,
+  isContactSensor as isContactSensorUIID,
 } from '../constants/device-constants.js';
 
 /**
@@ -186,7 +186,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private isMotionSensor(): boolean {
     const uiid = this.device.extra?.uiid || 0;
-    return MOTION_SENSOR_UIIDS.includes(uiid);
+    return isMotionSensorUIID(uiid);
   }
 
   /**
@@ -194,7 +194,7 @@ export class SensorAccessory extends BaseAccessory {
    */
   private isContactSensor(): boolean {
     const uiid = this.device.extra?.uiid || 0;
-    return CONTACT_SENSOR_UIIDS.includes(uiid);
+    return isContactSensorUIID(uiid);
   }
 
   /**
