@@ -36,9 +36,24 @@
         "description": "This setting defines how the plugin communicates with your devices.",
         "default": "auto",
         "oneOf": [
-          { "title": "Auto (LAN + Cloud)", "enum": ["auto"] },
-          { "title": "LAN Only", "enum": ["lan"] },
-          { "title": "Cloud Only", "enum": ["wan"] }
+          {
+            "title": "Auto (LAN + Cloud)",
+            "enum": [
+              "auto"
+            ]
+          },
+          {
+            "title": "LAN Only",
+            "enum": [
+              "lan"
+            ]
+          },
+          {
+            "title": "Cloud Only",
+            "enum": [
+              "wan"
+            ]
+          }
         ]
       },
       "debug": {
@@ -85,15 +100,60 @@
               "type": "string",
               "default": "default",
               "oneOf": [
-                { "title": "Switch (Default)", "enum": ["default"] },
-                { "title": "Outlet", "enum": ["outlet"] },
-                { "title": "Valve", "enum": ["valve"] },
-                { "title": "Sensor", "enum": ["sensor"] },
-                { "title": "Heater", "enum": ["heater"] },
-                { "title": "Cooler", "enum": ["cooler"] },
-                { "title": "Purifier", "enum": ["purifier"] },
-                { "title": "Lock", "enum": ["lock"] },
-                { "title": "Tap", "enum": ["tap"] }
+                {
+                  "title": "Switch (Default)",
+                  "enum": [
+                    "default"
+                  ]
+                },
+                {
+                  "title": "Outlet",
+                  "enum": [
+                    "outlet"
+                  ]
+                },
+                {
+                  "title": "Valve",
+                  "enum": [
+                    "valve"
+                  ]
+                },
+                {
+                  "title": "Sensor",
+                  "enum": [
+                    "sensor"
+                  ]
+                },
+                {
+                  "title": "Heater",
+                  "enum": [
+                    "heater"
+                  ]
+                },
+                {
+                  "title": "Cooler",
+                  "enum": [
+                    "cooler"
+                  ]
+                },
+                {
+                  "title": "Purifier",
+                  "enum": [
+                    "purifier"
+                  ]
+                },
+                {
+                  "title": "Lock",
+                  "enum": [
+                    "lock"
+                  ]
+                },
+                {
+                  "title": "Tap",
+                  "enum": [
+                    "tap"
+                  ]
+                }
               ]
             },
             "ipAddress": {
@@ -134,11 +194,36 @@
               "type": "string",
               "default": "default",
               "oneOf": [
-                { "title": "Switch (Default)", "enum": ["default"] },
-                { "title": "Outlet", "enum": ["outlet"] },
-                { "title": "Blind", "enum": ["blind"] },
-                { "title": "Garage Door", "enum": ["garage"] },
-                { "title": "Lock", "enum": ["lock"] }
+                {
+                  "title": "Switch (Default)",
+                  "enum": [
+                    "default"
+                  ]
+                },
+                {
+                  "title": "Outlet",
+                  "enum": [
+                    "outlet"
+                  ]
+                },
+                {
+                  "title": "Blind",
+                  "enum": [
+                    "blind"
+                  ]
+                },
+                {
+                  "title": "Garage Door",
+                  "enum": [
+                    "garage"
+                  ]
+                },
+                {
+                  "title": "Lock",
+                  "enum": [
+                    "lock"
+                  ]
+                }
               ]
             },
             "hideChannels": {
@@ -339,16 +424,38 @@
               "type": "string",
               "required": true,
               "oneOf": [
-                { "title": "Blind", "enum": ["blind"] },
-                { "title": "Garage Door", "enum": ["garage"] },
-                { "title": "Lock", "enum": ["lock"] },
-                { "title": "Valve", "enum": ["valve"] }
+                {
+                  "title": "Blind",
+                  "enum": [
+                    "blind"
+                  ]
+                },
+                {
+                  "title": "Garage Door",
+                  "enum": [
+                    "garage"
+                  ]
+                },
+                {
+                  "title": "Lock",
+                  "enum": [
+                    "lock"
+                  ]
+                },
+                {
+                  "title": "Valve",
+                  "enum": [
+                    "valve"
+                  ]
+                }
               ]
             },
             "deviceIds": {
               "title": "Device IDs",
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Device IDs to include in this group."
             },
             "label": {
@@ -396,15 +503,60 @@
               "type": "string",
               "default": "button",
               "oneOf": [
-                { "title": "Button", "enum": ["button"] },
-                { "title": "Water Sensor", "enum": ["water"] },
-                { "title": "Fire Sensor", "enum": ["fire"] },
-                { "title": "Smoke Sensor", "enum": ["smoke"] },
-                { "title": "CO Sensor", "enum": ["co"] },
-                { "title": "Motion Sensor", "enum": ["motion"] },
-                { "title": "Contact Sensor", "enum": ["contact"] },
-                { "title": "Doorbell", "enum": ["doorbell"] },
-                { "title": "Curtain", "enum": ["curtain"] }
+                {
+                  "title": "Button",
+                  "enum": [
+                    "button"
+                  ]
+                },
+                {
+                  "title": "Water Sensor",
+                  "enum": [
+                    "water"
+                  ]
+                },
+                {
+                  "title": "Fire Sensor",
+                  "enum": [
+                    "fire"
+                  ]
+                },
+                {
+                  "title": "Smoke Sensor",
+                  "enum": [
+                    "smoke"
+                  ]
+                },
+                {
+                  "title": "CO Sensor",
+                  "enum": [
+                    "co"
+                  ]
+                },
+                {
+                  "title": "Motion Sensor",
+                  "enum": [
+                    "motion"
+                  ]
+                },
+                {
+                  "title": "Contact Sensor",
+                  "enum": [
+                    "contact"
+                  ]
+                },
+                {
+                  "title": "Doorbell",
+                  "enum": [
+                    "doorbell"
+                  ]
+                },
+                {
+                  "title": "Curtain",
+                  "enum": [
+                    "curtain"
+                  ]
+                }
               ]
             },
             "curtainType": {
@@ -415,9 +567,24 @@
                 "functionBody": "return model.bridgeSensors && model.bridgeSensors[arrayIndices] && model.bridgeSensors[arrayIndices].deviceType === 'curtain';"
               },
               "oneOf": [
-                { "title": "One Button", "enum": ["oneButton"] },
-                { "title": "Two Buttons", "enum": ["twoButtons"] },
-                { "title": "Three Buttons", "enum": ["threeButtons"] }
+                {
+                  "title": "One Button",
+                  "enum": [
+                    "oneButton"
+                  ]
+                },
+                {
+                  "title": "Two Buttons",
+                  "enum": [
+                    "twoButtons"
+                  ]
+                },
+                {
+                  "title": "Three Buttons",
+                  "enum": [
+                    "threeButtons"
+                  ]
+                }
               ]
             },
             "operationTime": {
@@ -564,7 +731,7 @@
     {
       "key": "bridgeSensors",
       "title": "RF Subdevices",
-      "description": "Optional settings for RF Bridge subdevices to expose different sensor types (<a href=\"https://github.com/homebridge-plugins/homebridge-ewelink/wiki/RF-Bridge-Sensors\" target=\"_blank\">more info</a>).",
+      "description": "Optional settings for RF Bridge subdevices to expose different sensor types).",
       "expandable": true,
       "add": "Add RF Subdevices",
       "type": "array",

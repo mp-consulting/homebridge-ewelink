@@ -6,7 +6,7 @@ export const PLATFORM_NAME = 'eWeLink';
 /**
  * Plugin name - must match the package.json name
  */
-export const PLUGIN_NAME = '@homebridge-plugins/homebridge-ewelink';
+export const PLUGIN_NAME = '@mp-consulting/homebridge-ewelink';
 
 /**
  * Plugin version
