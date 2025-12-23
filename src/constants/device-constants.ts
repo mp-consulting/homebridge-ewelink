@@ -28,6 +28,7 @@ export {
   isDualR3Device,
   isDimmableLightForFan,
   hasBattery,
+  getBatteryType,
   isProgrammableSwitch,
   isGroupDevice,
   isNSPanelPro,

@@ -100,6 +100,8 @@ export interface DeviceParamsDef {
   fanSpeed?: { param: string; min: number; max: number };
   /** Motor turn parameter */
   motorTurn?: string;
+  /** Battery parameter type: 'percentage' (0-100) or 'voltage' (2.0-3.0V) */
+  battery?: 'percentage' | 'voltage';
 }
 
 /** Device capability flags */
@@ -1480,7 +1482,9 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     params: {
       switchStyle: 'single',
       onOffParam: 'switch',
+      battery: 'voltage',
     },
+    notes: 'Battery reported as voltage (2.0V - 3.0V)',
   },
 
   154: {
@@ -1500,7 +1504,9 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     params: {
       switchStyle: 'single',
       onOffParam: 'switch',
+      battery: 'percentage',
     },
+    notes: 'Battery reported as percentage (0-100)',
   },
 
   130: {
@@ -2674,6 +2680,15 @@ export function hasHumidity(uiid: number): boolean {
 export function hasBattery(uiid: number): boolean {
   const device = DEVICE_CATALOG[uiid];
   return device?.capabilities.hasBattery ?? false;
+}
+
+/**
+ * Get battery type for a UIID
+ * Returns 'percentage' (0-100) or 'voltage' (2.0-3.0V), defaults to 'percentage'
+ */
+export function getBatteryType(uiid: number): 'percentage' | 'voltage' {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.battery ?? 'percentage';
 }
 
 /**
