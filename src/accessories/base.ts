@@ -6,9 +6,16 @@ import {
   WithUUID,
 } from 'homebridge';
 import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams, EWeLinkDevice } from '../types/index.js';
+import {
+  AccessoryContext,
+  DeviceParams,
+  EWeLinkDevice,
+  SingleDeviceConfig,
+  MultiDeviceConfig,
+} from '../types/index.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { TIMING, TEMPERATURE } from '../constants/timing-constants.js';
+import { TEMPERATURE_MIN, TEMPERATURE_MAX, HUMIDITY_MIN, HUMIDITY_MAX } from '../constants/device-constants.js';
 
 /**
  * Base class for all accessory types
@@ -115,6 +122,56 @@ export abstract class BaseAccessory {
    */
   protected mergeDeviceParams(params: DeviceParams): void {
     Object.assign(this.deviceParams, params);
+  }
+
+  /**
+   * Get device configuration from singleDevices or multiDevices config
+   * @returns Device configuration or undefined if not found
+   */
+  protected getSingleDeviceConfig(): SingleDeviceConfig | undefined {
+    return this.platform.config.singleDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+  }
+
+  /**
+   * Get multi-device configuration
+   * @returns Multi-device configuration or undefined if not found
+   */
+  protected getMultiDeviceConfig(): MultiDeviceConfig | undefined {
+    return this.platform.config.multiDevices?.find(
+      d => d.deviceId === this.deviceId,
+    );
+  }
+
+  /**
+   * Apply temperature offset and factor, then clamp to valid range
+   * @param temp - Raw temperature value
+   * @param offset - Temperature offset to add
+   * @param factor - Optional multiplier factor
+   * @returns Processed temperature value
+   */
+  protected applyTemperatureOffset(
+    temp: number,
+    offset: number,
+    factor?: number,
+  ): number {
+    let result = temp;
+    if (factor !== undefined) {
+      result *= factor;
+    }
+    result += offset;
+    return this.clamp(this.roundTemperature(result), TEMPERATURE_MIN, TEMPERATURE_MAX);
+  }
+
+  /**
+   * Apply humidity offset and clamp to valid range
+   * @param humidity - Raw humidity value
+   * @param offset - Humidity offset to add
+   * @returns Processed humidity value
+   */
+  protected applyHumidityOffset(humidity: number, offset: number): number {
+    return this.clamp(humidity + offset, HUMIDITY_MIN, HUMIDITY_MAX);
   }
 
   /**
