@@ -154,4 +154,34 @@ export class DeviceValueParser {
       current: params.current !== undefined ? parseFloat(String(params.current)) : undefined,
     };
   }
+
+  /**
+   * Parse motion sensor state from device params
+   * Motion is typically indicated by switch='on' or state=1
+   */
+  static parseMotionState(params: DeviceParams): boolean {
+    return params.switch === 'on' || params.state === 1;
+  }
+
+  /**
+   * Parse contact sensor state from device params
+   * Contact is typically indicated by switch='on' or state=1 (open)
+   */
+  static parseContactState(params: DeviceParams): boolean {
+    return params.switch === 'on' || params.state === 1;
+  }
+
+  /**
+   * Convert boolean to switch state string
+   */
+  static boolToSwitch(value: boolean): 'on' | 'off' {
+    return value ? 'on' : 'off';
+  }
+
+  /**
+   * Convert switch state string to boolean
+   */
+  static switchToBool(value: 'on' | 'off' | string): boolean {
+    return value === 'on';
+  }
 }
