@@ -52,10 +52,8 @@ export class PanelAccessory extends BaseAccessory {
 
     // Add switch services for non-Pro panels (standard NSPanel has 2 channels)
     if (!this.isProPanel) {
-      this.service1 = this.accessory.getService('Channel 1') ||
-        this.accessory.addService(this.Service.Switch, 'Channel 1', 'channel1');
-      this.service2 = this.accessory.getService('Channel 2') ||
-        this.accessory.addService(this.Service.Switch, 'Channel 2', 'channel2');
+      this.service1 = this.getOrAddService(this.Service.Switch, 'Channel 1', 'channel1');
+      this.service2 = this.getOrAddService(this.Service.Switch, 'Channel 2', 'channel2');
 
       // Configure channel 1
       this.service1.getCharacteristic(this.Characteristic.On)

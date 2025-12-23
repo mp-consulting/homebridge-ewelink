@@ -39,12 +39,10 @@ export class DiffuserAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Set up the fan service for diffuser
-    this.fanService = this.accessory.getService('Diffuser') ||
-      this.accessory.addService(this.Service.Fan, 'Diffuser', 'diffuser');
+    this.fanService = this.getOrAddService(this.Service.Fan, 'Diffuser', 'diffuser');
 
     // Set up the lightbulb service for light
-    this.lightService = this.accessory.getService('Light') ||
-      this.accessory.addService(this.Service.Lightbulb, 'Light', 'light');
+    this.lightService = this.getOrAddService(this.Service.Lightbulb, 'Light', 'light');
 
     // Configure fan on/off characteristic
     this.fanService.getCharacteristic(this.Characteristic.On)

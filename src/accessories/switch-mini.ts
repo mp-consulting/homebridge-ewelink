@@ -30,26 +30,23 @@ export class SwitchMiniAccessory extends BaseAccessory {
       const serviceName = `Channel ${channel}`;
       const subtype = `channel${channel}`;
 
-      let service = this.accessory.getService(serviceName);
-      if (!service) {
-        service = this.accessory.addService(
-          this.Service.StatelessProgrammableSwitch,
-          serviceName,
-          subtype,
-        );
+      const service = this.getOrAddService(
+        this.Service.StatelessProgrammableSwitch,
+        serviceName,
+        subtype,
+      );
 
-        // Add ConfiguredName characteristic
-        if (!service.testCharacteristic(this.Characteristic.ConfiguredName)) {
-          service.addCharacteristic(this.Characteristic.ConfiguredName);
-        }
-        service.updateCharacteristic(this.Characteristic.ConfiguredName, serviceName);
-
-        // Add ServiceLabelIndex characteristic
-        if (!service.testCharacteristic(this.Characteristic.ServiceLabelIndex)) {
-          service.addCharacteristic(this.Characteristic.ServiceLabelIndex);
-        }
-        service.updateCharacteristic(this.Characteristic.ServiceLabelIndex, channel);
+      // Add ConfiguredName characteristic
+      if (!service.testCharacteristic(this.Characteristic.ConfiguredName)) {
+        service.addCharacteristic(this.Characteristic.ConfiguredName);
       }
+      service.updateCharacteristic(this.Characteristic.ConfiguredName, serviceName);
+
+      // Add ServiceLabelIndex characteristic
+      if (!service.testCharacteristic(this.Characteristic.ServiceLabelIndex)) {
+        service.addCharacteristic(this.Characteristic.ServiceLabelIndex);
+      }
+      service.updateCharacteristic(this.Characteristic.ServiceLabelIndex, channel);
 
       // Configure programmable switch event
       service.getCharacteristic(this.Characteristic.ProgrammableSwitchEvent)
