@@ -1,3 +1,5 @@
+import { DEVICE_CATALOG, type DeviceCategoryType } from './constants/device-catalog.js';
+
 /**
  * Platform name - used in config.json
  */
@@ -67,7 +69,8 @@ export const DEFAULTS = {
 } as const;
 
 /**
- * Device categories
+ * Device categories enum
+ * Used for device routing in platform.ts
  */
 export enum DeviceCategory {
   SINGLE_SWITCH = 'single',
@@ -92,160 +95,54 @@ export enum DeviceCategory {
 }
 
 /**
- * Device UI IDs mapped to device types
- * Based on original homebridge-ewelink constants
+ * Maps catalog category type to DeviceCategory enum
  */
-export const DEVICE_UIID_MAP: Record<number, DeviceCategory> = {
-  // Single switches
-  1: DeviceCategory.SINGLE_SWITCH,
-  6: DeviceCategory.SINGLE_SWITCH,
-  14: DeviceCategory.SINGLE_SWITCH,
-  24: DeviceCategory.SINGLE_SWITCH,
-  27: DeviceCategory.SINGLE_SWITCH,
-  77: DeviceCategory.SINGLE_SWITCH,
-  78: DeviceCategory.SINGLE_SWITCH,
-  81: DeviceCategory.SINGLE_SWITCH,
-  107: DeviceCategory.SINGLE_SWITCH,
-  112: DeviceCategory.SINGLE_SWITCH,
-  138: DeviceCategory.SINGLE_SWITCH,
-  160: DeviceCategory.SINGLE_SWITCH,
-  168: DeviceCategory.SINGLE_SWITCH,
-  182: DeviceCategory.SINGLE_SWITCH,
-  190: DeviceCategory.SINGLE_SWITCH,
-
-  // Single switches with power monitoring (outlets)
-  5: DeviceCategory.OUTLET,
-  32: DeviceCategory.OUTLET,
-
-  // Multi-channel switches
-  2: DeviceCategory.MULTI_SWITCH,
-  3: DeviceCategory.MULTI_SWITCH,
-  4: DeviceCategory.MULTI_SWITCH,
-  7: DeviceCategory.MULTI_SWITCH,
-  8: DeviceCategory.MULTI_SWITCH,
-  9: DeviceCategory.MULTI_SWITCH,
-  29: DeviceCategory.MULTI_SWITCH,
-  30: DeviceCategory.MULTI_SWITCH,
-  31: DeviceCategory.MULTI_SWITCH,
-  41: DeviceCategory.MULTI_SWITCH,
-  82: DeviceCategory.MULTI_SWITCH,
-  83: DeviceCategory.MULTI_SWITCH,
-  84: DeviceCategory.MULTI_SWITCH,
-  113: DeviceCategory.MULTI_SWITCH,
-  114: DeviceCategory.MULTI_SWITCH,
-  139: DeviceCategory.MULTI_SWITCH,
-  140: DeviceCategory.MULTI_SWITCH,
-  141: DeviceCategory.MULTI_SWITCH,
-  161: DeviceCategory.MULTI_SWITCH,
-  162: DeviceCategory.MULTI_SWITCH,
-  163: DeviceCategory.MULTI_SWITCH,
-  178: DeviceCategory.MULTI_SWITCH,
-  210: DeviceCategory.MULTI_SWITCH,
-  211: DeviceCategory.MULTI_SWITCH,
-  212: DeviceCategory.MULTI_SWITCH,
-
-  // Multi-channel switches (moved to proper section above)
-  126: DeviceCategory.MULTI_SWITCH, // Multi with power monitoring
-  165: DeviceCategory.MULTI_SWITCH, // Multi with power monitoring
-  262: DeviceCategory.MULTI_SWITCH, // Multi with power monitoring
-
-  // Lights - Dimmable
-  36: DeviceCategory.LIGHT,
-  44: DeviceCategory.LIGHT,
-  57: DeviceCategory.LIGHT,
-
-  // Lights - RGB
-  22: DeviceCategory.LIGHT,
-
-  // Lights - CCT (Color Temperature)
-  103: DeviceCategory.LIGHT,
-
-  // Lights - RGB+CCT
-  33: DeviceCategory.LIGHT,
-  59: DeviceCategory.LIGHT,
-  104: DeviceCategory.LIGHT,
-  135: DeviceCategory.LIGHT,
-  136: DeviceCategory.LIGHT,
-  137: DeviceCategory.LIGHT,
-  173: DeviceCategory.LIGHT,
-
-  // SONOFF Mini (S-MAN) - Programmable switch with 6 channels
-  174: DeviceCategory.SINGLE_SWITCH,
-
-  // SONOFF Mate (S-MATE) - Programmable switch with 3 button modes
-  177: DeviceCategory.SINGLE_SWITCH,
-
-  // Curtains/Motors
-  11: DeviceCategory.CURTAIN,
-  67: DeviceCategory.CURTAIN,
-  91: DeviceCategory.CURTAIN,
-  258: DeviceCategory.CURTAIN,
-
-  // Contact/Door sensors
-  102: DeviceCategory.SENSOR,
-  154: DeviceCategory.SENSOR,
-
-  // Temperature/Humidity sensors
-  15: DeviceCategory.THERMOSTAT, // TH sensor (read-only)
-  18: DeviceCategory.THERMOSTAT, // TH sensor
-  181: DeviceCategory.THERMOSTAT, // Ambient sensor
-
-  // Thermostat (with heating control)
-  127: DeviceCategory.THERMOSTAT,
-
-  // Fans
-  34: DeviceCategory.FAN,
-
-  // Air Conditioner
-  151: DeviceCategory.AIR_CONDITIONER,
-
-  // Humidifier
-  19: DeviceCategory.HUMIDIFIER,
-
-  // Diffuser
-  25: DeviceCategory.DIFFUSER,
-
-  // Panel (NSPanel, NSPanel Pro)
-  133: DeviceCategory.PANEL,
-  195: DeviceCategory.PANEL,
-
-  // Virtual devices
-  265: DeviceCategory.VIRTUAL,
-
-  // Group devices (virtual UIID)
-  5000: DeviceCategory.GROUP,
-
-  // Other sensors
-  130: DeviceCategory.SENSOR,
-  191: DeviceCategory.SENSOR,
-
-  // RF Bridge
-  28: DeviceCategory.RF_BRIDGE,
-  98: DeviceCategory.RF_BRIDGE,
-
-  // Zigbee Bridge
-  66: DeviceCategory.RF_BRIDGE, // Using RF_BRIDGE category for now
-  128: DeviceCategory.RF_BRIDGE,
-
-  // Zigbee devices
-  1000: DeviceCategory.SINGLE_SWITCH, // ZB Switch
-  1257: DeviceCategory.LIGHT, // ZB Light Dimmer
-  1258: DeviceCategory.LIGHT, // ZB Light CCT
-  1514: DeviceCategory.CURTAIN, // ZB Motor
-  1770: DeviceCategory.THERMOSTAT, // ZB Sensor Ambient
-  1771: DeviceCategory.THERMOSTAT, // ZB Sensor Ambient
-  2026: DeviceCategory.SENSOR, // ZB Sensor Motion
-  3026: DeviceCategory.SENSOR, // ZB Sensor Contact
-  3258: DeviceCategory.LIGHT, // ZB Light RGB+CCT
-  4026: DeviceCategory.SENSOR, // ZB Sensor Water
-  5026: DeviceCategory.SENSOR, // ZB Sensor Smoke
-  7000: DeviceCategory.SINGLE_SWITCH, // ZB Switch
-  7002: DeviceCategory.SENSOR, // ZB Sensor Motion
-  7003: DeviceCategory.SENSOR, // ZB Sensor Contact
-  7006: DeviceCategory.CURTAIN, // ZB Motor
-  7014: DeviceCategory.THERMOSTAT, // ZB Sensor Ambient
-  7016: DeviceCategory.SENSOR, // ZB Sensor Occupancy
-  7017: DeviceCategory.THERMOSTAT, // ZB Thermostat
-  7019: DeviceCategory.SENSOR, // ZB Sensor Water
-  7027: DeviceCategory.SINGLE_SWITCH, // ZB Valve/Switch
+const CATEGORY_TYPE_TO_ENUM: Record<DeviceCategoryType, DeviceCategory> = {
+  single_switch: DeviceCategory.SINGLE_SWITCH,
+  multi_switch: DeviceCategory.MULTI_SWITCH,
+  outlet: DeviceCategory.OUTLET,
+  light: DeviceCategory.LIGHT,
+  fan: DeviceCategory.FAN,
+  curtain: DeviceCategory.CURTAIN,
+  garage: DeviceCategory.GARAGE,
+  thermostat: DeviceCategory.THERMOSTAT,
+  sensor: DeviceCategory.SENSOR,
+  air_conditioner: DeviceCategory.AIR_CONDITIONER,
+  humidifier: DeviceCategory.HUMIDIFIER,
+  diffuser: DeviceCategory.DIFFUSER,
+  panel: DeviceCategory.PANEL,
+  rf_bridge: DeviceCategory.RF_BRIDGE,
+  zigbee_bridge: DeviceCategory.RF_BRIDGE, // Zigbee bridges use RF_BRIDGE category
+  virtual: DeviceCategory.VIRTUAL,
+  group: DeviceCategory.GROUP,
+  programmable_switch: DeviceCategory.SINGLE_SWITCH, // Programmable switches use SINGLE_SWITCH category
 };
+
+/**
+ * Get DeviceCategory enum from catalog category type
+ */
+export function getCategoryFromType(categoryType: DeviceCategoryType): DeviceCategory {
+  return CATEGORY_TYPE_TO_ENUM[categoryType] ?? DeviceCategory.UNKNOWN;
+}
+
+/**
+ * Get DeviceCategory for a UIID
+ */
+export function getDeviceCategory(uiid: number): DeviceCategory {
+  const device = DEVICE_CATALOG[uiid];
+  if (!device) {
+    return DeviceCategory.UNKNOWN;
+  }
+  return getCategoryFromType(device.category);
+}
+
+/**
+ * Device UI IDs mapped to device types
+ * NOTE: Now derived from device catalog. Use getDeviceCategory() for new code.
+ */
+export const DEVICE_UIID_MAP: Record<number, DeviceCategory> = Object.fromEntries(
+  Object.entries(DEVICE_CATALOG).map(([uiid, entry]) => [
+    Number(uiid),
+    getCategoryFromType(entry.category),
+  ]),
+);
