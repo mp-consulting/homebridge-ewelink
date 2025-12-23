@@ -2733,6 +2733,12 @@ export function getPositionParams(uiid: number): DeviceParamsDef['position'] | u
   return device?.params?.position;
 }
 
+/** Get motor turn parameter name for curtain devices */
+export function getMotorTurnParam(uiid: number): string | undefined {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.motorTurn;
+}
+
 /**
  * Get the on/off parameter name for a UIID
  * Returns the parameter name used for on/off control (e.g., 'switch', 'state')

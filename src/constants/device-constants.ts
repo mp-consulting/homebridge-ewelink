@@ -34,6 +34,7 @@ export {
   isPanelDevice,
   getBrightnessParams,
   getPositionParams,
+  getMotorTurnParam,
   getSwitchParamName,
   getSwitchStyle,
   isCurtainDevice,

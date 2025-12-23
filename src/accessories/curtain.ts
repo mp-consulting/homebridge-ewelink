@@ -3,6 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
+import { getPositionParams, getMotorTurnParam } from '../constants/device-constants.js';
 
 enum PositionState {
   DECREASING = 0,
@@ -73,21 +74,27 @@ export class CurtainAccessory extends BaseAccessory {
    * Initialize state from device params
    */
   private initializeFromParams(): void {
-    // UIID 126 (DUALR3) uses currLocation and location
-    if (this.deviceParams.currLocation !== undefined) {
-      this.currentPosition = this.clamp(this.deviceParams.currLocation as number, 0, 100);
-    }
+    const uiid = this.device.extra?.uiid || 0;
+    const positionConfig = getPositionParams(uiid);
 
-    if (this.deviceParams.location !== undefined) {
-      this.targetPosition = this.clamp(this.deviceParams.location as number, 0, 100);
-    } else {
-      this.targetPosition = this.currentPosition;
-    }
+    if (positionConfig) {
+      const { current, target, inverted } = positionConfig;
 
-    // UIID 11 uses setclose (inverted: 0 = open, 100 = closed)
-    if (this.deviceParams.setclose !== undefined) {
-      this.currentPosition = 100 - this.clamp(this.deviceParams.setclose as number, 0, 100);
-      this.targetPosition = this.currentPosition;
+      // Get current position from device params
+      const rawCurrent = this.deviceParams[current];
+      if (rawCurrent !== undefined) {
+        const value = this.clamp(rawCurrent as number, 0, 100);
+        this.currentPosition = inverted ? 100 - value : value;
+      }
+
+      // Get target position (may be same param as current for some devices)
+      const rawTarget = this.deviceParams[target];
+      if (rawTarget !== undefined && target !== current) {
+        const value = this.clamp(rawTarget as number, 0, 100);
+        this.targetPosition = inverted ? 100 - value : value;
+      } else {
+        this.targetPosition = this.currentPosition;
+      }
     }
 
     // Update characteristics
@@ -147,40 +154,36 @@ export class CurtainAccessory extends BaseAccessory {
       this.positionState,
     );
 
-    // Send command to device based on UIID
+    // Build command params using catalog
+    const uiid = this.device.extra?.uiid || 0;
+    const positionConfig = getPositionParams(uiid);
+    const motorTurnParam = getMotorTurnParam(uiid);
     const params: Record<string, any> = {};
-    const uiid = this.accessory.context.device?.extra?.uiid;
 
-    switch (uiid) {
-      case 11:
-        // UIID 11: uses setclose (inverted: 0 = open, 100 = closed)
-        if ([0, 100].includes(newTarget)) {
-          params.switch = newTarget === 100 ? 'on' : 'off';
-        } else {
-          params.setclose = 100 - newTarget;
-        }
-        break;
-      case 67:
-        // UIID 67: uses per parameter
-        params.per = newTarget;
-        break;
-      case 126:
-        // UIID 126 (DUALR3): uses motorTurn to control movement
-        // First send the target location
-        params.location = newTarget;
-        // Then determine the motor direction based on current vs target
+    if (positionConfig) {
+      const { target, inverted } = positionConfig;
+      const deviceValue = inverted ? 100 - newTarget : newTarget;
+
+      // Some devices (UIID 11) use switch on/off for full open/close
+      if (inverted && [0, 100].includes(newTarget)) {
+        params.switch = newTarget === 100 ? 'on' : 'off';
+      } else {
+        params[target] = deviceValue;
+      }
+
+      // Add motor turn direction for devices that need it
+      if (motorTurnParam) {
         if (newTarget > this.currentPosition) {
-          params.motorTurn = 1; // Opening
+          params[motorTurnParam] = 1; // Opening
         } else if (newTarget < this.currentPosition) {
-          params.motorTurn = 2; // Closing
+          params[motorTurnParam] = 2; // Closing
         } else {
-          params.motorTurn = 0; // Stop (already at target)
+          params[motorTurnParam] = 0; // Stop
         }
-        break;
-      default:
-        // Default to location for other curtain types
-        params.location = newTarget;
-        break;
+      }
+    } else {
+      // Fallback for unknown devices
+      params.location = newTarget;
     }
 
     this.logDebug(`Sending curtain command (UIID ${uiid}): ${JSON.stringify(params)}`);
@@ -224,51 +227,81 @@ export class CurtainAccessory extends BaseAccessory {
     // Update local cache
     Object.assign(this.deviceParams, params);
 
-    let locationParams = false;
+    const uiid = this.device.extra?.uiid || 0;
+    const positionConfig = getPositionParams(uiid);
 
-    // Handle currLocation (current position) - UIID 126 DUALR3
-    if (params.currLocation !== undefined) {
-      locationParams = true;
-      const newPosition = this.clamp(params.currLocation as number, 0, 100);
+    if (!positionConfig) {
+      return;
+    }
+
+    const { current, target, inverted } = positionConfig;
+    let positionUpdated = false;
+
+    // Handle current position update
+    const rawCurrent = params[current];
+    if (rawCurrent !== undefined) {
+      const rawValue = this.clamp(rawCurrent as number, 0, 100);
+      const newPosition = inverted ? 100 - rawValue : rawValue;
 
       if (newPosition !== this.currentPosition) {
-        const name = this.accessory.displayName;
-        this.platform.log.info(`[${name}] Current position changing from ${this.currentPosition}% to ${newPosition}%`);
+        this.platform.log.info(
+          `[${this.accessory.displayName}] Current position changing from ${this.currentPosition}% to ${newPosition}%`,
+        );
         this.currentPosition = newPosition;
         this.service.updateCharacteristic(
           this.Characteristic.CurrentPosition,
           this.currentPosition,
         );
-      } else {
-        this.platform.log.info(`[${this.accessory.displayName}] Current position unchanged at ${this.currentPosition}%`);
+        positionUpdated = true;
       }
     }
 
-    // Handle location (target position) - UIID 126 DUALR3
-    if (params.location !== undefined) {
-      locationParams = true;
-      const newTarget = this.clamp(params.location as number, 0, 100);
+    // Handle target position update (only if different param from current)
+    if (target !== current) {
+      const rawTarget = params[target];
+      if (rawTarget !== undefined) {
+        const rawValue = this.clamp(rawTarget as number, 0, 100);
+        const newTarget = inverted ? 100 - rawValue : rawValue;
 
-      if (newTarget !== this.targetPosition) {
-        this.targetPosition = newTarget;
-        this.service.updateCharacteristic(
-          this.Characteristic.TargetPosition,
-          this.targetPosition,
-        );
-        this.logDebug('Target position updated to ' + this.targetPosition + '%');
+        if (newTarget !== this.targetPosition) {
+          this.targetPosition = newTarget;
+          this.service.updateCharacteristic(
+            this.Characteristic.TargetPosition,
+            this.targetPosition,
+          );
+          this.logDebug('Target position updated to ' + this.targetPosition + '%');
+          positionUpdated = true;
+        }
       }
+    } else if (positionUpdated) {
+      // For devices where current == target param, sync target to current
+      if (this.currentPosition === this.targetPosition) {
+        // Already at target - stopped
+        this.positionState = PositionState.STOPPED;
+        if (this.moveTimeout) {
+          clearTimeout(this.moveTimeout);
+          this.moveTimeout = undefined;
+        }
+      } else {
+        // External change - update target to match current
+        this.targetPosition = this.currentPosition;
+        this.positionState = PositionState.STOPPED;
+      }
+
+      this.service.updateCharacteristic(
+        this.Characteristic.TargetPosition,
+        this.targetPosition,
+      );
+      this.logDebug('Position updated to ' + this.currentPosition + '%');
     }
 
     // Update position state based on current vs target
-    if (locationParams) {
+    if (positionUpdated) {
       if (this.targetPosition === this.currentPosition) {
-        // Stopped
         this.positionState = PositionState.STOPPED;
       } else if (this.targetPosition > this.currentPosition) {
-        // Increasing (opening)
         this.positionState = PositionState.INCREASING;
       } else {
-        // Decreasing (closing)
         this.positionState = PositionState.DECREASING;
       }
 
@@ -276,43 +309,6 @@ export class CurtainAccessory extends BaseAccessory {
         this.Characteristic.PositionState,
         this.positionState,
       );
-    }
-
-    // Handle position update from setclose (UIID 11)
-    if (params.setclose !== undefined) {
-      const newPosition = 100 - this.clamp(params.setclose as number, 0, 100);
-
-      // If position update matches our target, we've arrived
-      if (newPosition === this.targetPosition) {
-        this.currentPosition = newPosition;
-        this.positionState = PositionState.STOPPED;
-
-        // Stop any ongoing timeout
-        if (this.moveTimeout) {
-          clearTimeout(this.moveTimeout);
-          this.moveTimeout = undefined;
-        }
-      } else {
-        // External change - update both current and target
-        this.currentPosition = newPosition;
-        this.targetPosition = newPosition;
-        this.positionState = PositionState.STOPPED;
-      }
-
-      this.service.updateCharacteristic(
-        this.Characteristic.CurrentPosition,
-        this.currentPosition,
-      );
-      this.service.updateCharacteristic(
-        this.Characteristic.TargetPosition,
-        this.targetPosition,
-      );
-      this.service.updateCharacteristic(
-        this.Characteristic.PositionState,
-        this.positionState,
-      );
-
-      this.logDebug('Position updated to ' + this.currentPosition + '%');
     }
 
     // Handle switch off command (some devices use this for stop)
