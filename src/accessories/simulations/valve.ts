@@ -114,10 +114,6 @@ export class ValveAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-
-
-
-
     if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
       this.service.addCharacteristic(CurrentConsumption);
     }
@@ -242,10 +238,6 @@ export class ValveAccessory extends BaseAccessory {
 
     // Update Eve power characteristics if supported
     if (this.powerReadings) {
-
-
-
-
       if (params.power !== undefined) {
         const power = parseFloat(String(params.power));
         this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
