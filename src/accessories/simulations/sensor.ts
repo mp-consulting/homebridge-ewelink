@@ -4,7 +4,14 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import {
+  POWER_DIVISOR,
+  VOLTAGE_DIVISOR,
+  CURRENT_DIVISOR,
+  hasPowerMonitoring,
+  hasFullPowerReadings as hasFullPowerReadingsUIID,
+  isDualR3Device,
+} from '../../constants/device-constants.js';
 import { POLLING } from '../../constants/timing-constants.js';
 
 /**
@@ -118,19 +125,13 @@ export class SensorAccessory extends BaseAccessory {
     this.service.getCharacteristic(this.sensorCharacteristic)
       .onGet(this.getSensorState.bind(this));
 
-    // Check for power monitoring support
+    // Check for power monitoring support using catalog helpers
     const uiid = this.device.extra?.uiid || 0;
 
-    // Single switch with power monitoring
-    if ([5, 32].includes(uiid)) {
+    if (hasPowerMonitoring(uiid)) {
       this.powerReadings = true;
-      this.hasFullPowerReadings = uiid === 32;
-      this.isDualR3 = false;
-    } else if ([126, 165, 182, 190].includes(uiid)) {
-      // Multi-channel with power monitoring (Dual R3)
-      this.powerReadings = true;
-      this.hasFullPowerReadings = true;
-      this.isDualR3 = true;
+      this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
+      this.isDualR3 = isDualR3Device(uiid);
     } else {
       // Check if device params contain power readings
       this.powerReadings = this.supportsPowerMonitoring();

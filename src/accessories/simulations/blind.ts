@@ -4,7 +4,7 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
 import { sleep, generateRandomString } from '../../utils/sleep.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR, isDualR3Device } from '../../constants/device-constants.js';
 import { POLLING } from '../../constants/timing-constants.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
@@ -49,9 +49,9 @@ export class BlindAccessory extends BaseAccessory {
     this.operationTimeUp = (this.deviceConfig?.operationTime || defaultOperationTime) * 10;
     this.operationTimeDown = (this.deviceConfig?.operationTimeDown || this.operationTimeUp / 10) * 10;
 
-    // Check for power monitoring
+    // Check for power monitoring (DualR3 devices support it)
     const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = [126, 165].includes(uiid);
+    this.powerReadings = isDualR3Device(uiid);
 
     // Initialize cache if not present
     if (this.accessory.context.cacheCurrentPosition === undefined) {

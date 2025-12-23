@@ -3,7 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR, isDualR3Device } from '../../constants/device-constants.js';
 import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
@@ -44,10 +44,10 @@ export class DoorbellAccessory extends BaseAccessory {
       d => d.deviceId === this.deviceId,
     );
 
-    // Determine power monitoring capabilities
+    // Determine power monitoring capabilities (DualR3 devices support it)
     const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = [126, 165].includes(uiid);
-    this.isDualR3 = [126, 165].includes(uiid);
+    this.powerReadings = isDualR3Device(uiid);
+    this.isDualR3 = isDualR3Device(uiid);
 
     // Remove any existing switch service
     this.removeServiceIfExists(this.Service.Switch);

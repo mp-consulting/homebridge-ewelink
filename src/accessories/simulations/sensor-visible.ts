@@ -4,6 +4,7 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
+import { isContactSensor, hasBattery } from '../../constants/device-constants.js';
 
 /**
  * Visible Sensor Accessory
@@ -82,10 +83,10 @@ export class SensorVisibleAccessory extends BaseAccessory {
     this.isGarage = subConfig?.showAs === 'garage';
     this.operationTime = subConfig?.operationTime || 20;
 
-    // Determine device type
+    // Determine device type using catalog helpers
     const uiid = this.device.extra?.uiid || 0;
-    this.isDW2 = [102, 154].includes(uiid);
-    this.hasBattery = [102, 154, 1000, 1770].includes(uiid); // DW2 and some garage sensors
+    this.isDW2 = isContactSensor(uiid);
+    this.hasBattery = hasBattery(uiid);
 
     // Get battery settings
     this.lowBattThreshold = this.deviceConfig?.lowBattThreshold

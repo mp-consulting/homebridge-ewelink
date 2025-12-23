@@ -4,7 +4,14 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import {
+  POWER_DIVISOR,
+  VOLTAGE_DIVISOR,
+  CURRENT_DIVISOR,
+  hasPowerMonitoring,
+  hasFullPowerReadings as hasFullPowerReadingsUIID,
+  isDualR3Device,
+} from '../../constants/device-constants.js';
 import { POLLING } from '../../constants/timing-constants.js';
 
 /**
@@ -50,9 +57,9 @@ export class TVAccessory extends BaseAccessory {
 
     // Determine power monitoring capabilities
     const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = [5, 32, 126, 165, 182, 190].includes(uiid);
-    this.hasFullPowerReadings = [32, 126, 165, 182, 190].includes(uiid);
-    this.isDualR3 = [126, 165].includes(uiid);
+    this.powerReadings = hasPowerMonitoring(uiid);
+    this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
+    this.isDualR3 = isDualR3Device(uiid);
 
     // Set up Television service
     this.service = this.getOrAddService(this.Service.Television);

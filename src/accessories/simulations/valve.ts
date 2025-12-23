@@ -5,6 +5,7 @@ import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig }
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { POLLING } from '../../constants/timing-constants.js';
+import { hasPowerMonitoring, hasFullPowerReadings as hasFullPowerReadingsUIID } from '../../constants/device-constants.js';
 
 /**
  * Valve Simulation Accessory
@@ -49,8 +50,8 @@ export class ValveAccessory extends BaseAccessory {
 
     // Check for power monitoring
     const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = [5, 32].includes(uiid) || this.supportsPowerMonitoring();
-    this.hasFullPowerReadings = [32, 182, 190].includes(uiid);
+    this.powerReadings = hasPowerMonitoring(uiid) || this.supportsPowerMonitoring();
+    this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
 
     // Set up the valve service
     this.service = this.getOrAddService(this.Service.Valve);

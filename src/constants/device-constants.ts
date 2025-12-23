@@ -27,6 +27,7 @@ export {
   isTHSensorDevice,
   isDualR3Device,
   isDimmableLightForFan,
+  hasBattery,
 } from './device-catalog.js';
 
 // Temperature ranges
