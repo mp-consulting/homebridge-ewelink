@@ -14,6 +14,7 @@ import {
   MultiDeviceConfig,
 } from '../types/index.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
+import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
 import { TIMING, TEMPERATURE } from '../constants/timing-constants.js';
 import { TEMPERATURE_MIN, TEMPERATURE_MAX, HUMIDITY_MIN, HUMIDITY_MAX } from '../constants/device-constants.js';
 
@@ -277,6 +278,34 @@ export abstract class BaseAccessory {
       if (characteristic) {
         service.removeCharacteristic(characteristic);
       }
+    }
+  }
+
+  /**
+   * Setup Eve power monitoring characteristics on a service
+   * @param service - The service to add characteristics to
+   * @param hasFullPowerReadings - Whether to add voltage and current (true) or just power (false)
+   */
+  protected setupPowerMonitoringCharacteristics(service: Service, hasFullPowerReadings: boolean): void {
+    const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
+
+    // Add Current Consumption (Watts) - available on all power monitoring devices
+    if (!service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
+      service.addCharacteristic(CurrentConsumption);
+    }
+
+    // Add Voltage and Current for devices with full power readings
+    if (hasFullPowerReadings) {
+      if (!service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
+        service.addCharacteristic(Voltage);
+      }
+      if (!service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
+        service.addCharacteristic(ElectricCurrent);
+      }
+    } else {
+      // Remove voltage/current if not supported
+      this.removeCharacteristicIfExists(service, EVE_CHARACTERISTIC_UUIDS.Voltage);
+      this.removeCharacteristicIfExists(service, EVE_CHARACTERISTIC_UUIDS.ElectricCurrent);
     }
   }
 

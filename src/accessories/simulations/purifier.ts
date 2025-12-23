@@ -67,21 +67,7 @@ export class PurifierAccessory extends BaseAccessory {
 
     // Add power monitoring characteristics if supported
     if (this.powerReadings) {
-      const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-        this.service.addCharacteristic(CurrentConsumption);
-      }
-
-      if (this.hasFullPowerReadings) {
-
-        if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-          this.service.addCharacteristic(Voltage);
-        }
-        if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-          this.service.addCharacteristic(ElectricCurrent);
-        }
-      }
+      this.setupPowerMonitoringCharacteristics(this.service, this.hasFullPowerReadings);
     }
 
     // Configure active characteristic

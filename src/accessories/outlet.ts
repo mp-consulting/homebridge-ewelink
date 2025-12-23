@@ -94,27 +94,7 @@ export class OutletAccessory extends BaseAccessory {
    * Setup power monitoring characteristics
    */
   private setupPowerMonitoring(): void {
-    const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-    // Add Current Consumption (Watts) - available on all power monitoring devices
-    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-      this.service.addCharacteristic(CurrentConsumption);
-    }
-
-    // Add Voltage and Current for devices with full power readings
-    if (this.hasFullPowerReadings) {
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-        this.service.addCharacteristic(Voltage);
-      }
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-        this.service.addCharacteristic(ElectricCurrent);
-      }
-    } else {
-      // Remove voltage/current if not supported
-      this.removeCharacteristicIfExists(this.service, EVE_CHARACTERISTIC_UUIDS.Voltage);
-      this.removeCharacteristicIfExists(this.service, EVE_CHARACTERISTIC_UUIDS.ElectricCurrent);
-    }
-
+    this.setupPowerMonitoringCharacteristics(this.service, this.hasFullPowerReadings);
     this.logDebug(`Power monitoring enabled (full readings: ${this.hasFullPowerReadings})`);
   }
 
