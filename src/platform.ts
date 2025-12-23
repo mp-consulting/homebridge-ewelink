@@ -11,7 +11,6 @@ import {
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
 import {
-  DEVICE_CHANNEL_COUNT,
   isTHSensorDevice,
   isDimmableLightForFan,
   isGroupDevice,
@@ -527,9 +526,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   private async createMultiChannelSubDevices(device: EWeLinkDevice, category: DeviceCategory): Promise<void> {
     const uiid = device.extra?.uiid || 0;
-    const channelCount = DEVICE_CHANNEL_COUNT[uiid];
+    const channelCount = getChannelCount(uiid);
 
-    if (!channelCount || channelCount === 1) {
+    if (channelCount <= 1) {
       // Single channel device, no sub-accessories needed
       return;
     }
@@ -840,10 +839,10 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     }
 
     const uiid = device.extra?.uiid || 0;
-    const channelCount = DEVICE_CHANNEL_COUNT[uiid];
+    const channelCount = getChannelCount(uiid);
 
     // For multi-channel devices, broadcast to all sub-accessories
-    if (channelCount && channelCount > 1) {
+    if (channelCount > 1) {
       // Update all channel sub-accessories (SW0, SW1, SW2, etc.)
       for (let channel = 0; channel <= channelCount; channel++) {
         const subDeviceId = `${deviceId}SW${channel}`;
