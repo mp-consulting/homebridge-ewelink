@@ -4,7 +4,7 @@ import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { ColorUtils } from '../utils/color-utils.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
-import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, COLOR_TEMP_RANGE, DEFAULT_COLOR_TEMP_MIRED } from '../constants/device-constants.js';
+import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, DEFAULT_COLOR_TEMP_MIRED } from '../constants/device-constants.js';
 
 /**
  * Light Accessory with brightness and color support
@@ -124,7 +124,7 @@ export class LightAccessory extends BaseAccessory {
 
       if (this.deviceParams.white?.ct !== undefined) {
         // ct is 0-100, need to convert to mired
-        ct = Math.round(COLOR_TEMP_MIN_MIRED + (this.deviceParams.white.ct / 100) * COLOR_TEMP_RANGE);
+        ct = ColorUtils.ct0_100ToMired(this.deviceParams.white.ct);
       } else if (this.deviceParams.colorTemp !== undefined) {
         ct = this.deviceParams.colorTemp;
       } else {
@@ -143,7 +143,7 @@ export class LightAccessory extends BaseAccessory {
 
     await this.handleSet(mired, 'ColorTemperature', async (ct) => {
       // Convert mired to device's 0-100 scale
-      const deviceCt = Math.round(((ct - COLOR_TEMP_MIN_MIRED) / COLOR_TEMP_RANGE) * 100);
+      const deviceCt = ColorUtils.miredToCt0_100(ct);
 
       if (this.deviceParams.white !== undefined) {
         return await this.sendCommand({
@@ -235,7 +235,7 @@ export class LightAccessory extends BaseAccessory {
     if (this.supportsColorTemp) {
       let ct: number;
       if (params.white?.ct !== undefined) {
-        ct = Math.round(COLOR_TEMP_MIN_MIRED + (params.white.ct / 100) * COLOR_TEMP_RANGE);
+        ct = ColorUtils.ct0_100ToMired(params.white.ct);
       } else {
         ct = params.colorTemp ?? DEFAULT_COLOR_TEMP_MIRED;
       }
