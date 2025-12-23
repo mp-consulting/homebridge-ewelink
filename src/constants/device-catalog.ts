@@ -83,7 +83,15 @@ export interface DeviceParamsDef {
   /** On/off parameter name */
   onOffParam?: string;
   /** Brightness parameter name and range */
-  brightness?: { param: string; min: number; max: number };
+  brightness?: {
+    param: string;
+    min: number;
+    max: number;
+    /** If true, value should be sent as string */
+    asString?: boolean;
+    /** If true, mode: 0 is required for brightness control */
+    requiresMode?: boolean;
+  };
   /** Color temperature parameter */
   colorTemp?: { param: string; min: number; max: number };
   /** RGB color parameters */
@@ -1035,7 +1043,7 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     params: {
       switchStyle: 'single',
       onOffParam: 'switch',
-      brightness: { param: 'brightness', min: 0, max: 100 },
+      brightness: { param: 'brightness', min: 0, max: 100, requiresMode: true },
     },
     supportedSimulations: ['fan'],
     notes: 'mode: 0 required for brightness control',
@@ -1056,10 +1064,10 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     params: {
       switchStyle: 'state',
       onOffParam: 'state',
-      brightness: { param: 'channel0', min: 25, max: 255 },
+      brightness: { param: 'channel0', min: 25, max: 255, asString: true },
     },
     supportedSimulations: ['fan'],
-    notes: 'channel0 scale 25-255 maps to HomeKit 0-100',
+    notes: 'channel0 scale 25-255 maps to HomeKit 0-100, value as string',
   },
 
   // ==========================================================================
