@@ -3,6 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { ColorUtils } from '../utils/color-utils.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
 import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, COLOR_TEMP_RANGE, DEFAULT_COLOR_TEMP_MIRED } from '../constants/device-constants.js';
 
 /**
@@ -81,7 +82,7 @@ export class LightAccessory extends BaseAccessory {
    */
   private async setOn(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as boolean, 'On', async (on) => {
-      return await this.sendCommand({ switch: on ? 'on' : 'off' });
+      return await this.sendCommand({ switch: DeviceValueParser.boolToSwitch(on) });
     });
   }
 

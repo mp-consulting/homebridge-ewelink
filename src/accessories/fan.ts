@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams, FanDeviceConfig } from '../types/index.js';
+import { DeviceValueParser } from '../utils/device-parsers.js';
 
 /**
  * Fan Accessory with speed control
@@ -99,13 +100,13 @@ export class FanAccessory extends BaseAccessory {
         const index = switches.findIndex(s => s.outlet === 1);
 
         if (index >= 0) {
-          switches[index] = { ...switches[index], switch: on ? 'on' : 'off' };
+          switches[index] = { ...switches[index], switch: DeviceValueParser.boolToSwitch(on === 1) };
         }
 
         return await this.sendCommand({ switches });
       }
 
-      return await this.sendCommand({ speed: on ? 1 : 0 });
+      return await this.sendCommand({ speed: on === 1 ? 1 : 0 });
     });
   }
 
@@ -157,7 +158,7 @@ export class FanAccessory extends BaseAccessory {
         const index = switches.findIndex(s => s.outlet === 0);
 
         if (index >= 0) {
-          switches[index] = { ...switches[index], switch: on ? 'on' : 'off' };
+          switches[index] = { ...switches[index], switch: DeviceValueParser.boolToSwitch(on) };
         }
 
         return await this.sendCommand({ switches });
