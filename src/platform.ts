@@ -15,6 +15,8 @@ import {
   isTHSensorDevice,
   isDimmableLightForFan,
   isGroupDevice,
+  isProgrammableSwitch,
+  getChannelCount,
 } from './constants/device-constants.js';
 import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
@@ -700,13 +702,16 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         : new ThermostatAccessory(this, accessory);
     }
 
-    // 6. Handle switch category (including special UIIDs and outlet simulation)
-    if (uiid === 174) {
-      return new SwitchMiniAccessory(this, accessory);
+    // 6. Handle programmable switches (SwitchMan R5, Switch Mate, etc.)
+    if (isProgrammableSwitch(uiid)) {
+      // Multi-channel programmable switches use SwitchMiniAccessory
+      // Single-channel programmable switches use SwitchMateAccessory
+      return getChannelCount(uiid) > 1
+        ? new SwitchMiniAccessory(this, accessory)
+        : new SwitchMateAccessory(this, accessory);
     }
-    if (uiid === 177) {
-      return new SwitchMateAccessory(this, accessory);
-    }
+
+    // 7. Handle outlet simulation
     if (showAs === 'outlet') {
       return new OutletAccessory(this, accessory);
     }
