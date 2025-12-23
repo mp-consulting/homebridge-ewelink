@@ -269,6 +269,18 @@ export abstract class BaseAccessory {
   }
 
   /**
+   * Remove a characteristic from a service if it exists
+   */
+  protected removeCharacteristicIfExists(service: Service, characteristicUUID: string): void {
+    if (service.testCharacteristic(characteristicUUID)) {
+      const characteristic = service.getCharacteristic(characteristicUUID);
+      if (characteristic) {
+        service.removeCharacteristic(characteristic);
+      }
+    }
+  }
+
+  /**
    * Convert Celsius to Fahrenheit
    */
   protected celsiusToFahrenheit(celsius: number): number {

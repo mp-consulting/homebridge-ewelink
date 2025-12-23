@@ -111,18 +111,8 @@ export class OutletAccessory extends BaseAccessory {
       }
     } else {
       // Remove voltage/current if not supported
-      if (this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-        const voltageCh = this.service.getCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage);
-        if (voltageCh) {
-          this.service.removeCharacteristic(voltageCh);
-        }
-      }
-      if (this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-        const currentCh = this.service.getCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent);
-        if (currentCh) {
-          this.service.removeCharacteristic(currentCh);
-        }
-      }
+      this.removeCharacteristicIfExists(this.service, EVE_CHARACTERISTIC_UUIDS.Voltage);
+      this.removeCharacteristicIfExists(this.service, EVE_CHARACTERISTIC_UUIDS.ElectricCurrent);
     }
 
     this.logDebug(`Power monitoring enabled (full readings: ${this.hasFullPowerReadings})`);
