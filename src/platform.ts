@@ -10,7 +10,7 @@ import {
 
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
-import { DEVICE_CHANNEL_COUNT } from './constants/device-constants.js';
+import { DEVICE_CHANNEL_COUNT, isTHSensorDevice, isDimmableLightForFan } from './constants/device-constants.js';
 import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
@@ -664,7 +664,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     }
 
     // 2. Check for TH sensor simulations (UIID 15/181 with showAs)
-    if ([15, 181].includes(uiid)) {
+    if (isTHSensorDevice(uiid)) {
       const THSimHandler = TH_SIMULATION_HANDLERS[showAs];
       if (THSimHandler) {
         return new THSimHandler(this, accessory);
@@ -678,7 +678,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     if (showAs === 'cooler') {
       return new CoolerAccessory(this, accessory);
     }
-    if (showAs === 'fan' && [36, 44, 57].includes(uiid)) {
+    if (showAs === 'fan' && isDimmableLightForFan(uiid)) {
       return new LightFanAccessory(this, accessory);
     }
 
@@ -690,7 +690,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
     // 5. Handle thermostat category specially (UIID 15/181 = TH sensor, UIID 127 = thermostat)
     if (category === DeviceCategory.THERMOSTAT) {
-      return [15, 181].includes(uiid)
+      return isTHSensorDevice(uiid)
         ? new THSensorAccessory(this, accessory)
         : new ThermostatAccessory(this, accessory);
     }
