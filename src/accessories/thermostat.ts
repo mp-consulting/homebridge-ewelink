@@ -165,6 +165,9 @@ export class ThermostatAccessory extends BaseAccessory {
         temp,
       );
       this.logDebug(`Current temperature updated: ${temp}°C`);
+
+      // Cache temperature for cross-device sharing (heater/cooler simulations)
+      this.platform.setDeviceTemperature(this.deviceId, temp);
     }
 
     // Update target temperature

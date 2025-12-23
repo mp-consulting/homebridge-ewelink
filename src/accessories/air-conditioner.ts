@@ -428,6 +428,9 @@ export class AirConditionerAccessory extends BaseAccessory {
       this.cacheCurrentTemp = Math.round(temp * 10) / 10;
       this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheCurrentTemp);
       this.logDebug(`Current temperature updated to ${this.cacheCurrentTemp}°C`);
+
+      // Cache temperature for cross-device sharing (heater/cooler simulations)
+      this.platform.setDeviceTemperature(this.deviceId, this.cacheCurrentTemp);
     }
 
     // Update wind speed

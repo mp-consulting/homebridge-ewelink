@@ -260,7 +260,7 @@ export class CoolerAccessory extends BaseAccessory {
   }
 
   /**
-   * Update temperature from storage (reads from another device's cached temp)
+   * Update temperature from platform cache (reads from another device's cached temp)
    */
   private async updateTemperature(): Promise<void> {
     try {
@@ -268,15 +268,9 @@ export class CoolerAccessory extends BaseAccessory {
         return;
       }
 
-      // Read temperature from storage (cached by the source device)
-      // TODO: Implement proper storage interface on platform
-      const storage = (this.platform as any).storageData;
-      if (!storage) {
-        return;
-      }
-
-      const newTemp = await storage.getItem(`${this.temperatureSource}_temp`) as number;
-      if (newTemp && newTemp !== this.cacheTemp) {
+      // Read temperature from platform cache (set by temperature-capable devices)
+      const newTemp = this.platform.getDeviceTemperature(this.temperatureSource);
+      if (newTemp !== undefined && newTemp !== this.cacheTemp) {
         this.cacheTemp = newTemp;
         this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheTemp);
         this.logDebug(`Temperature: ${this.cacheTemp}°C`);

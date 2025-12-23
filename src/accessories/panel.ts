@@ -179,6 +179,9 @@ export class PanelAccessory extends BaseAccessory {
         this.cacheTemp = newTemp;
         this.tempService.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheTemp);
         this.logDebug(`Temperature updated to ${this.cacheTemp}°C`);
+
+        // Cache temperature for cross-device sharing (heater/cooler simulations)
+        this.platform.setDeviceTemperature(this.deviceId, this.cacheTemp);
       }
     }
 

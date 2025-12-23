@@ -153,6 +153,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /** Device cache */
   public deviceCache: Map<string, EWeLinkDevice> = new Map();
 
+  /** Temperature cache for cross-device temperature sharing (heater/cooler simulations) */
+  private readonly temperatureCache: Map<string, number> = new Map();
+
   /** Initialization complete */
   private initialized = false;
 
@@ -923,6 +926,22 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   public getDeviceDisplayName(deviceId: string): string {
     const device = this.deviceCache.get(deviceId);
     return device?.name || deviceId;
+  }
+
+  /**
+   * Set cached temperature for a device (called by temperature-capable devices)
+   * This allows heater/cooler simulations to read temperature from other devices
+   */
+  public setDeviceTemperature(deviceId: string, temperature: number): void {
+    this.temperatureCache.set(deviceId, temperature);
+  }
+
+  /**
+   * Get cached temperature for a device (used by heater/cooler simulations)
+   * Returns undefined if no temperature has been cached for the device
+   */
+  public getDeviceTemperature(deviceId: string): number | undefined {
+    return this.temperatureCache.get(deviceId);
   }
 
   /**
