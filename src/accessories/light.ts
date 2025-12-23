@@ -3,6 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { ColorUtils } from '../utils/color-utils.js';
+import { COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED, COLOR_TEMP_RANGE } from '../constants/device-constants.js';
 
 /**
  * Light Accessory with brightness and color support
@@ -121,15 +122,15 @@ export class LightAccessory extends BaseAccessory {
       let ct: number;
 
       if (this.deviceParams.white?.ct !== undefined) {
-        // ct is 0-100, need to convert to mired (140-500)
-        ct = Math.round(140 + (this.deviceParams.white.ct / 100) * 360);
+        // ct is 0-100, need to convert to mired
+        ct = Math.round(COLOR_TEMP_MIN_MIRED + (this.deviceParams.white.ct / 100) * COLOR_TEMP_RANGE);
       } else if (this.deviceParams.colorTemp !== undefined) {
         ct = this.deviceParams.colorTemp;
       } else {
         ct = 320; // Default to neutral
       }
 
-      return this.clamp(ct, 140, 500);
+      return this.clamp(ct, COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED);
     }, 'ColorTemperature');
   }
 
@@ -141,7 +142,7 @@ export class LightAccessory extends BaseAccessory {
 
     await this.handleSet(mired, 'ColorTemperature', async (ct) => {
       // Convert mired to device's 0-100 scale
-      const deviceCt = Math.round(((ct - 140) / 360) * 100);
+      const deviceCt = Math.round(((ct - COLOR_TEMP_MIN_MIRED) / COLOR_TEMP_RANGE) * 100);
 
       if (this.deviceParams.white !== undefined) {
         return await this.sendCommand({
@@ -234,13 +235,13 @@ export class LightAccessory extends BaseAccessory {
     if (this.supportsColorTemp) {
       let ct: number;
       if (params.white?.ct !== undefined) {
-        ct = Math.round(140 + (params.white.ct / 100) * 360);
+        ct = Math.round(COLOR_TEMP_MIN_MIRED + (params.white.ct / 100) * COLOR_TEMP_RANGE);
       } else {
         ct = params.colorTemp ?? 320;
       }
       this.service.updateCharacteristic(
         this.Characteristic.ColorTemperature,
-        this.clamp(ct, 140, 500),
+        this.clamp(ct, COLOR_TEMP_MIN_MIRED, COLOR_TEMP_MAX_MIRED),
       );
     }
 

@@ -27,6 +27,35 @@ export const TIMING = {
 
   /** Brief delay for state initialization - 500ms */
   STATE_INIT_DELAY_MS: 500,
+
+  /** Brief delay between commands - 450ms */
+  COMMAND_DELAY_MS: 450,
+
+  /** Curtain state query delay after init - 5 seconds */
+  CURTAIN_QUERY_DELAY_MS: 5000,
+} as const;
+
+/**
+ * Polling intervals
+ */
+export const POLLING = {
+  /** Power/state update polling interval - 2 minutes */
+  UPDATE_INTERVAL_MS: 120000,
+
+  /** Initial poll delay - 5 seconds */
+  INITIAL_DELAY_MS: 5000,
+
+  /** uiActive request duration - 2 minutes */
+  UI_ACTIVE_DURATION_S: 120,
+
+  /** Valve default set duration - 2 minutes */
+  VALVE_DEFAULT_DURATION_S: 120,
+
+  /** Event debounce for programmable switches - 1 second */
+  EVENT_DEBOUNCE_MS: 1000,
+
+  /** Event freshness validation - 5 seconds */
+  EVENT_FRESHNESS_S: 5,
 } as const;
 
 /**
@@ -44,4 +73,7 @@ export const SIMULATION_TIMING = {
 
   /** TV/Purifier auto-off delay - 5 seconds */
   DEVICE_AUTO_OFF_MS: 5000,
+
+  /** Default operation time for blinds/doors/windows - 120 seconds */
+  DEFAULT_OPERATION_TIME_S: 120,
 } as const;

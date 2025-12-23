@@ -3,6 +3,8 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { hs2rgb, rgb2hs } from '../utils/color-utils.js';
+import { DIFFUSER_SPEED } from '../constants/device-constants.js';
+import { TIMING, SIMULATION_TIMING } from '../constants/timing-constants.js';
 
 /**
  * Diffuser Accessory (UIID 25)
@@ -14,7 +16,7 @@ export class DiffuserAccessory extends BaseAccessory {
 
   // Diffuser state
   private cacheState: 'on' | 'off' = 'off';
-  private cacheSpeed = 50; // 50% or 100%
+  private cacheSpeed: number = DIFFUSER_SPEED.LOW; // 50% or 100%
 
   // Light state
   private cacheLight = 0; // 0=off, 1=on
@@ -92,7 +94,7 @@ export class DiffuserAccessory extends BaseAccessory {
 
     if (this.deviceParams.state !== undefined) {
       const state = this.deviceParams.state as number;
-      this.cacheSpeed = state * 50; // 0, 1, 2 -> 0, 50, 100
+      this.cacheSpeed = state * DIFFUSER_SPEED.LOW; // 0, 1, 2 -> 0, 50, 100
       this.fanService.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);
     }
 
@@ -138,7 +140,7 @@ export class DiffuserAccessory extends BaseAccessory {
       if (this.updateTimeout === timerKey) {
         this.updateTimeout = false;
       }
-    }, 5000);
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
 
     const success = await this.sendCommand({ switch: newState });
 
@@ -160,7 +162,7 @@ export class DiffuserAccessory extends BaseAccessory {
       return; // Handled by on/off handler
     }
 
-    const newSpeed = (value as number) <= 50 ? 50 : 100;
+    const newSpeed = (value as number) <= DIFFUSER_SPEED.LOW ? DIFFUSER_SPEED.LOW : DIFFUSER_SPEED.HIGH;
 
     if (newSpeed === this.cacheSpeed) {
       return;
@@ -169,7 +171,7 @@ export class DiffuserAccessory extends BaseAccessory {
     // Debounce for slider
     const updateKeySpeed = this.generateRandomString(5);
     this.updateKeySpeed = updateKeySpeed;
-    await new Promise(resolve => setTimeout(resolve, 450));
+    await new Promise(resolve => setTimeout(resolve, TIMING.COMMAND_DELAY_MS));
 
     if (updateKeySpeed !== this.updateKeySpeed) {
       return;
@@ -183,9 +185,9 @@ export class DiffuserAccessory extends BaseAccessory {
       if (this.updateTimeout === updateKeySpeed) {
         this.updateTimeout = false;
       }
-    }, 5000);
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
 
-    const success = await this.sendCommand({ state: newSpeed / 50 });
+    const success = await this.sendCommand({ state: newSpeed / DIFFUSER_SPEED.LOW });
 
     if (!success) {
       throw new this.platform.api.hap.HapStatusError(
@@ -217,7 +219,7 @@ export class DiffuserAccessory extends BaseAccessory {
       if (this.updateTimeout === updateKeyLight) {
         this.updateTimeout = false;
       }
-    }, 5000);
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
 
     const success = await this.sendCommand({ lightswitch: newValue });
 
@@ -244,7 +246,7 @@ export class DiffuserAccessory extends BaseAccessory {
     // Debounce for slider
     const updateKeyBright = this.generateRandomString(5);
     this.updateKeyBright = updateKeyBright;
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
 
     if (updateKeyBright !== this.updateKeyBright) {
       return;
@@ -258,7 +260,7 @@ export class DiffuserAccessory extends BaseAccessory {
       if (this.updateTimeout === updateKeyBright) {
         this.updateTimeout = false;
       }
-    }, 5000);
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
 
     const success = await this.sendCommand({ lightbright: newBright });
 
@@ -302,7 +304,7 @@ export class DiffuserAccessory extends BaseAccessory {
       if (this.updateTimeout === updateKeyColour) {
         this.updateTimeout = false;
       }
-    }, 5000);
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
 
     const success = await this.sendCommand({
       lightRcolor: r,
@@ -364,7 +366,7 @@ export class DiffuserAccessory extends BaseAccessory {
     // Update diffuser speed
     if (params.state !== undefined) {
       const state = params.state as number;
-      const newSpeed = state * 50;
+      const newSpeed = state * DIFFUSER_SPEED.LOW;
       if (newSpeed !== this.cacheSpeed) {
         this.cacheSpeed = newSpeed;
         this.fanService.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheSpeed);

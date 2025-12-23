@@ -1,7 +1,8 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { PlatformAccessory } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { POLLING } from '../constants/timing-constants.js';
 
 /**
  * SONOFF Mate (switch-mate) Accessory
@@ -61,11 +62,11 @@ export class SwitchMateAccessory extends BaseAccessory {
         this.timeouts.set(outlet, true);
         setTimeout(() => {
           this.timeouts.set(outlet, false);
-        }, 1000);
+        }, POLLING.EVENT_DEBOUNCE_MS);
 
-        // Check if event is recent (within 5 seconds)
+        // Check if event is recent
         const timeDiff = (new Date().getTime() - new Date(actionTime).getTime()) / 1000;
-        if (timeDiff < 5) {
+        if (timeDiff < POLLING.EVENT_FRESHNESS_S) {
           this.service.updateCharacteristic(this.Characteristic.ProgrammableSwitchEvent, outlet);
 
           const eventType = outlet === 0 ? 'Single' : outlet === 1 ? 'Double' : 'Long';

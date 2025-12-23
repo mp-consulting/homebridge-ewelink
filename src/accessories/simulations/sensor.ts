@@ -4,6 +4,8 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Sensor Simulation Accessory
@@ -107,8 +109,7 @@ export class SensorAccessory extends BaseAccessory {
 
     // Add LastActivation characteristic for motion and contact sensors
     if (this.useLastActivation) {
-      const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-      if (!this.service.testCharacteristic(LastActivationUUID)) {
+      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation)) {
         this.service.addCharacteristic(this.platform.eveCharacteristics.LastActivation);
       }
     }
@@ -149,11 +150,11 @@ export class SensorAccessory extends BaseAccessory {
 
     // Set up power polling if supported
     if (this.powerReadings && (!this.isDualR3 || this.platform.config.mode !== 'lan')) {
-      // Start polling after 5 seconds, then every 2 minutes
+      // Start polling after initial delay, then at regular interval
       setTimeout(() => {
         this.requestPowerUpdate();
-        this.powerInterval = setInterval(() => this.requestPowerUpdate(), 120000);
-      }, 5000);
+        this.powerInterval = setInterval(() => this.requestPowerUpdate(), POLLING.UPDATE_INTERVAL_MS);
+      }, POLLING.INITIAL_DELAY_MS);
     }
 
     // Set initial state
@@ -180,9 +181,9 @@ export class SensorAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-    
-    
-    
+
+
+
 
     if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
       this.service.addCharacteristic(CurrentConsumption);
@@ -210,8 +211,8 @@ export class SensorAccessory extends BaseAccessory {
       }
 
       const params = this.isDualR3
-        ? { uiActive: { outlet: 0, time: 120 } }
-        : { uiActive: 120 };
+        ? { uiActive: { outlet: 0, time: POLLING.UI_ACTIVE_DURATION_S } }
+        : { uiActive: POLLING.UI_ACTIVE_DURATION_S };
 
       await this.sendCommand(params);
     } catch (error) {
@@ -247,8 +248,7 @@ export class SensorAccessory extends BaseAccessory {
       // Update LastActivation for motion and contact sensors when triggered
       if (this.useLastActivation && sensorDetected === 1) {
         const timeSinceInitial = Math.floor(Date.now() / 1000) - this.eveInitialTime;
-        const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-        this.service.updateCharacteristic(LastActivationUUID, timeSinceInitial);
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation, timeSinceInitial);
       }
 
       this.logDebug(`Sensor state updated: ${isOn ? 'DETECTED' : 'CLEAR'}`);
@@ -264,15 +264,15 @@ export class SensorAccessory extends BaseAccessory {
    * Update power readings from device params
    */
   private updatePowerReadings(params: DeviceParams): void {
-    
-    
-    
+
+
+
 
     let hasUpdate = false;
 
     // Check for Dual R3 format (with _00 suffix)
     if (params.actPow_00 !== undefined) {
-      const power = parseInt(String(params.actPow_00), 10) / 100;
+      const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       hasUpdate = true;
     } else if (params.power !== undefined) {
@@ -283,7 +283,7 @@ export class SensorAccessory extends BaseAccessory {
 
     if (this.hasFullPowerReadings) {
       if (params.voltage_00 !== undefined) {
-        const voltage = parseInt(String(params.voltage_00), 10) / 100;
+        const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
         this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
         hasUpdate = true;
       } else if (params.voltage !== undefined) {
@@ -293,7 +293,7 @@ export class SensorAccessory extends BaseAccessory {
       }
 
       if (params.current_00 !== undefined) {
-        const current = parseInt(String(params.current_00), 10) / 100;
+        const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
         this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
         hasUpdate = true;
       } else if (params.current !== undefined) {

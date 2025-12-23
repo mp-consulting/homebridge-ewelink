@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Cooler Simulation Accessory
@@ -108,8 +109,8 @@ export class CoolerAccessory extends BaseAccessory {
     // Set up polling interval for temperature updates
     setTimeout(() => {
       this.updateTemperature();
-      this.intervalPoll = setInterval(() => this.updateTemperature(), 120000);
-    }, 5000);
+      this.intervalPoll = setInterval(() => this.updateTemperature(), POLLING.UPDATE_INTERVAL_MS);
+    }, POLLING.INITIAL_DELAY_MS);
 
     platform.api.on('shutdown', () => {
       if (this.intervalPoll) {
@@ -283,7 +284,7 @@ export class CoolerAccessory extends BaseAccessory {
         // Update cooling state when temperature changes
         await this.updateCoolingState();
       }
-    } catch (err) {
+    } catch {
       // Suppress errors for polling
     }
   }

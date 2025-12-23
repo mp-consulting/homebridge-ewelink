@@ -4,6 +4,7 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Valve Simulation Accessory
@@ -68,8 +69,8 @@ export class ValveAccessory extends BaseAccessory {
 
     // Configure duration characteristics if timer not disabled
     if (!this.disableTimer) {
-      // Set default duration to 120 seconds
-      this.service.updateCharacteristic(this.Characteristic.SetDuration, 120);
+      // Set default duration
+      this.service.updateCharacteristic(this.Characteristic.SetDuration, POLLING.VALVE_DEFAULT_DURATION_S);
       this.service.addCharacteristic(this.Characteristic.RemainingDuration);
 
       this.service.getCharacteristic(this.Characteristic.SetDuration)
@@ -112,9 +113,9 @@ export class ValveAccessory extends BaseAccessory {
   private setupPowerMonitoring(): void {
     const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-    
-    
-    
+
+
+
 
     if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
       this.service.addCharacteristic(CurrentConsumption);
@@ -158,7 +159,8 @@ export class ValveAccessory extends BaseAccessory {
 
       // Start timer if activating and timer not disabled
       if (on && !this.disableTimer) {
-        const duration = this.service.getCharacteristic(this.Characteristic.SetDuration).value as number || 120;
+        const durationChar = this.service.getCharacteristic(this.Characteristic.SetDuration);
+        const duration = durationChar.value as number || POLLING.VALVE_DEFAULT_DURATION_S;
         this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
 
         // Clear existing timer
@@ -239,9 +241,9 @@ export class ValveAccessory extends BaseAccessory {
 
     // Update Eve power characteristics if supported
     if (this.powerReadings) {
-      
-      
-      
+
+
+
 
       if (params.power !== undefined) {
         const power = parseFloat(String(params.power));

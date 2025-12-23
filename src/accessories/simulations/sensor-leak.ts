@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../../types/index.js';
+import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 
 /**
  * Leak Sensor Accessory
@@ -47,8 +48,7 @@ export class SensorLeakAccessory extends BaseAccessory {
     this.service = this.getOrAddService(this.Service.LeakSensor);
 
     // Add LastActivation characteristic
-    const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-    if (!this.service.testCharacteristic(LastActivationUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.LastActivation);
     }
 
@@ -121,8 +121,7 @@ export class SensorLeakAccessory extends BaseAccessory {
         // Update LastActivation when leak is detected
         if (leakDetected === 1) {
           const timeSinceInitial = Math.floor(Date.now() / 1000) - this.eveInitialTime;
-          const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-          this.service.updateCharacteristic(LastActivationUUID, timeSinceInitial);
+          this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation, timeSinceInitial);
         }
 
         this.logDebug(`Leak sensor state updated: ${leakDetected === 1 ? 'LEAK DETECTED' : 'NO LEAK'}`);

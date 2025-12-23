@@ -4,6 +4,8 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Air Purifier Simulation Accessory
@@ -59,14 +61,14 @@ export class PurifierAccessory extends BaseAccessory {
     if (this.powerReadings) {
       const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-      
+
       if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
         this.service.addCharacteristic(CurrentConsumption);
       }
 
       if (this.hasFullPowerReadings) {
-        
-        
+
+
 
         if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
           this.service.addCharacteristic(Voltage);
@@ -103,8 +105,8 @@ export class PurifierAccessory extends BaseAccessory {
     if (this.powerReadings && (!this.isDualR3 || platform.config.mode !== 'lan')) {
       setTimeout(() => {
         this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), 120000);
-      }, 5000);
+        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
+      }, POLLING.INITIAL_DELAY_MS);
 
       platform.api.on('shutdown', () => {
         if (this.intervalPoll) {
@@ -165,11 +167,11 @@ export class PurifierAccessory extends BaseAccessory {
   private async requestUpdate(): Promise<void> {
     try {
       if (this.isDualR3) {
-        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: 120 } });
+        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: POLLING.UI_ACTIVE_DURATION_S } });
       } else {
-        await this.sendCommand({ uiActive: 120 });
+        await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
       }
-    } catch (err) {
+    } catch {
       // Suppress errors for polling
     }
   }
@@ -198,13 +200,13 @@ export class PurifierAccessory extends BaseAccessory {
       return;
     }
 
-    
-    
-    
+
+
+
 
     // Update power
     if (params.actPow_00 !== undefined) {
-      const power = parseInt(String(params.actPow_00), 10) / 100;
+      const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       this.logDebug(`Power: ${power}W`);
     } else if (params.power !== undefined) {
@@ -219,7 +221,7 @@ export class PurifierAccessory extends BaseAccessory {
 
     // Update voltage
     if (params.voltage_00 !== undefined) {
-      const voltage = parseInt(String(params.voltage_00), 10) / 100;
+      const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
       this.logDebug(`Voltage: ${voltage}V`);
     } else if (params.voltage !== undefined) {
@@ -230,7 +232,7 @@ export class PurifierAccessory extends BaseAccessory {
 
     // Update current
     if (params.current_00 !== undefined) {
-      const current = parseInt(String(params.current_00), 10) / 100;
+      const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
       this.logDebug(`Current: ${current}A`);
     } else if (params.current !== undefined) {

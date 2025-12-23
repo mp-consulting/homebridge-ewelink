@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../../types/index.js';
 import { sleep, generateRandomString } from '../../utils/sleep.js';
+import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
  * RF Blind Simulation Accessory
@@ -39,8 +40,7 @@ export class RFBlindAccessory extends BaseAccessory {
     this.deviceConfig = rfSubdevices[accessory.context.hbDeviceId || ''];
 
     // Set operation times (convert seconds to deciseconds)
-    const defaultOperationTime = 120; // 120 seconds default
-    this.operationTimeUp = (this.deviceConfig?.operationTime || defaultOperationTime) * 10;
+    this.operationTimeUp = (this.deviceConfig?.operationTime || SIMULATION_TIMING.DEFAULT_OPERATION_TIME_S) * 10;
     this.operationTimeDown = this.operationTimeUp; // Use same time for both directions unless specified
 
     // Get RF button channels from accessory context
@@ -213,7 +213,7 @@ export class RFBlindAccessory extends BaseAccessory {
           this.Characteristic.TargetPosition,
           this.accessory.context.cacheTargetPosition || 0,
         );
-      }, 2000);
+      }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
 
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,

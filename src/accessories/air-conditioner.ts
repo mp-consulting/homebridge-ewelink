@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { AC_WIND_SPEED, AC_ROTATION_SPEED } from '../constants/device-constants.js';
 
 /**
  * Air Conditioner Accessory (UIID 151)
@@ -11,7 +12,7 @@ export class AirConditionerAccessory extends BaseAccessory {
   private cacheMode: 'auto' | 'heat' | 'cool' = 'cool';
   private cacheTargetTemp = 24;
   private cacheCurrentTemp = 20;
-  private cacheWindSpeed = 102; // Default to medium
+  private cacheWindSpeed: number = AC_WIND_SPEED.MEDIUM; // Default to medium
 
   // Temperature offset configuration
   private tempOffset: number;
@@ -298,16 +299,15 @@ export class AirConditionerAccessory extends BaseAccessory {
     const rotationSpeed = value as number;
 
     // Map HomeKit 0-100 to eWeLink wind speed values
-    // 101 = low, 102 = medium, 103 = high
     let windSpeed: number;
-    if (rotationSpeed === 0) {
-      windSpeed = 0;
-    } else if (rotationSpeed <= 33) {
-      windSpeed = 101;
-    } else if (rotationSpeed <= 66) {
-      windSpeed = 102;
+    if (rotationSpeed === AC_ROTATION_SPEED.OFF) {
+      windSpeed = AC_WIND_SPEED.OFF;
+    } else if (rotationSpeed <= AC_ROTATION_SPEED.LOW_THRESHOLD) {
+      windSpeed = AC_WIND_SPEED.LOW;
+    } else if (rotationSpeed <= AC_ROTATION_SPEED.HIGH_THRESHOLD) {
+      windSpeed = AC_WIND_SPEED.MEDIUM;
     } else {
-      windSpeed = 103;
+      windSpeed = AC_WIND_SPEED.HIGH;
     }
 
     if (this.cacheWindSpeed === windSpeed) {
@@ -374,16 +374,16 @@ export class AirConditionerAccessory extends BaseAccessory {
    * Convert eWeLink wind speed to HomeKit rotation speed
    */
   private windSpeedToRotationSpeed(windSpeed: number): number {
-    if (windSpeed === 0) {
-      return 0;
-    } else if (windSpeed === 101) {
-      return 25;
-    } else if (windSpeed === 102) {
-      return 50;
-    } else if (windSpeed === 103) {
-      return 75;
+    if (windSpeed === AC_WIND_SPEED.OFF) {
+      return AC_ROTATION_SPEED.OFF;
+    } else if (windSpeed === AC_WIND_SPEED.LOW) {
+      return AC_ROTATION_SPEED.LOW;
+    } else if (windSpeed === AC_WIND_SPEED.MEDIUM) {
+      return AC_ROTATION_SPEED.MEDIUM;
+    } else if (windSpeed === AC_WIND_SPEED.HIGH) {
+      return AC_ROTATION_SPEED.HIGH;
     }
-    return 50; // Default to medium
+    return AC_ROTATION_SPEED.MEDIUM; // Default to medium
   }
 
   /**

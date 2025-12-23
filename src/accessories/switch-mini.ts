@@ -1,7 +1,8 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { PlatformAccessory } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { POLLING } from '../constants/timing-constants.js';
 
 /**
  * SONOFF Mini (switch-man) Accessory
@@ -92,11 +93,11 @@ export class SwitchMiniAccessory extends BaseAccessory {
         this.timeouts.set(channel, true);
         setTimeout(() => {
           this.timeouts.set(channel, false);
-        }, 1000);
+        }, POLLING.EVENT_DEBOUNCE_MS);
 
-        // Check if event is recent (within 5 seconds)
+        // Check if event is recent
         const timeDiff = (new Date().getTime() - new Date(actionTime).getTime()) / 1000;
-        if (timeDiff < 5) {
+        if (timeDiff < POLLING.EVENT_FRESHNESS_S) {
           const service = this.services.get(channel);
           if (service) {
             service.updateCharacteristic(this.Characteristic.ProgrammableSwitchEvent, key);

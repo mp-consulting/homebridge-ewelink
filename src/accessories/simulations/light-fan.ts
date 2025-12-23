@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, LightDeviceConfig } from '../../types/index.js';
 import { sleep } from '../../utils/sleep.js';
+import { TIMING } from '../../constants/timing-constants.js';
 
 /**
  * Light-Fan Simulation Accessory
@@ -142,7 +143,7 @@ export class LightFanAccessory extends BaseAccessory {
     // Debounce speed updates
     const updateKey = Math.random().toString(36).substring(2, 7);
     this.updateKeySpeed = updateKey;
-    await sleep(500);
+    await sleep(TIMING.STATE_INIT_DELAY_MS);
 
     if (updateKey !== this.updateKeySpeed) {
       return;

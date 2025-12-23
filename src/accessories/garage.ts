@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { TIMING } from '../constants/timing-constants.js';
 
 /**
  * Garage Door Accessory
@@ -82,7 +83,7 @@ export class GarageAccessory extends BaseAccessory {
         // Turn off after a short delay (pulse)
         setTimeout(async () => {
           await this.sendCommand({ switch: 'off' });
-        }, 500);
+        }, TIMING.STATE_INIT_DELAY_MS);
 
         // Simulate door movement completion
         // In a real implementation, this would come from a sensor
@@ -97,7 +98,7 @@ export class GarageAccessory extends BaseAccessory {
             this.Characteristic.CurrentDoorState,
             this.currentState,
           );
-        }, 10000); // Assume 10 seconds to open/close
+        }, TIMING.GARAGE_OPERATION_MS);
       }
 
       return success;

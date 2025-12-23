@@ -42,6 +42,36 @@ export const POWER_MONITORING_UIIDS = [5, 32];
 // Devices that support full power readings (wattage, voltage, current)
 export const FULL_POWER_READINGS_UIIDS = [32, 182, 190];
 
+// Power reading divisors (raw values need division by these)
+export const POWER_DIVISOR = 100;
+export const VOLTAGE_DIVISOR = 100;
+export const CURRENT_DIVISOR = 100;
+
+// Air Conditioner wind speeds (eWeLink values)
+export const AC_WIND_SPEED = {
+  OFF: 0,
+  LOW: 101,
+  MEDIUM: 102,
+  HIGH: 103,
+} as const;
+
+// HomeKit rotation speed percentages for AC
+export const AC_ROTATION_SPEED = {
+  OFF: 0,
+  LOW: 25,
+  MEDIUM: 50,
+  HIGH: 75,
+  LOW_THRESHOLD: 33,
+  HIGH_THRESHOLD: 66,
+} as const;
+
+// Diffuser speed values
+export const DIFFUSER_SPEED = {
+  OFF: 0,
+  LOW: 50,
+  HIGH: 100,
+} as const;
+
 // Thermostat ranges
 export const THERMOSTAT_TEMP_MIN = 5;
 export const THERMOSTAT_TEMP_MAX = 45;

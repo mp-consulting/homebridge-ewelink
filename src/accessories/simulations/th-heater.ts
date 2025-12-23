@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, ThermostatDeviceConfig } from '../../types/index.js';
 import { DeviceValueParser } from '../../utils/device-parsers.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * TH Heater Simulation Accessory
@@ -149,8 +150,8 @@ export class THHeaterAccessory extends BaseAccessory {
     if (platform.config.mode !== 'lan') {
       setTimeout(() => {
         this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), 120000);
-      }, 5000);
+        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
+      }, POLLING.INITIAL_DELAY_MS);
 
       platform.api.on('shutdown', () => {
         if (this.intervalPoll) {
@@ -331,8 +332,8 @@ export class THHeaterAccessory extends BaseAccessory {
    */
   private async requestUpdate(): Promise<void> {
     try {
-      await this.sendCommand({ uiActive: 120 });
-    } catch (err) {
+      await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
+    } catch {
       // Suppress errors for polling
     }
   }

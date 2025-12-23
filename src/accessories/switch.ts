@@ -137,7 +137,8 @@ export class SwitchAccessory extends BaseAccessory {
       }
 
       this.service.updateCharacteristic(this.Characteristic.On, isOn);
-      this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}${this.channelIndex === 0 && this.accessory.context.channelCount ? ' (primary state)' : ''}`);
+      const isPrimary = this.channelIndex === 0 && this.accessory.context.channelCount;
+      this.logDebug(`State updated: ${isOn ? 'ON' : 'OFF'}${isPrimary ? ' (primary state)' : ''}`);
     }
   }
 }

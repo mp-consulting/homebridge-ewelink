@@ -2,6 +2,8 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
+import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
  * Visible Sensor Accessory
@@ -98,31 +100,25 @@ export class SensorVisibleAccessory extends BaseAccessory {
     this.service = this.getOrAddService(this.Service.ContactSensor);
 
     // Add Eve characteristics
-    const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-    const ResetTotalUUID = 'E863F112-079E-48FF-8F27-9C2605A29F52';
-    const OpenDurationUUID = 'E863F118-079E-48FF-8F27-9C2605A29F52';
-    const ClosedDurationUUID = 'E863F119-079E-48FF-8F27-9C2605A29F52';
-    const TimesOpenedUUID = 'E863F129-079E-48FF-8F27-9C2605A29F52';
-
-    if (!this.service.testCharacteristic(LastActivationUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.LastActivation);
     }
-    if (!this.service.testCharacteristic(ResetTotalUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ResetTotal)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.ResetTotal);
     }
-    if (!this.service.testCharacteristic(OpenDurationUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.OpenDuration)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.OpenDuration);
     }
-    if (!this.service.testCharacteristic(ClosedDurationUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ClosedDuration)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.ClosedDuration);
     }
-    if (!this.service.testCharacteristic(TimesOpenedUUID)) {
+    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened)) {
       this.service.addCharacteristic(this.platform.eveCharacteristics.TimesOpened);
     }
 
     // Add reset handler
-    this.service.getCharacteristic(ResetTotalUUID)?.onSet(() => {
-      this.service.updateCharacteristic(TimesOpenedUUID, 0);
+    this.service.getCharacteristic(EVE_CHARACTERISTIC_UUIDS.ResetTotal)?.onSet(() => {
+      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened, 0);
     });
 
     // Configure contact sensor characteristic
@@ -157,19 +153,16 @@ export class SensorVisibleAccessory extends BaseAccessory {
       return;
     }
 
-    const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-    const TimesOpenedUUID = 'E863F129-079E-48FF-8F27-9C2605A29F52';
-
     if (this.isGarage) {
       // Set up garage door opener service
       this.subService = this.subAccessory.getService(this.Service.GarageDoorOpener) ||
                         this.subAccessory.addService(this.Service.GarageDoorOpener) as any;
 
       // Add Eve characteristics for garage
-      if (this.subService && !this.subService.testCharacteristic(LastActivationUUID)) {
+      if (this.subService && !this.subService.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation)) {
         this.subService.addCharacteristic(this.platform.eveCharacteristics.LastActivation);
       }
-      if (this.subService && !this.subService.testCharacteristic(TimesOpenedUUID)) {
+      if (this.subService && !this.subService.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened)) {
         this.subService.addCharacteristic(this.platform.eveCharacteristics.TimesOpened);
       }
 
@@ -302,13 +295,10 @@ export class SensorVisibleAccessory extends BaseAccessory {
       // Update LastActivation and TimesOpened when contact is detected
       if (newState === 1) {
         const timeSinceInitial = Math.floor(Date.now() / 1000) - this.eveInitialTime;
-        const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-        const TimesOpenedUUID = 'E863F129-079E-48FF-8F27-9C2605A29F52';
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation, timeSinceInitial);
 
-        this.service.updateCharacteristic(LastActivationUUID, timeSinceInitial);
-
-        const currentTimesOpened = (this.service.getCharacteristic(TimesOpenedUUID)?.value as number) || 0;
-        this.service.updateCharacteristic(TimesOpenedUUID, currentTimesOpened + 1);
+        const currentTimesOpened = (this.service.getCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened)?.value as number) || 0;
+        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened, currentTimesOpened + 1);
       }
 
       this.logDebug(`Contact sensor state updated: ${newState === 1 ? 'OPEN' : 'CLOSED'}`);
@@ -338,20 +328,17 @@ export class SensorVisibleAccessory extends BaseAccessory {
       } else {
         // Contact open = garage door opening/open
         // Wait for operation time before marking as fully open
-        await this.delay(Math.max(this.operationTime * 100, 2000));
+        await this.delay(Math.max(this.operationTime * 100, SIMULATION_TIMING.POSITION_CLEANUP_MS));
 
         this.subService.updateCharacteristic(this.Characteristic.TargetDoorState, 0); // OPEN
         this.subService.updateCharacteristic(this.Characteristic.CurrentDoorState, 0); // OPEN
 
         // Update Eve characteristics
         const timeSinceInitial = Math.floor(Date.now() / 1000) - this.subEveInitialTime;
-        const LastActivationUUID = 'E863F11A-079E-48FF-8F27-9C2605A29F52';
-        const TimesOpenedUUID = 'E863F129-079E-48FF-8F27-9C2605A29F52';
+        this.subService.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.LastActivation, timeSinceInitial);
 
-        this.subService.updateCharacteristic(LastActivationUUID, timeSinceInitial);
-
-        const currentTimesOpened = (this.subService.getCharacteristic(TimesOpenedUUID)?.value as number) || 0;
-        this.subService.updateCharacteristic(TimesOpenedUUID, currentTimesOpened + 1);
+        const currentTimesOpened = (this.subService.getCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened)?.value as number) || 0;
+        this.subService.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.TimesOpened, currentTimesOpened + 1);
 
         this.logDebug('Garage door: OPEN');
       }

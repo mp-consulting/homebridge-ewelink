@@ -8,6 +8,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "lint": "eslint src/**.ts --max-warnings=0",
+    "lint:fix": "npm run lint -- --fix",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc && npm run copy-api-to-ui",
     "copy-api-to-ui": "node scripts/copy-api.js",

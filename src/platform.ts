@@ -16,8 +16,9 @@ import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
 import { EveCharacteristics } from './utils/eve-characteristics.js';
+import { BaseAccessory } from './accessories/base.js';
 
-// Accessory handlers
+// Core accessory handlers
 import { SwitchAccessory } from './accessories/switch.js';
 import { SwitchMiniAccessory } from './accessories/switch-mini.js';
 import { SwitchMateAccessory } from './accessories/switch-mate.js';
@@ -59,12 +60,60 @@ import { DoorbellAccessory } from './accessories/simulations/doorbell.js';
 import { LightFanAccessory } from './accessories/simulations/light-fan.js';
 import { TVAccessory } from './accessories/simulations/tv.js';
 import { ProgrammableButtonAccessory } from './accessories/simulations/p-button.js';
-import { RFBlindAccessory } from './accessories/simulations/rf-blind.js';
-import { RFDoorAccessory } from './accessories/simulations/rf-door.js';
-import { RFWindowAccessory } from './accessories/simulations/rf-window.js';
 import { SensorAccessory as SimSensorAccessory } from './accessories/simulations/sensor.js';
 import { SensorLeakAccessory } from './accessories/simulations/sensor-leak.js';
-import { SensorVisibleAccessory } from './accessories/simulations/sensor-visible.js';
+
+/** Accessory handler constructor type */
+type AccessoryConstructor = new (
+  platform: EWeLinkPlatform,
+  accessory: PlatformAccessory<AccessoryContext>,
+) => BaseAccessory;
+
+/** Simulation handler mapping (showAs → constructor) */
+const SIMULATION_HANDLERS: Record<string, AccessoryConstructor> = {
+  blind: BlindAccessory,
+  door: DoorAccessory,
+  window: WindowAccessory,
+  garage: GarageAccessory,
+  gate: GarageAccessory,
+  lock: LockAccessory,
+  valve: ValveAccessory,
+  switch_valve: ValveAccessory,
+  tap: TapAccessory,
+  sensor: SimSensorAccessory,
+  sensor_leak: SensorLeakAccessory,
+  p_button: ProgrammableButtonAccessory,
+  doorbell: DoorbellAccessory,
+  purifier: PurifierAccessory,
+  tv: TVAccessory,
+};
+
+/** TH sensor simulation handlers (showAs → constructor, for UIID 15/181) */
+const TH_SIMULATION_HANDLERS: Record<string, AccessoryConstructor> = {
+  heater: THHeaterAccessory,
+  cooler: THCoolerAccessory,
+  humidifier: THHumidifierAccessory,
+  dehumidifier: THDehumidifierAccessory,
+  thermostat: THThermostatAccessory,
+};
+
+/** Category to handler mapping */
+const CATEGORY_HANDLERS: Partial<Record<DeviceCategory, AccessoryConstructor>> = {
+  [DeviceCategory.OUTLET]: OutletAccessory,
+  [DeviceCategory.LIGHT]: LightAccessory,
+  [DeviceCategory.FAN]: FanAccessory,
+  [DeviceCategory.SENSOR]: SensorAccessory,
+  [DeviceCategory.CURTAIN]: CurtainAccessory,
+  [DeviceCategory.GARAGE]: GarageAccessory,
+  [DeviceCategory.AIR_CONDITIONER]: AirConditionerAccessory,
+  [DeviceCategory.HUMIDIFIER]: HumidifierAccessory,
+  [DeviceCategory.DIFFUSER]: DiffuserAccessory,
+  [DeviceCategory.PANEL]: PanelAccessory,
+  [DeviceCategory.VIRTUAL]: VirtualAccessory,
+  [DeviceCategory.MOTOR]: MotorAccessory,
+  [DeviceCategory.GROUP]: GroupAccessory,
+  [DeviceCategory.RF_BRIDGE]: RFBridgeAccessory,
+};
 
 /**
  * eWeLink Platform Plugin
@@ -83,54 +132,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   public readonly accessories: Map<string, PlatformAccessory<AccessoryContext>> = new Map();
 
   /** Accessory handlers */
-  private readonly accessoryHandlers: Map<
-    string,
-    | SwitchAccessory
-    | SwitchMiniAccessory
-    | SwitchMateAccessory
-    | OutletAccessory
-    | LightAccessory
-    | ThermostatAccessory
-    | THSensorAccessory
-    | FanAccessory
-    | SensorAccessory
-    | CurtainAccessory
-    | GarageAccessory
-    | AirConditionerAccessory
-    | HumidifierAccessory
-    | DiffuserAccessory
-    | PanelAccessory
-    | VirtualAccessory
-    | MotorAccessory
-    | GroupAccessory
-    | RFBridgeAccessory
-    | RFButtonAccessory
-    | RFSensorAccessory
-    | LockAccessory
-    | ValveAccessory
-    | TapAccessory
-    | THHeaterAccessory
-    | THCoolerAccessory
-    | THHumidifierAccessory
-    | THDehumidifierAccessory
-    | THThermostatAccessory
-    | HeaterAccessory
-    | CoolerAccessory
-    | PurifierAccessory
-    | BlindAccessory
-    | DoorAccessory
-    | WindowAccessory
-    | DoorbellAccessory
-    | LightFanAccessory
-    | TVAccessory
-    | ProgrammableButtonAccessory
-    | RFBlindAccessory
-    | RFDoorAccessory
-    | RFWindowAccessory
-    | SimSensorAccessory
-    | SensorLeakAccessory
-    | SensorVisibleAccessory
-  > = new Map();
+  private readonly accessoryHandlers: Map<string, BaseAccessory> = new Map();
 
   /** eWeLink API client */
   public ewelinkApi?: EWeLinkAPI;
@@ -638,193 +640,74 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
     // Get device-specific config
     const deviceConfig = this.getDeviceConfig(device.deviceid, category);
-
-    // Determine what to show as
     const showAs = deviceConfig?.showAs || 'default';
     const uiid = device.extra?.uiid || 0;
 
-    // Create appropriate handler based on category and showAs
-    let handler:
-      | SwitchAccessory
-      | SwitchMiniAccessory
-      | SwitchMateAccessory
-      | OutletAccessory
-      | LightAccessory
-      | ThermostatAccessory
-      | FanAccessory
-      | SensorAccessory
-      | CurtainAccessory
-      | GarageAccessory
-      | AirConditionerAccessory
-      | HumidifierAccessory
-      | DiffuserAccessory
-      | PanelAccessory
-      | VirtualAccessory
-      | MotorAccessory
-      | GroupAccessory
-      | LockAccessory
-      | ValveAccessory
-      | TapAccessory
-      | THHeaterAccessory
-      | THCoolerAccessory
-      | THHumidifierAccessory
-      | THDehumidifierAccessory
-      | THThermostatAccessory
-      | HeaterAccessory
-      | CoolerAccessory
-      | PurifierAccessory
-      | BlindAccessory
-      | DoorAccessory
-      | WindowAccessory
-      | DoorbellAccessory
-      | LightFanAccessory
-      | TVAccessory
-      | ProgrammableButtonAccessory
-      | SimSensorAccessory
-      | SensorLeakAccessory
-      | SensorVisibleAccessory;
+    // Create handler based on showAs simulation or device category
+    const handler = this.createHandler(accessory, showAs, uiid, category);
+    this.accessoryHandlers.set(accessory.UUID, handler);
+  }
 
-    // Check for simulation accessories first (based on showAs config)
-    if (showAs === 'blind') {
-      handler = new BlindAccessory(this, accessory);
-    } else if (showAs === 'door') {
-      handler = new DoorAccessory(this, accessory);
-    } else if (showAs === 'window') {
-      handler = new WindowAccessory(this, accessory);
-    } else if (showAs === 'garage' || showAs === 'gate') {
-      handler = new GarageAccessory(this, accessory);
-    } else if (showAs === 'lock') {
-      handler = new LockAccessory(this, accessory);
-    } else if (showAs === 'valve' || showAs === 'switch_valve') {
-      handler = new ValveAccessory(this, accessory);
-    } else if (showAs === 'tap') {
-      handler = new TapAccessory(this, accessory);
-    } else if (showAs === 'sensor') {
-      handler = new SimSensorAccessory(this, accessory);
-    } else if (showAs === 'sensor_leak') {
-      handler = new SensorLeakAccessory(this, accessory);
-    } else if (showAs === 'p_button') {
-      handler = new ProgrammableButtonAccessory(this, accessory);
-    } else if (showAs === 'doorbell') {
-      handler = new DoorbellAccessory(this, accessory);
-    } else if (showAs === 'purifier') {
-      handler = new PurifierAccessory(this, accessory);
-    } else if (showAs === 'heater' && [15, 181].includes(uiid)) {
-      // TH sensor with heater simulation
-      handler = new THHeaterAccessory(this, accessory);
-    } else if (showAs === 'cooler' && [15, 181].includes(uiid)) {
-      // TH sensor with cooler simulation
-      handler = new THCoolerAccessory(this, accessory);
-    } else if (showAs === 'humidifier' && [15, 181].includes(uiid)) {
-      // TH sensor with humidifier simulation
-      handler = new THHumidifierAccessory(this, accessory);
-    } else if (showAs === 'dehumidifier' && [15, 181].includes(uiid)) {
-      // TH sensor with dehumidifier simulation
-      handler = new THDehumidifierAccessory(this, accessory);
-    } else if (showAs === 'thermostat' && [15, 181].includes(uiid)) {
-      // TH sensor with thermostat simulation
-      handler = new THThermostatAccessory(this, accessory);
-    } else if (showAs === 'heater') {
-      // Switch with heater simulation (climate control from external temp source)
-      handler = new HeaterAccessory(this, accessory);
-    } else if (showAs === 'cooler') {
-      // Switch with cooler simulation (climate control from external temp source)
-      handler = new CoolerAccessory(this, accessory);
-    } else if (showAs === 'fan' && [36, 44, 57].includes(uiid)) {
-      // Dimmable light as fan
-      handler = new LightFanAccessory(this, accessory);
-    } else if (showAs === 'tv') {
-      handler = new TVAccessory(this, accessory);
-    } else {
-      // No simulation requested, use default routing
-      switch (category) {
-        case DeviceCategory.OUTLET:
-          handler = new OutletAccessory(this, accessory);
-          break;
+  /**
+   * Create appropriate handler based on showAs simulation or device category
+   */
+  private createHandler(
+    accessory: PlatformAccessory<AccessoryContext>,
+    showAs: string,
+    uiid: number,
+    category: DeviceCategory,
+  ): BaseAccessory {
+    // 1. Check for simulation handlers (showAs config)
+    const SimHandler = SIMULATION_HANDLERS[showAs];
+    if (SimHandler) {
+      return new SimHandler(this, accessory);
+    }
 
-        case DeviceCategory.LIGHT:
-          handler = new LightAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.THERMOSTAT:
-        // UIID 15 is TH sensor (temp/humidity only), UIID 127 is actual thermostat with heating control
-          if (device.extra?.uiid === 15) {
-            handler = new THSensorAccessory(this, accessory) as any;
-          } else {
-            handler = new ThermostatAccessory(this, accessory);
-          }
-          break;
-
-        case DeviceCategory.FAN:
-          handler = new FanAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.SENSOR:
-          handler = new SensorAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.CURTAIN:
-          handler = new CurtainAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.GARAGE:
-          handler = new GarageAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.AIR_CONDITIONER:
-          handler = new AirConditionerAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.HUMIDIFIER:
-          handler = new HumidifierAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.DIFFUSER:
-          handler = new DiffuserAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.PANEL:
-          handler = new PanelAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.VIRTUAL:
-          handler = new VirtualAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.MOTOR:
-          handler = new MotorAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.GROUP:
-          handler = new GroupAccessory(this, accessory);
-          break;
-
-        case DeviceCategory.RF_BRIDGE:
-        // RF Bridge acts as coordinator for RF sub-devices
-          handler = new RFBridgeAccessory(this, accessory) as any;
-          break;
-
-        case DeviceCategory.SINGLE_SWITCH:
-        case DeviceCategory.MULTI_SWITCH:
-        default:
-          // Check for SONOFF Mini (UIID 174) - 6-channel programmable switch
-          if (uiid === 174) {
-            handler = new SwitchMiniAccessory(this, accessory) as any;
-          } else if (uiid === 177) {
-            // SONOFF Mate (UIID 177) - 3-button programmable switch
-            handler = new SwitchMateAccessory(this, accessory) as any;
-          } else if (showAs === 'outlet') {
-            // Regular outlet
-            handler = new OutletAccessory(this, accessory);
-          } else {
-            // Regular switch
-            handler = new SwitchAccessory(this, accessory);
-          }
-          break;
+    // 2. Check for TH sensor simulations (UIID 15/181 with showAs)
+    if ([15, 181].includes(uiid)) {
+      const THSimHandler = TH_SIMULATION_HANDLERS[showAs];
+      if (THSimHandler) {
+        return new THSimHandler(this, accessory);
       }
     }
 
-    this.accessoryHandlers.set(accessory.UUID, handler);
+    // 3. Check for special showAs cases
+    if (showAs === 'heater') {
+      return new HeaterAccessory(this, accessory);
+    }
+    if (showAs === 'cooler') {
+      return new CoolerAccessory(this, accessory);
+    }
+    if (showAs === 'fan' && [36, 44, 57].includes(uiid)) {
+      return new LightFanAccessory(this, accessory);
+    }
+
+    // 4. Use category-based handler mapping
+    const CategoryHandler = CATEGORY_HANDLERS[category];
+    if (CategoryHandler) {
+      return new CategoryHandler(this, accessory);
+    }
+
+    // 5. Handle thermostat category specially (UIID 15/181 = TH sensor, UIID 127 = thermostat)
+    if (category === DeviceCategory.THERMOSTAT) {
+      return [15, 181].includes(uiid)
+        ? new THSensorAccessory(this, accessory)
+        : new ThermostatAccessory(this, accessory);
+    }
+
+    // 6. Handle switch category (including special UIIDs and outlet simulation)
+    if (uiid === 174) {
+      return new SwitchMiniAccessory(this, accessory);
+    }
+    if (uiid === 177) {
+      return new SwitchMateAccessory(this, accessory);
+    }
+    if (showAs === 'outlet') {
+      return new OutletAccessory(this, accessory);
+    }
+
+    // Default: regular switch
+    return new SwitchAccessory(this, accessory);
   }
 
   /**

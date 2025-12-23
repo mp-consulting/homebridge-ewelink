@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
+import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * Tap/Faucet Simulation Accessory
@@ -56,8 +57,8 @@ export class TapAccessory extends BaseAccessory {
 
     // Configure duration characteristics if timer not disabled
     if (!this.disableTimer) {
-      // Set default duration to 120 seconds
-      this.service.updateCharacteristic(this.Characteristic.SetDuration, 120);
+      // Set default duration
+      this.service.updateCharacteristic(this.Characteristic.SetDuration, POLLING.VALVE_DEFAULT_DURATION_S);
       this.service.addCharacteristic(this.Characteristic.RemainingDuration);
 
       this.service.getCharacteristic(this.Characteristic.SetDuration)
@@ -106,7 +107,8 @@ export class TapAccessory extends BaseAccessory {
 
       // Start timer if activating and timer not disabled
       if (on && !this.disableTimer) {
-        const duration = this.service.getCharacteristic(this.Characteristic.SetDuration).value as number || 120;
+        const durationChar = this.service.getCharacteristic(this.Characteristic.SetDuration);
+        const duration = durationChar.value as number || POLLING.VALVE_DEFAULT_DURATION_S;
         this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
 
         // Clear existing timer

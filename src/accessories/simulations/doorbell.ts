@@ -3,6 +3,8 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
  * Doorbell Simulation Accessory
@@ -61,8 +63,8 @@ export class DoorbellAccessory extends BaseAccessory {
     if (this.powerReadings && (!this.isDualR3 || platform.config.mode !== 'lan')) {
       setTimeout(() => {
         this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), 120000);
-      }, 5000);
+        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
+      }, POLLING.INITIAL_DELAY_MS);
 
       platform.api.on('shutdown', () => {
         if (this.intervalPoll) {
@@ -90,11 +92,11 @@ export class DoorbellAccessory extends BaseAccessory {
   private async requestUpdate(): Promise<void> {
     try {
       if (this.isDualR3) {
-        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: 120 } });
+        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: POLLING.UI_ACTIVE_DURATION_S } });
       } else {
-        await this.sendCommand({ uiActive: 120 });
+        await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
       }
-    } catch (err) {
+    } catch {
       // Suppress errors for polling
     }
   }
@@ -112,7 +114,7 @@ export class DoorbellAccessory extends BaseAccessory {
         this.inUse = true;
         setTimeout(() => {
           this.inUse = false;
-        }, 2000);
+        }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
 
         this.service.updateCharacteristic(this.Characteristic.ProgrammableSwitchEvent, 0);
         this.logInfo('Doorbell pressed');
@@ -122,7 +124,7 @@ export class DoorbellAccessory extends BaseAccessory {
     // Update power readings if supported (no display on doorbell service)
     if (this.powerReadings) {
       if (params.actPow_00 !== undefined) {
-        const power = parseInt(String(params.actPow_00), 10) / 100;
+        const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
         this.logDebug(`Power: ${power}W`);
       } else if (params.power !== undefined) {
         const power = parseFloat(String(params.power));
@@ -130,7 +132,7 @@ export class DoorbellAccessory extends BaseAccessory {
       }
 
       if (params.voltage_00 !== undefined) {
-        const voltage = parseInt(String(params.voltage_00), 10) / 100;
+        const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
         this.logDebug(`Voltage: ${voltage}V`);
       } else if (params.voltage !== undefined) {
         const voltage = parseFloat(String(params.voltage));
@@ -138,7 +140,7 @@ export class DoorbellAccessory extends BaseAccessory {
       }
 
       if (params.current_00 !== undefined) {
-        const current = parseInt(String(params.current_00), 10) / 100;
+        const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
         this.logDebug(`Current: ${current}A`);
       } else if (params.current !== undefined) {
         const current = parseFloat(String(params.current));

@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { TIMING } from '../constants/timing-constants.js';
 
 enum PositionState {
   DECREASING = 0,
@@ -46,7 +47,7 @@ export class CurtainAccessory extends BaseAccessory {
     // Query fresh state after WebSocket connects (delayed to allow connection)
     setTimeout(() => {
       this.refreshState();
-    }, 5000);
+    }, TIMING.CURTAIN_QUERY_DELAY_MS);
   }
 
   /**
@@ -54,15 +55,17 @@ export class CurtainAccessory extends BaseAccessory {
    */
   private async refreshState(): Promise<void> {
     try {
-      this.platform.log.info(`[${this.accessory.displayName}] Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      const name = this.accessory.displayName;
+      this.platform.log.info(`[${name}] Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
       await this.platform.queryDeviceState(this.deviceId);
 
       // Wait a bit for the WebSocket response to be processed
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
 
-      this.platform.log.info(`[${this.accessory.displayName}] State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      this.platform.log.info(`[${name}] State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
-      this.platform.log.warn(`[${this.accessory.displayName}] Failed to refresh state: ${error instanceof Error ? error.message : String(error)}`);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.platform.log.warn(`[${this.accessory.displayName}] Failed to refresh state: ${errMsg}`);
     }
   }
 
@@ -229,7 +232,8 @@ export class CurtainAccessory extends BaseAccessory {
       const newPosition = this.clamp(params.currLocation as number, 0, 100);
 
       if (newPosition !== this.currentPosition) {
-        this.platform.log.info(`[${this.accessory.displayName}] Current position changing from ${this.currentPosition}% to ${newPosition}%`);
+        const name = this.accessory.displayName;
+        this.platform.log.info(`[${name}] Current position changing from ${this.currentPosition}% to ${newPosition}%`);
         this.currentPosition = newPosition;
         this.service.updateCharacteristic(
           this.Characteristic.CurrentPosition,

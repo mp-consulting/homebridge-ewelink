@@ -4,6 +4,8 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
 import { sleep, generateRandomString } from '../../utils/sleep.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
+import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
  * Window Simulation Accessory
@@ -42,7 +44,7 @@ export class WindowAccessory extends BaseAccessory {
     );
 
     // Set operation times (convert seconds to deciseconds)
-    const defaultOperationTime = 120; // 120 seconds default
+    const defaultOperationTime = SIMULATION_TIMING.DEFAULT_OPERATION_TIME_S;
     this.operationTimeUp = (this.deviceConfig?.operationTime || defaultOperationTime) * 10;
     this.operationTimeDown = (this.deviceConfig?.operationTimeDown || this.operationTimeUp / 10) * 10;
 
@@ -78,9 +80,9 @@ export class WindowAccessory extends BaseAccessory {
     if (this.powerReadings) {
       const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
 
-      
-      
-      
+
+
+
 
       if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
         this.service.addCharacteristic(CurrentConsumption);
@@ -109,8 +111,8 @@ export class WindowAccessory extends BaseAccessory {
     if (this.powerReadings && platform.config.mode !== 'lan') {
       setTimeout(() => {
         this.requestUpdate();
-        this.intervalPoll = setInterval(() => this.requestUpdate(), 120000);
-      }, 5000);
+        this.intervalPoll = setInterval(() => this.requestUpdate(), POLLING.UPDATE_INTERVAL_MS);
+      }, POLLING.INITIAL_DELAY_MS);
 
       platform.api.on('shutdown', () => {
         if (this.intervalPoll) {
@@ -246,7 +248,7 @@ export class WindowAccessory extends BaseAccessory {
           this.Characteristic.TargetPosition,
           this.accessory.context.cacheTargetPosition || 0,
         );
-      }, 2000);
+      }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
 
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
@@ -262,7 +264,7 @@ export class WindowAccessory extends BaseAccessory {
       if (!this.isOnline) {
         return;
       }
-      await this.sendCommand({ uiActive: { outlet: 0, time: 120 } });
+      await this.sendCommand({ uiActive: { outlet: 0, time: POLLING.UI_ACTIVE_DURATION_S } });
     } catch {
       // Suppress errors for polling
     }
@@ -279,27 +281,27 @@ export class WindowAccessory extends BaseAccessory {
       return;
     }
 
-    
-    
-    
+
+
+
 
     // Update power
     if (params.actPow_00 !== undefined) {
-      const power = parseInt(String(params.actPow_00), 10) / 100;
+      const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
       this.logDebug(`Power: ${power}W`);
     }
 
     // Update voltage
     if (params.voltage_00 !== undefined) {
-      const voltage = parseInt(String(params.voltage_00), 10) / 100;
+      const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
       this.logDebug(`Voltage: ${voltage}V`);
     }
 
     // Update current
     if (params.current_00 !== undefined) {
-      const current = parseInt(String(params.current_00), 10) / 100;
+      const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
       this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
       this.logDebug(`Current: ${current}A`);
     }

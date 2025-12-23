@@ -240,7 +240,7 @@ export class EWeLinkAPI {
     } catch (error) {
       this.platform.log.debug('=== LOGIN END (ERROR) ===');
       if (axios.isAxiosError(error)) {
-        this.platform.log.error(`HTTP Error Details:`);
+        this.platform.log.error('HTTP Error Details:');
         this.platform.log.error(`  Status: ${error.response?.status}`);
         this.platform.log.error(`  Status Text: ${error.response?.statusText}`);
         this.platform.log.error(`  Response Data: ${JSON.stringify(error.response?.data, null, 2)}`);
@@ -465,7 +465,7 @@ export class EWeLinkAPI {
       this.platform.log.debug(`Fetching WebSocket host from: https://${this.httpHost}/dispatch/app`);
 
       const response = await this.httpClient.post<{ domain: string }>(
-        `/dispatch/app`,
+        '/dispatch/app',
         {
           appid: EWELINK_APP_ID,
           nonce: CryptoUtils.generateNonce(),
@@ -556,8 +556,12 @@ export class EWeLinkAPI {
    */
   setCredentials(accessToken: string, apiKey?: string, refreshToken?: string): void {
     this.accessToken = accessToken;
-    if (apiKey) this.apiKey = apiKey;
-    if (refreshToken) this.refreshToken = refreshToken;
+    if (apiKey) {
+      this.apiKey = apiKey;
+    }
+    if (refreshToken) {
+      this.refreshToken = refreshToken;
+    }
     this.httpClient.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
   }
 

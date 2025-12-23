@@ -2,6 +2,7 @@ import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
+import { TIMING, SIMULATION_TIMING } from '../constants/timing-constants.js';
 
 /**
  * Humidifier Accessory (UIID 19)
@@ -120,8 +121,8 @@ export class HumidifierAccessory extends BaseAccessory {
     const updateKey = this.generateRandomString(5);
     this.updateKey = updateKey;
 
-    // Wait 500ms for debouncing (user might be sliding)
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for debouncing (user might be sliding)
+    await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
 
     // Check if this is still the latest update
     if (updateKey !== this.updateKey) {
@@ -170,7 +171,7 @@ export class HumidifierAccessory extends BaseAccessory {
       // Update the rotation speed back to the previous value (with the fan still off)
       setTimeout(() => {
         this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheMode * 33);
-      }, 2000);
+      }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
       return;
     }
 
