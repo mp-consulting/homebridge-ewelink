@@ -2683,3 +2683,43 @@ export function getLightType(uiid: number): LightType | undefined {
   const device = DEVICE_CATALOG[uiid];
   return device?.capabilities.lightType;
 }
+
+/**
+ * Check if UIID is a programmable switch (SwitchMan R5, Switch Mate, etc.)
+ */
+export function isProgrammableSwitch(uiid: number): boolean {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.category === 'programmable_switch';
+}
+
+/**
+ * Check if UIID is a device group (virtual UIID 5000)
+ */
+export function isGroupDevice(uiid: number): boolean {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.category === 'group';
+}
+
+/**
+ * Check if UIID is NSPanel Pro (UIID 195)
+ */
+export function isNSPanelPro(uiid: number): boolean {
+  return uiid === 195;
+}
+
+/**
+ * Check if UIID is a panel device (NSPanel, NSPanel Pro)
+ */
+export function isPanelDevice(uiid: number): boolean {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.category === 'panel';
+}
+
+/**
+ * Get brightness parameter definition for a UIID
+ * Returns the brightness parameter config from catalog, or undefined if not dimmable
+ */
+export function getBrightnessParams(uiid: number): DeviceParamsDef['brightness'] | undefined {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.params?.brightness;
+}

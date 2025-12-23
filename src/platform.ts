@@ -10,7 +10,12 @@ import {
 
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
 import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
-import { DEVICE_CHANNEL_COUNT, isTHSensorDevice, isDimmableLightForFan } from './constants/device-constants.js';
+import {
+  DEVICE_CHANNEL_COUNT,
+  isTHSensorDevice,
+  isDimmableLightForFan,
+  isGroupDevice,
+} from './constants/device-constants.js';
 import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
@@ -884,8 +889,8 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       return false;
     }
 
-    // Groups (UIID 5000) must use HTTP API with type=2
-    if (device.extra?.uiid === 5000 && this.ewelinkApi) {
+    // Groups must use HTTP API with type=2
+    if (isGroupDevice(device.extra?.uiid || 0) && this.ewelinkApi) {
       this.log.debug(`Sending group command to ${deviceId} via HTTP API`);
       return await this.ewelinkApi.updateGroup(deviceId, params);
     }

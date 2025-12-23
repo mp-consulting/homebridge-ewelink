@@ -28,6 +28,11 @@ export {
   isDualR3Device,
   isDimmableLightForFan,
   hasBattery,
+  isProgrammableSwitch,
+  isGroupDevice,
+  isNSPanelPro,
+  isPanelDevice,
+  getBrightnessParams,
 } from './device-catalog.js';
 
 // Temperature ranges

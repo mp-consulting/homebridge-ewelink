@@ -3,6 +3,7 @@ import { BaseAccessory } from './base.js';
 import { EWeLinkPlatform } from '../platform.js';
 import { AccessoryContext, DeviceParams } from '../types/index.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
+import { isNSPanelPro } from '../constants/device-constants.js';
 
 /**
  * Panel Accessory (UIID 133, 195 - NSPanel, NSPanel Pro)
@@ -31,7 +32,7 @@ export class PanelAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Check if this is NSPanel Pro variant
-    this.isProPanel = this.accessory.context.device?.extra?.uiid === 195;
+    this.isProPanel = isNSPanelPro(this.accessory.context.device?.extra?.uiid || 0);
 
     // Get device-specific configuration
     const deviceConfig = this.platform.config.singleDevices?.find(
