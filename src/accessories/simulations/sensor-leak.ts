@@ -3,6 +3,7 @@ import { BaseAccessory } from '../base.js';
 import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
+import { getBatteryType } from '../../constants/device-constants.js';
 
 /**
  * Leak Sensor Accessory
@@ -85,17 +86,18 @@ export class SensorLeakAccessory extends BaseAccessory {
 
     // Update battery level if present
     if (params.battery !== undefined && this.batteryService) {
-      const batteryRaw = params.battery;
+      const batteryRaw = params.battery as number;
       const uiid = this.device.extra?.uiid || 0;
+      const batteryType = getBatteryType(uiid);
 
-      // Scale battery based on UIID
-      if (uiid === 154) {
-        // UIID 154 provides battery as percentage directly
-        this.cacheBattScaled = batteryRaw as number;
-      } else {
-        // UIID 102 provides battery as voltage (2.0V - 3.0V)
-        const voltage = Math.min(Math.max(batteryRaw as number, 2), 3);
+      // Scale battery based on device battery type from catalog
+      if (batteryType === 'voltage') {
+        // Battery reported as voltage (2.0V - 3.0V)
+        const voltage = Math.min(Math.max(batteryRaw, 2), 3);
         this.cacheBattScaled = Math.round((voltage - 2) * 100);
+      } else {
+        // Battery reported as percentage (0-100)
+        this.cacheBattScaled = batteryRaw;
       }
 
       this.batteryService.updateCharacteristic(this.Characteristic.BatteryLevel, this.cacheBattScaled);

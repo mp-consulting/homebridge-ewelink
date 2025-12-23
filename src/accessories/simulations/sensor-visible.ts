@@ -4,7 +4,7 @@ import { EWeLinkPlatform } from '../../platform.js';
 import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
-import { isContactSensor, hasBattery } from '../../constants/device-constants.js';
+import { isContactSensor, hasBattery, getBatteryType } from '../../constants/device-constants.js';
 
 /**
  * Visible Sensor Accessory
@@ -251,16 +251,17 @@ export class SensorVisibleAccessory extends BaseAccessory {
     if (params.battery !== undefined && this.batteryService) {
       const batteryRaw = params.battery as number;
       const uiid = this.device.extra?.uiid || 0;
+      const batteryType = getBatteryType(uiid);
 
-      // Scale battery based on device type
+      // Scale battery based on device battery type from catalog
       if (this.isDW2) {
-        if (uiid === 154) {
-          // UIID 154 provides battery as percentage directly
-          this.cacheBattScaled = batteryRaw;
-        } else {
-          // UIID 102 provides battery as voltage (2.0V - 3.0V)
+        if (batteryType === 'voltage') {
+          // Battery reported as voltage (2.0V - 3.0V)
           const voltage = Math.min(Math.max(batteryRaw, 2), 3);
           this.cacheBattScaled = Math.round((voltage - 2) * 100);
+        } else {
+          // Battery reported as percentage (0-100)
+          this.cacheBattScaled = batteryRaw;
         }
       } else {
         // Other sensors may need scaling
