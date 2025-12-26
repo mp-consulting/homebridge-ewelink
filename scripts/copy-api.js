@@ -29,6 +29,8 @@ const filesToCopy = [
   'constants/api-constants.d.ts',
   'constants/region-constants.js',
   'constants/region-constants.d.ts',
+  'constants/device-catalog.js',
+  'constants/device-catalog.d.ts',
 ];
 
 console.log('Copying API files to homebridge-ui...');

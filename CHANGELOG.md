@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2025-12-26
+
+### Fixed
+- **Missing Device Catalog in UI**: Fixed module not found error for `device-catalog.js` in homebridge-ui
+  - Added `constants/device-catalog.js` and `constants/device-catalog.d.ts` to the build copy script
+  - The `settings.js` file imports from device-catalog, which was not being copied to homebridge-ui
+
 ## [1.0.8] - 2025-12-23
 
 ### Added

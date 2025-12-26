@@ -26,12 +26,9 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 👥 **Group Control** - Full support for eWeLink cloud groups with automatic discovery
 - 📊 **Device Status Tracking** - Real-time online/offline status with NO RESPONSE display in HomeKit
 
-## Recent Updates (v1.0.8)
+## Recent Updates (v1.0.9)
 
-- 📚 **Comprehensive Documentation** - Added README files in each src folder with architecture diagrams and usage examples
-- 🔧 **Code Refactoring** - Standardized patterns using helper functions across 15+ files
-- 🧹 **Reduced Code Duplication** - Removed 183+ lines of duplicate polling/service code
-- ⚡ **Better Maintainability** - Consistent use of `setupPollingInterval()`, `setupPowerMonitoringCharacteristics()`, and `getOrAddService()` helpers
+- 🐛 **Fixed UI Module Error** - Fixed missing `device-catalog.js` in homebridge-ui causing module not found error
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
