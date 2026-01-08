@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2026-01-08
+
+### Changed
+- **Improved WebSocket Reliability**: Enhanced timeout handling and retry logic
+  - Increased WebSocket command/query timeout from 10s to 20s to accommodate network latency
+  - Added automatic retry logic (up to 3 attempts) for failed WebSocket commands on timeout
+  - Staggered curtain state refresh on startup to prevent overwhelming WebSocket (1s intervals)
+  - Reduced log noise for dispatch service 503 errors (moved to debug level, fallback works automatically)
+
 ## [1.0.9] - 2025-12-26
 
 ### Fixed
