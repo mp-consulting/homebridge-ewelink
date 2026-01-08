@@ -8,7 +8,7 @@
 export const API_TIMEOUTS = {
   HTTP_REQUEST: 30000,      // 30 seconds for HTTP API calls
   WEBSOCKET_AUTH: 10000,    // 10 seconds for WebSocket authentication
-  WEBSOCKET_COMMAND: 10000, // 10 seconds for WebSocket commands
+  WEBSOCKET_COMMAND: 20000, // 20 seconds for WebSocket commands (increased for network latency)
   HTTP_REQUEST_LAN: 5000,   // 5 seconds for LAN control requests
 } as const;
 

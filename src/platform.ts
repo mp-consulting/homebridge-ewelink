@@ -157,6 +157,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /** Temperature cache for cross-device temperature sharing (heater/cooler simulations) */
   private readonly temperatureCache: Map<string, number> = new Map();
 
+  /** Curtain initialization counter for staggered state refresh */
+  private curtainInitCounter = 0;
+
   /** Initialization complete */
   private initialized = false;
 
@@ -888,6 +891,8 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   public async sendDeviceCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
     const device = this.deviceCache.get(deviceId);
+    const displayName = this.getDeviceDisplayName(deviceId);
+
     if (!device) {
       this.log.error('Device not found in cache:', deviceId);
       return false;
@@ -907,9 +912,39 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       }
     }
 
-    // Fall back to WebSocket/cloud control
+    // Fall back to WebSocket/cloud control with retry logic
     if (this.wsClient && this.config.mode !== 'lan') {
-      return await this.wsClient.sendCommand(deviceId, params);
+      for (let attempt = 1; attempt <= QUERY_RETRY.MAX_ATTEMPTS; attempt++) {
+        try {
+          const success = await this.wsClient.sendCommand(deviceId, params);
+          if (success) {
+            return true;
+          }
+
+          // Command returned false (but didn't throw) - don't retry
+          if (attempt === 1) {
+            this.log.debug(`Command to ${displayName} returned false (not retrying)`);
+          }
+          return false;
+
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+
+          // Only retry on timeout errors
+          if (errorMsg.includes('timeout') && attempt < QUERY_RETRY.MAX_ATTEMPTS) {
+            this.log.debug(`Command attempt ${attempt}/${QUERY_RETRY.MAX_ATTEMPTS} failed for ${displayName}: ${errorMsg}, retrying...`);
+            await new Promise(resolve => setTimeout(resolve, QUERY_RETRY.DELAY_MS));
+          } else {
+            // Non-timeout error or last attempt - fail
+            if (attempt === QUERY_RETRY.MAX_ATTEMPTS) {
+              this.log.error(`[${displayName}] Failed to send command after ${QUERY_RETRY.MAX_ATTEMPTS} attempts: ${errorMsg}`);
+            } else {
+              this.log.error(`[${displayName}] Failed to send command: ${errorMsg}`);
+            }
+            return false;
+          }
+        }
+      }
     }
 
     this.log.error('No available control method for device:', deviceId);
@@ -946,6 +981,15 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   public getAccessoryHandler(uuid: string): BaseAccessory | undefined {
     return this.accessoryHandlers.get(uuid);
+  }
+
+  /**
+   * Get staggered delay for curtain state refresh
+   * Returns incrementing delays (1s, 2s, 3s, etc.) to prevent overwhelming WebSocket
+   */
+  public getCurtainStaggerDelay(): number {
+    this.curtainInitCounter++;
+    return this.curtainInitCounter * 1000; // 1 second per curtain
   }
 
   /**

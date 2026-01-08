@@ -45,10 +45,11 @@ export class CurtainAccessory extends BaseAccessory {
     // Initialize from device params
     this.initializeFromParams();
 
-    // Query fresh state after WebSocket connects (delayed to allow connection)
+    // Query fresh state after WebSocket connects (staggered delay to prevent overwhelming WebSocket)
+    const staggerDelay = TIMING.CURTAIN_QUERY_DELAY_MS + platform.getCurtainStaggerDelay();
     setTimeout(() => {
       this.refreshState();
-    }, TIMING.CURTAIN_QUERY_DELAY_MS);
+    }, staggerDelay);
   }
 
   /**

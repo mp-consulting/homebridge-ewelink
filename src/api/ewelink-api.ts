@@ -490,11 +490,14 @@ export class EWeLinkAPI {
 
     } catch (error) {
       // Fallback to static mapping if dispatch fails
+      // This is a common occurrence (503 errors) and the fallback works fine
       if (axios.isAxiosError(error)) {
-        this.platform.log.warn(`Failed to get WebSocket host from dispatch: ${error.response?.status} - ${error.response?.data?.msg || error.message}`);
-        this.platform.log.debug(`Dispatch error details: ${JSON.stringify(error.response?.data, null, 2)}`);
+        this.platform.log.debug(`Dispatch service unavailable (${error.response?.status}), using fallback WebSocket host`);
+        if (this.platform.config.debug) {
+          this.platform.log.debug(`Dispatch error details: ${JSON.stringify(error.response?.data, null, 2)}`);
+        }
       } else {
-        this.platform.log.warn(`Failed to get WebSocket host from dispatch: ${error instanceof Error ? error.message : String(error)}`);
+        this.platform.log.debug(`Dispatch error: ${error instanceof Error ? error.message : String(error)}, using fallback`);
       }
 
       // Since dispatch is failing, use numbered pconnect hosts which do exist
