@@ -17,7 +17,7 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 🔐 **Secure Authentication** - HMAC-SHA256 signature-based login with token sharing
 - 🔄 **Automatic Session Management** - UI automatically detects and uses existing plugin sessions
 - 🔁 **Smart Reconnection** - Handles concurrent sessions gracefully with automatic fresh login and exponential backoff
-- 🔄 **Query Retry Logic** - Automatic retry on device state query timeouts with configurable attempts
+- 🔄 **Intelligent Retry Logic** - Automatic retry on command/query timeouts with staggered device initialization to prevent network congestion
 - 🌍 **60+ Country Codes** - Comprehensive country code support organized by region
 - 🎯 **Smart Device Detection** - Automatically detects device types based on UIID and parameters
 - 🎮 **Programmable Switches** - Full support for SONOFF Mini (S-MAN) and SONOFF Mate (S-MATE) with single, double, and long press detection
@@ -26,8 +26,16 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 - 👥 **Group Control** - Full support for eWeLink cloud groups with automatic discovery
 - 📊 **Device Status Tracking** - Real-time online/offline status with NO RESPONSE display in HomeKit
 
-## Recent Updates (v1.0.9)
+## Recent Updates
 
+### v1.0.10 (Latest)
+- 🚀 **Improved WebSocket Reliability** - Enhanced timeout handling and retry logic for better stability
+  - Increased command/query timeout from 10s to 20s
+  - Added automatic retry (up to 3 attempts) for timeout errors
+  - Staggered curtain initialization to prevent network congestion
+  - Reduced log noise for dispatch service errors
+
+### v1.0.9
 - 🐛 **Fixed UI Module Error** - Fixed missing `device-catalog.js` in homebridge-ui causing module not found error
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
