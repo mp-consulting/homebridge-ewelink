@@ -1,5 +1,10 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distDir = path.join(__dirname, '..', 'dist');
 
 const PLUGIN_NAME = '@mp-consulting/homebridge-ewelink';
 
@@ -23,7 +28,7 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    * Create an authenticated API instance
    */
   async createApi(config, accessToken = null) {
-    const { EWeLinkAPI } = await import('./api/ewelink-api.js');
+    const { EWeLinkAPI } = await import(path.join(distDir, 'api', 'ewelink-api.js'));
     const api = new EWeLinkAPI({
       log: console,
       config,
@@ -73,7 +78,7 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
    */
   async handleGetTokens() {
     try {
-      const { TokenStorage } = await import('./utils/token-storage.js');
+      const { TokenStorage } = await import(path.join(distDir, 'utils', 'token-storage.js'));
       const storage = new TokenStorage(this.homebridgeStoragePath);
       const tokens = storage.load();
 

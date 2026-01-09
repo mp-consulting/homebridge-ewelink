@@ -28,15 +28,12 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.10 (Latest)
-- 🚀 **Improved WebSocket Reliability** - Enhanced timeout handling and retry logic for better stability
-  - Increased command/query timeout from 10s to 20s
-  - Added automatic retry (up to 3 attempts) for timeout errors
-  - Staggered curtain initialization to prevent network congestion
-  - Reduced log noise for dispatch service errors
+### v1.0.11 (Latest)
+- 🐛 **Fixed RF Sub-Device Commands** - Fixed "Device not found in cache" error when pressing RF buttons
+- 🔧 **Simplified Build Process** - UI server now imports directly from dist folder (removed copy-api script)
 
-### v1.0.9
-- 🐛 **Fixed UI Module Error** - Fixed missing `device-catalog.js` in homebridge-ui causing module not found error
+### v1.0.10
+- 🚀 **Improved WebSocket Reliability** - Enhanced timeout handling and retry logic for better stability
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
