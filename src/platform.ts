@@ -890,8 +890,10 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    * Send command to device
    */
   public async sendDeviceCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
-    const device = this.deviceCache.get(deviceId);
-    const displayName = this.getDeviceDisplayName(deviceId);
+    // Strip channel suffix (e.g., SW1) to get the parent device ID for cache lookup
+    const parentDeviceId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
+    const device = this.deviceCache.get(parentDeviceId);
+    const displayName = this.getDeviceDisplayName(parentDeviceId);
 
     if (!device) {
       this.log.error('Device not found in cache:', deviceId);

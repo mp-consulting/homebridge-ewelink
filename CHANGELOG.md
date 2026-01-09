@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-01-09
+
+### Fixed
+- **RF Sub-Device Commands**: Fixed "Device not found in cache" error when pressing RF buttons
+  - RF sub-devices (e.g., `1001eb99faSW1`) now correctly resolve to parent device ID for cache lookup
+  - Applied same fix to multi-channel device commands in WebSocket and LAN control
+
+### Changed
+- **Simplified Build Process**: Removed copy-api script, UI server now imports directly from dist folder
+  - Eliminated duplicate files in homebridge-ui directory
+  - UI server uses proper file-relative paths for ES module imports
+
 ## [1.0.10] - 2026-01-08
 
 ### Changed

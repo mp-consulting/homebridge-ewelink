@@ -1,7 +1,7 @@
 {
   "name": "@mp-consulting/homebridge-ewelink",
   "displayName": "Homebridge eWeLink",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "type": "module",
   "description": "Homebridge plugin to integrate eWeLink devices into HomeKit",
   "main": "dist/index.js",
@@ -10,8 +10,7 @@
     "lint": "eslint src/**.ts --max-warnings=0",
     "lint:fix": "npm run lint -- --fix",
     "watch": "npm run build && npm link && nodemon",
-    "build": "rimraf ./dist && tsc && npm run copy-api-to-ui",
-    "copy-api-to-ui": "node scripts/copy-api.js",
+    "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run lint && npm run build",
     "prepare": "npm run build"
   },

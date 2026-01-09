@@ -5,6 +5,7 @@ import { EWELINK_APP_ID } from '../settings.js';
 import { CryptoUtils } from '../utils/crypto-utils.js';
 import { API_TIMEOUTS } from '../constants/api-constants.js';
 import { NETWORK_INTERVALS } from '../constants/network-constants.js';
+import { CHANNEL_SUFFIX_PATTERN } from '../constants/device-constants.js';
 
 /**
  * WebSocket client for real-time device updates
@@ -233,7 +234,10 @@ export class WSClient {
       return false;
     }
 
-    const device = this.platform.deviceCache.get(deviceId);
+    // Strip channel suffix (e.g., SW1) to get the parent device ID
+    const parentDeviceId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
+
+    const device = this.platform.deviceCache.get(parentDeviceId);
     if (!device) {
       this.platform.log.warn(`Cannot send command to ${deviceId}: Device not in cache`);
       return false;
@@ -243,7 +247,7 @@ export class WSClient {
 
     const message = {
       action: 'update',
-      deviceid: deviceId,
+      deviceid: parentDeviceId,
       apikey: device.apikey,
       selfApikey: this.platform.ewelinkApi.getApiKey(),
       params,

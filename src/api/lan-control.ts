@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import mdns from 'multicast-dns';
 import { EWeLinkPlatform } from '../platform.js';
 import { LANDevice, DeviceParams } from '../types/index.js';
+import { CHANNEL_SUFFIX_PATTERN } from '../constants/device-constants.js';
 
 const MDNS_SERVICE_TYPE = '_ewelink._tcp.local';
 
@@ -207,7 +208,9 @@ export class LANControl {
    * Send command to device via LAN
    */
   async sendCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
-    const device = this.devices.get(deviceId);
+    // Strip channel suffix (e.g., SW1) to get the parent device ID
+    const parentDeviceId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
+    const device = this.devices.get(parentDeviceId);
 
     if (!device) {
       this.platform.log.debug('Device not found in LAN cache:', deviceId);
