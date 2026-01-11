@@ -35,6 +35,9 @@
   "bugs": {
     "url": "https://github.com/mp-consulting/homebridge-ewelink/issues"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "engines": {
     "node": "^20.18.0 || ^22.9.0 || ^24",
     "homebridge": "^1.8.0 || ^2.0.0-beta.0"
