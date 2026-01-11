@@ -36,7 +36,8 @@
     "url": "https://github.com/mp-consulting/homebridge-ewelink/issues"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "engines": {
     "node": "^20.18.0 || ^22.9.0 || ^24",
