@@ -28,9 +28,14 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.11 (Latest)
+### v1.0.12 (Latest)
+- 🚀 **Command Queue with Throttling** - Prevents bulk command overload when HomeKit scenes trigger multiple devices
+- 🔍 **LAN Control Diagnostics** - Enhanced logging to troubleshoot LAN mode availability
+- ⚡ **Improved Command Flow** - LAN commands now bypass the queue for instant response
+
+### v1.0.11
 - 🐛 **Fixed RF Sub-Device Commands** - Fixed "Device not found in cache" error when pressing RF buttons
-- 🔧 **Simplified Build Process** - UI server now imports directly from dist folder (removed copy-api script)
+- 🔧 **Simplified Build Process** - UI server now imports directly from dist folder
 
 ### v1.0.10
 - 🚀 **Improved WebSocket Reliability** - Enhanced timeout handling and retry logic for better stability

@@ -31,7 +31,7 @@ export class LANControl {
     }
 
     this.running = true;
-    this.platform.log.debug('Starting LAN control...');
+    this.platform.log.info('Starting LAN control (mDNS discovery)...');
 
     // Start mDNS discovery
     await this.startMdnsDiscovery();
@@ -39,7 +39,52 @@ export class LANControl {
     // Start UDP listener for device announcements
     await this.startUdpListener();
 
-    this.platform.log.info('LAN control started');
+    this.platform.log.info('LAN control started - listening for device announcements');
+
+    // Log discovery status after initial discovery period
+    setTimeout(() => {
+      this.logDiscoveryStatus();
+    }, 10000);
+  }
+
+  /**
+   * Log LAN discovery status for diagnostics
+   */
+  private logDiscoveryStatus(): void {
+    const discoveredCount = this.devices.size;
+
+    if (discoveredCount === 0) {
+      this.platform.log.warn(
+        `LAN discovery: No devices found via mDNS after 10 seconds. ` +
+        `This is normal if your devices don't support LAN mode or are on a different network segment. ` +
+        `Commands will use cloud (WebSocket) instead.`,
+      );
+    } else {
+      this.platform.log.info(
+        `LAN discovery: Found ${discoveredCount} device(s) available for local control`,
+      );
+
+      // Log which devices were found
+      for (const [deviceId, device] of this.devices) {
+        const cachedDevice = this.platform.deviceCache.get(deviceId);
+        const deviceName = cachedDevice?.name || deviceId;
+        this.platform.log.info(`  - ${deviceName} at ${device.ip}:${device.port}`);
+      }
+
+      // Log devices NOT found on LAN
+      const notFoundOnLan: string[] = [];
+      for (const [deviceId, device] of this.platform.deviceCache) {
+        if (!this.devices.has(deviceId)) {
+          notFoundOnLan.push(device.name || deviceId);
+        }
+      }
+
+      if (notFoundOnLan.length > 0) {
+        this.platform.log.debug(
+          `Devices NOT available via LAN (will use cloud): ${notFoundOnLan.join(', ')}`,
+        );
+      }
+    }
   }
 
   /**
@@ -211,25 +256,34 @@ export class LANControl {
     // Strip channel suffix (e.g., SW1) to get the parent device ID
     const parentDeviceId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
     const device = this.devices.get(parentDeviceId);
+    const cachedDevice = this.platform.deviceCache.get(parentDeviceId);
+    const displayName = cachedDevice?.name || deviceId;
 
     if (!device) {
-      this.platform.log.debug('Device not found in LAN cache:', deviceId);
+      this.platform.log.debug(`[${displayName}] Not available via LAN, falling back to cloud`);
       return false;
     }
 
     try {
+      this.platform.log.debug(`[${displayName}] Sending command via LAN to ${device.ip}:${device.port}`);
       const payload = this.buildPayload(device, params);
       const response = await this.sendHttpRequest(device.ip, device.port, payload);
 
       if (response && response.error === 0) {
-        this.platform.log.debug('LAN command successful for device:', deviceId);
+        this.platform.log.debug(`[${displayName}] LAN command successful`);
         return true;
       }
 
+      if (response) {
+        this.platform.log.debug(`[${displayName}] LAN command failed with error code: ${response.error}`);
+      } else {
+        this.platform.log.debug(`[${displayName}] LAN command failed: no response`);
+      }
       return false;
 
     } catch (error) {
-      this.platform.log.debug('LAN command failed for device:', deviceId, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.platform.log.debug(`[${displayName}] LAN command failed: ${errorMsg}, falling back to cloud`);
       return false;
     }
   }

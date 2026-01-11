@@ -24,6 +24,7 @@ import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
 import { EveCharacteristics } from './utils/eve-characteristics.js';
+import { CommandQueue } from './utils/command-queue.js';
 import { BaseAccessory } from './accessories/base.js';
 
 // Core accessory handlers
@@ -160,6 +161,9 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /** Curtain initialization counter for staggered state refresh */
   private curtainInitCounter = 0;
 
+  /** Command queue for throttling bulk commands */
+  private readonly commandQueue: CommandQueue;
+
   /** Initialization complete */
   private initialized = false;
 
@@ -172,6 +176,13 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
     // Initialize Eve characteristics
     this.eveCharacteristics = new EveCharacteristics(api);
+
+    // Initialize command queue with throttling
+    this.commandQueue = new CommandQueue({
+      minInterval: 250, // 250ms between commands
+      concurrency: 3, // Max 3 concurrent commands
+      log: (message) => this.log.debug(`[CommandQueue] ${message}`),
+    });
 
     // Bind the method to preserve 'this' context
     this.configureAccessory = this.configureAccessory.bind(this);
@@ -887,7 +898,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Send command to device
+   * Send command to device (queued to prevent bulk command overload on cloud API)
    */
   public async sendDeviceCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
     // Strip channel suffix (e.g., SW1) to get the parent device ID for cache lookup
@@ -900,21 +911,38 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       return false;
     }
 
-    // Groups must use HTTP API with type=2
+    // Groups must use HTTP API with type=2 (not queued - different path)
     if (isGroupDevice(device.extra?.uiid || 0) && this.ewelinkApi) {
       this.log.debug(`Sending group command to ${deviceId} via HTTP API`);
       return await this.ewelinkApi.updateGroup(deviceId, params);
     }
 
-    // Try LAN control first (if available and device supports it)
+    // Try LAN control first - no queue needed for local network (no rate limiting)
     if (this.lanControl && this.config.mode !== 'wan') {
       const lanSuccess = await this.lanControl.sendCommand(deviceId, params);
       if (lanSuccess) {
         return true;
       }
+      // LAN failed or device not available on LAN, fall through to cloud
     }
 
-    // Fall back to WebSocket/cloud control with retry logic
+    // Queue the command for cloud API to prevent overwhelming with bulk commands
+    // The queue ensures commands are spaced out with minimum interval
+    return this.commandQueue.enqueue(deviceId, async () => {
+      return this.executeCloudCommand(deviceId, params, displayName);
+    });
+  }
+
+  /**
+   * Execute cloud command via WebSocket (internal - called by command queue)
+   * LAN control is attempted before queueing, so this only handles cloud/WebSocket
+   */
+  private async executeCloudCommand(
+    deviceId: string,
+    params: DeviceParams,
+    displayName: string,
+  ): Promise<boolean> {
+    // WebSocket/cloud control with retry logic
     if (this.wsClient && this.config.mode !== 'lan') {
       for (let attempt = 1; attempt <= QUERY_RETRY.MAX_ATTEMPTS; attempt++) {
         try {

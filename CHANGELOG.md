@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] - 2026-01-11
+
+### Added
+- **Command Queue with Throttling**: Added request queuing to prevent bulk command overload on cloud API
+  - Commands are now spaced 250ms apart with max 3 concurrent requests
+  - LAN commands bypass the queue (no rate limiting on local network)
+  - Prevents timeouts when HomeKit scenes trigger multiple devices simultaneously
+- **LAN Control Diagnostics**: Enhanced logging for LAN mode troubleshooting
+  - Logs discovery status 10 seconds after startup
+  - Lists devices found/not found on LAN with IP addresses
+  - Better error messages when commands fall back to cloud
+
+### Changed
+- **Improved Command Flow**: LAN control is now attempted first (before queueing)
+  - If LAN succeeds, returns immediately with no queue delay
+  - If LAN fails, command goes through throttled queue for cloud/WebSocket
+- **Enhanced Logging**: Device names now shown in LAN command logs instead of device IDs
+
 ## [1.0.11] - 2026-01-09
 
 ### Fixed
