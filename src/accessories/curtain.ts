@@ -11,6 +11,12 @@ export enum PositionState {
   STOPPED = 2,
 }
 
+/** Minimum position change to update HomeKit (debounce) */
+const POSITION_UPDATE_THRESHOLD = 5;
+
+/** Debounce time for position updates in milliseconds */
+const POSITION_DEBOUNCE_MS = 1000;
+
 /**
  * Curtain Accessory
  */
@@ -19,6 +25,12 @@ export class CurtainAccessory extends BaseAccessory {
   private targetPosition = 0;
   private positionState: PositionState = PositionState.STOPPED;
   private moveTimeout?: NodeJS.Timeout;
+
+  /** Last position update sent to HomeKit (for debouncing) */
+  private lastReportedPosition = 0;
+
+  /** Debounce timer for position updates */
+  private positionDebounceTimer?: NodeJS.Timeout;
 
   constructor(
     platform: EWeLinkPlatform,
@@ -57,13 +69,13 @@ export class CurtainAccessory extends BaseAccessory {
    */
   private async refreshState(): Promise<void> {
     try {
-      this.logInfo(`Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      this.logDebug(`Refreshing state - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
       await this.platform.queryDeviceState(this.deviceId);
 
       // Wait a bit for the WebSocket response to be processed
       await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
 
-      this.logInfo(`State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
+      this.logDebug(`State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logError(`Failed to refresh state: ${errMsg}`);
@@ -77,11 +89,14 @@ export class CurtainAccessory extends BaseAccessory {
     const uiid = this.device.extra?.uiid || 0;
     const positionConfig = getPositionParams(uiid);
 
+    this.logDebug(`initializeFromParams: deviceParams=${JSON.stringify(this.deviceParams)}`);
+
     if (positionConfig) {
       const { current, target, inverted } = positionConfig;
 
       // Get current position from device params
       const rawCurrent = this.deviceParams[current];
+      this.logDebug(`initializeFromParams: rawCurrent=${rawCurrent}, param=${current}`);
       if (rawCurrent !== undefined) {
         const value = this.clamp(rawCurrent as number, 0, 100);
         this.currentPosition = inverted ? 100 - value : value;
@@ -89,6 +104,7 @@ export class CurtainAccessory extends BaseAccessory {
 
       // Get target position (may be same param as current for some devices)
       const rawTarget = this.deviceParams[target];
+      this.logDebug(`initializeFromParams: rawTarget=${rawTarget}, param=${target}`);
       if (rawTarget !== undefined && target !== current) {
         const value = this.clamp(rawTarget as number, 0, 100);
         this.targetPosition = inverted ? 100 - value : value;
@@ -96,6 +112,8 @@ export class CurtainAccessory extends BaseAccessory {
         this.targetPosition = this.currentPosition;
       }
     }
+
+    this.logDebug(`initializeFromParams: currentPosition=${this.currentPosition}, targetPosition=${this.targetPosition}`);
 
     // Update characteristics
     this.service.updateCharacteristic(
@@ -118,6 +136,7 @@ export class CurtainAccessory extends BaseAccessory {
    * Get current position
    */
   private async getCurrentPosition(): Promise<CharacteristicValue> {
+    this.logDebug(`getCurrentPosition called, returning ${this.currentPosition}`);
     return this.handleGet(() => this.currentPosition, 'CurrentPosition');
   }
 
@@ -125,6 +144,7 @@ export class CurtainAccessory extends BaseAccessory {
    * Get target position
    */
   private async getTargetPosition(): Promise<CharacteristicValue> {
+    this.logDebug(`getTargetPosition called, returning ${this.targetPosition}`);
     return this.handleGet(() => this.targetPosition, 'TargetPosition');
   }
 
@@ -133,14 +153,30 @@ export class CurtainAccessory extends BaseAccessory {
    */
   private async setTargetPosition(value: CharacteristicValue): Promise<void> {
     const newTarget = this.clamp(value as number, 0, 100);
+    const uiid = this.device.extra?.uiid || 0;
+    const motorTurnParam = getMotorTurnParam(uiid);
+
+    // Detect mid-movement stop: if curtain is moving and user taps to set target
+    // near current position, interpret as a stop command
+    if (this.positionState !== PositionState.STOPPED) {
+      const positionDiff = Math.abs(newTarget - this.currentPosition);
+
+      // If new target is very close to current position (within 5%), send stop
+      if (positionDiff <= 5) {
+        this.logInfo(`Stop requested (target ${newTarget}% near current ${this.currentPosition}%)`);
+        await this.sendStopCommand();
+        return;
+      }
+    }
 
     if (newTarget === this.currentPosition) {
+      this.logDebug(`Already at position ${newTarget}%, skipping command`);
       this.targetPosition = newTarget;
       return;
     }
 
     this.targetPosition = newTarget;
-    this.logInfo('Setting curtain position to ' + newTarget + '%');
+    this.logInfo(`Setting position to ${newTarget}% (from ${this.currentPosition}%)`);
 
     // Determine direction
     if (newTarget > this.currentPosition) {
@@ -155,9 +191,7 @@ export class CurtainAccessory extends BaseAccessory {
     );
 
     // Build command params using catalog
-    const uiid = this.device.extra?.uiid || 0;
     const positionConfig = getPositionParams(uiid);
-    const motorTurnParam = getMotorTurnParam(uiid);
     const params: DeviceParams = {};
 
     if (positionConfig) {
@@ -197,6 +231,40 @@ export class CurtainAccessory extends BaseAccessory {
   }
 
   /**
+   * Send stop command to curtain
+   */
+  private async sendStopCommand(): Promise<void> {
+    const uiid = this.device.extra?.uiid || 0;
+    const motorTurnParam = getMotorTurnParam(uiid);
+    const params: DeviceParams = {};
+
+    if (motorTurnParam) {
+      params[motorTurnParam] = 0; // Stop
+    } else {
+      // Fallback: some devices stop when switch is off
+      params.switch = 'off';
+    }
+
+    this.logDebug(`Sending stop command (UIID ${uiid}): ${JSON.stringify(params)}`);
+    const success = await this.sendCommand(params);
+
+    if (success) {
+      // Update state immediately
+      this.targetPosition = this.currentPosition;
+      this.positionState = PositionState.STOPPED;
+
+      this.service.updateCharacteristic(
+        this.Characteristic.TargetPosition,
+        this.targetPosition,
+      );
+      this.service.updateCharacteristic(
+        this.Characteristic.PositionState,
+        this.positionState,
+      );
+    }
+  }
+
+  /**
    * Stop the curtain movement
    */
   private stop(): void {
@@ -230,11 +298,13 @@ export class CurtainAccessory extends BaseAccessory {
     const positionConfig = getPositionParams(uiid);
 
     if (!positionConfig) {
+      this.logDebug(`No position config for UIID ${uiid}`);
       return;
     }
 
     const { current, target, inverted } = positionConfig;
     let positionUpdated = false;
+    const wasMoving = this.positionState !== PositionState.STOPPED;
 
     // Handle current position update
     const rawCurrent = params[current];
@@ -242,15 +312,47 @@ export class CurtainAccessory extends BaseAccessory {
       const rawValue = this.clamp(rawCurrent as number, 0, 100);
       const newPosition = inverted ? 100 - rawValue : rawValue;
 
-      if (newPosition !== this.currentPosition) {
-        this.logInfo(`Current position changing from ${this.currentPosition}% to ${newPosition}%`);
-        this.currentPosition = newPosition;
+      // Always update internal state
+      const oldPosition = this.currentPosition;
+      this.currentPosition = newPosition;
+
+      // Debounce HomeKit updates: only update if position changed significantly
+      // or if we've reached the target (always report final position)
+      const positionChange = Math.abs(newPosition - this.lastReportedPosition);
+      const reachedTarget = newPosition === this.targetPosition;
+
+      if (positionChange >= POSITION_UPDATE_THRESHOLD || reachedTarget) {
+        // Clear any pending debounce timer
+        if (this.positionDebounceTimer) {
+          clearTimeout(this.positionDebounceTimer);
+          this.positionDebounceTimer = undefined;
+        }
+
+        // Update HomeKit immediately
         this.service.updateCharacteristic(
           this.Characteristic.CurrentPosition,
           this.currentPosition,
         );
-        positionUpdated = true;
+        this.lastReportedPosition = newPosition;
+
+        if (oldPosition !== newPosition) {
+          this.logDebug(`Position update: ${oldPosition}% → ${newPosition}%`);
+        }
+      } else if (positionChange > 0) {
+        // Small change - debounce it
+        if (!this.positionDebounceTimer) {
+          this.positionDebounceTimer = setTimeout(() => {
+            this.positionDebounceTimer = undefined;
+            this.service.updateCharacteristic(
+              this.Characteristic.CurrentPosition,
+              this.currentPosition,
+            );
+            this.lastReportedPosition = this.currentPosition;
+          }, POSITION_DEBOUNCE_MS);
+        }
       }
+
+      positionUpdated = true;
     }
 
     // Handle target position update (only if different param from current)
@@ -260,40 +362,35 @@ export class CurtainAccessory extends BaseAccessory {
         const rawValue = this.clamp(rawTarget as number, 0, 100);
         const newTarget = inverted ? 100 - rawValue : rawValue;
 
-        if (newTarget !== this.targetPosition) {
-          this.targetPosition = newTarget;
-          this.service.updateCharacteristic(
-            this.Characteristic.TargetPosition,
-            this.targetPosition,
-          );
-          this.logDebug('Target position updated to ' + this.targetPosition + '%');
-          positionUpdated = true;
-        }
+        // Always update target position from device to keep HomeKit in sync
+        this.targetPosition = newTarget;
+        this.service.updateCharacteristic(
+          this.Characteristic.TargetPosition,
+          this.targetPosition,
+        );
+        this.logDebug('Target position synced to ' + this.targetPosition + '%');
+        positionUpdated = true;
       }
     } else if (positionUpdated) {
       // For devices where current == target param, sync target to current
-      if (this.currentPosition === this.targetPosition) {
-        // Already at target - stopped
-        this.positionState = PositionState.STOPPED;
-        if (this.moveTimeout) {
-          clearTimeout(this.moveTimeout);
-          this.moveTimeout = undefined;
-        }
-      } else {
-        // External change - update target to match current
-        this.targetPosition = this.currentPosition;
-        this.positionState = PositionState.STOPPED;
+      this.targetPosition = this.currentPosition;
+      this.positionState = PositionState.STOPPED;
+      if (this.moveTimeout) {
+        clearTimeout(this.moveTimeout);
+        this.moveTimeout = undefined;
       }
 
       this.service.updateCharacteristic(
         this.Characteristic.TargetPosition,
         this.targetPosition,
       );
-      this.logDebug('Position updated to ' + this.currentPosition + '%');
+      this.logDebug('Position synced to ' + this.currentPosition + '%');
     }
 
     // Update position state based on current vs target
     if (positionUpdated) {
+      const previousState = this.positionState;
+
       if (this.targetPosition === this.currentPosition) {
         this.positionState = PositionState.STOPPED;
       } else if (this.targetPosition > this.currentPosition) {
@@ -306,11 +403,35 @@ export class CurtainAccessory extends BaseAccessory {
         this.Characteristic.PositionState,
         this.positionState,
       );
+
+      // Log when curtain reaches target position
+      if (wasMoving && this.positionState === PositionState.STOPPED && previousState !== PositionState.STOPPED) {
+        this.logInfo(`Reached target position: ${this.currentPosition}%`);
+      }
+    }
+
+    // Handle motorTurn=0 as stop signal
+    if (params.motorTurn === 0 && wasMoving) {
+      this.positionState = PositionState.STOPPED;
+      this.targetPosition = this.currentPosition;
+
+      this.service.updateCharacteristic(
+        this.Characteristic.TargetPosition,
+        this.targetPosition,
+      );
+      this.service.updateCharacteristic(
+        this.Characteristic.PositionState,
+        this.positionState,
+      );
+
+      this.logInfo(`Movement stopped at ${this.currentPosition}%`);
     }
 
     // Handle switch off command (some devices use this for stop)
     if (params.switch === 'off') {
       this.stop();
     }
+
+    this.logDebug(`updateState: after - currentPosition=${this.currentPosition}, targetPosition=${this.targetPosition}, positionState=${this.positionState}`);
   }
 }

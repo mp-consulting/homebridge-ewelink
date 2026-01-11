@@ -142,6 +142,21 @@ select {
   color: white;
 }
 
+.status-lan {
+  background-color: var(--bs-info);
+  color: white;
+}
+
+.status-lan-disabled {
+  background-color: var(--bs-warning);
+  color: black;
+}
+
+.status-cloud {
+  background-color: var(--bs-secondary);
+  color: white;
+}
+
 /* Utility classes */
 .hidden {
   display: none !important;

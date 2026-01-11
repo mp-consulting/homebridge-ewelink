@@ -178,10 +178,13 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     this.eveCharacteristics = new EveCharacteristics(api);
 
     // Initialize command queue with throttling
+    // Conservative settings to prevent eWeLink API timeouts on bulk commands
+    // Can be customized via config
     this.commandQueue = new CommandQueue({
-      minInterval: 250, // 250ms between commands
-      concurrency: 3, // Max 3 concurrent commands
+      minInterval: this.config.commandQueueInterval ?? 250,
+      concurrency: this.config.commandQueueConcurrency ?? 3,
       log: (message) => this.log.debug(`[CommandQueue] ${message}`),
+      getDeviceName: (deviceId) => this.getDeviceDisplayName(deviceId),
     });
 
     // Bind the method to preserve 'this' context
@@ -272,6 +275,25 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Initialize LAN control if not WAN-only mode
       if (this.config.mode !== 'wan') {
         this.lanControl = new LANControl(this);
+
+        // Pre-register devices with IP info from API (before mDNS discovery)
+        let lanRegisteredCount = 0;
+        for (const device of devices) {
+          if (device.localtype === 1 && device.ip && device.port) {
+            this.lanControl.registerDevice(
+              device.deviceid,
+              device.ip,
+              device.port,
+              device.devicekey,
+              true, // encrypt
+            );
+            lanRegisteredCount++;
+          }
+        }
+        if (lanRegisteredCount > 0) {
+          this.log.info(`Pre-registered ${lanRegisteredCount} device(s) for LAN control from API`);
+        }
+
         await this.lanControl.start();
       }
 
@@ -852,8 +874,11 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     const uiid = device.extra?.uiid || 0;
     const channelCount = getChannelCount(uiid);
 
-    // For multi-channel devices, broadcast to all sub-accessories
-    if (channelCount > 1) {
+    // Check if this is a UIID 126 device configured as curtain (registered with plain deviceId)
+    const isCurtainDevice = uiid === 126 && hasCurtainParams(device.params);
+
+    // For multi-channel devices (except curtains), broadcast to all sub-accessories
+    if (channelCount > 1 && !isCurtainDevice) {
       // Update all channel sub-accessories (SW0, SW1, SW2, etc.)
       for (let channel = 0; channel <= channelCount; channel++) {
         const subDeviceId = `${deviceId}SW${channel}`;

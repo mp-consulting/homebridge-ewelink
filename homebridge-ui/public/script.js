@@ -42,7 +42,13 @@
       list.innerHTML = '<div class="text-center text-muted py-4">No devices found</div>';
       return;
     }
-    list.innerHTML = devices.map(d => `
+    list.innerHTML = devices.map(d => {
+      const lanStatus = d.lanEnabled && d.lanIp
+        ? `<span class="status-badge status-lan">LAN: ${d.lanIp}</span>`
+        : d.lanEnabled
+          ? '<span class="status-badge status-lan-disabled">LAN: No IP</span>'
+          : '<span class="status-badge status-cloud">Cloud Only</span>';
+      return `
       <div class="device-item">
         <div class="device-info">
           <div class="device-name">${escapeHtml(d.name)}</div>
@@ -51,9 +57,11 @@
         </div>
         <div class="device-status">
           <span class="status-badge ${d.online ? 'status-online' : 'status-offline'}">${d.online ? 'Online' : 'Offline'}</span>
+          ${lanStatus}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   };
 
   // Load devices

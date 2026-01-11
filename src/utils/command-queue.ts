@@ -21,6 +21,8 @@ export interface CommandQueueOptions {
   concurrency?: number;
   /** Log function for debug output */
   log?: (message: string) => void;
+  /** Function to get device display name from device ID */
+  getDeviceName?: (deviceId: string) => string;
 }
 
 /**
@@ -31,14 +33,16 @@ export class CommandQueue {
   private readonly minInterval: number;
   private readonly concurrency: number;
   private readonly log: (message: string) => void;
+  private readonly getDeviceName: (deviceId: string) => string;
   private activeCount = 0;
   private lastCommandTime = 0;
-  private processing = false;
+  private throttleTimeout: NodeJS.Timeout | null = null;
 
   constructor(options: CommandQueueOptions = {}) {
     this.minInterval = options.minInterval ?? 250;
     this.concurrency = options.concurrency ?? 3;
     this.log = options.log ?? (() => {});
+    this.getDeviceName = options.getDeviceName ?? ((id) => id);
   }
 
   /**
@@ -57,7 +61,8 @@ export class CommandQueue {
         timestamp: Date.now(),
       });
 
-      this.log(`Command queued for ${deviceId} (queue size: ${this.queue.length}, active: ${this.activeCount})`);
+      const displayName = this.getDeviceName(deviceId);
+      this.log(`Command queued for ${displayName} (queue size: ${this.queue.length}, active: ${this.activeCount})`);
       this.processQueue();
     });
   }
@@ -65,42 +70,40 @@ export class CommandQueue {
   /**
    * Process queued commands respecting concurrency and interval limits
    */
-  private async processQueue(): Promise<void> {
-    // Prevent multiple concurrent process loops
-    if (this.processing) {
-      return;
-    }
+  private processQueue(): void {
+    // Process commands while we have capacity
+    while (this.queue.length > 0 && this.activeCount < this.concurrency) {
+      const now = Date.now();
+      const timeSinceLastCommand = now - this.lastCommandTime;
 
-    this.processing = true;
-
-    try {
-      while (this.queue.length > 0 && this.activeCount < this.concurrency) {
-        const now = Date.now();
-        const timeSinceLastCommand = now - this.lastCommandTime;
-
-        // Wait if we need to respect the minimum interval
-        if (timeSinceLastCommand < this.minInterval) {
+      // If we need to wait for throttling, schedule a delayed call instead of blocking
+      if (timeSinceLastCommand < this.minInterval) {
+        // Only schedule if we don't already have a pending timeout
+        if (!this.throttleTimeout) {
           const waitTime = this.minInterval - timeSinceLastCommand;
-          this.log(`Throttling: waiting ${waitTime}ms before next command`);
-          await this.delay(waitTime);
+          this.log(`Throttling: scheduling next command in ${waitTime}ms`);
+          this.throttleTimeout = setTimeout(() => {
+            this.throttleTimeout = null;
+            this.processQueue();
+          }, waitTime);
         }
-
-        const command = this.queue.shift();
-        if (!command) {
-          break;
-        }
-
-        this.activeCount++;
-        this.lastCommandTime = Date.now();
-
-        const queueTime = Date.now() - command.timestamp;
-        this.log(`Executing command for ${command.deviceId} (waited ${queueTime}ms in queue)`);
-
-        // Execute command asynchronously
-        this.executeCommand(command);
+        return; // Exit and let the timeout callback continue processing
       }
-    } finally {
-      this.processing = false;
+
+      const command = this.queue.shift();
+      if (!command) {
+        break;
+      }
+
+      this.activeCount++;
+      this.lastCommandTime = Date.now();
+
+      const queueTime = Date.now() - command.timestamp;
+      const displayName = this.getDeviceName(command.deviceId);
+      this.log(`Executing command for ${displayName} (waited ${queueTime}ms in queue)`);
+
+      // Execute command asynchronously and handle completion
+      this.executeCommand(command);
     }
   }
 
@@ -134,15 +137,17 @@ export class CommandQueue {
    * Clear all pending commands (rejects them with an error)
    */
   clear(): void {
+    // Cancel any pending throttle timeout
+    if (this.throttleTimeout) {
+      clearTimeout(this.throttleTimeout);
+      this.throttleTimeout = null;
+    }
+
     while (this.queue.length > 0) {
       const command = this.queue.shift();
       if (command) {
         command.reject(new Error('Queue cleared'));
       }
     }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

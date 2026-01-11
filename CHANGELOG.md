@@ -5,11 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-01-11
+
+### Added
+- **Curtain Mid-Movement Stop**: Tapping a curtain while moving now sends a stop command when target is within 5% of current position
+- **Position Update Debouncing**: Reduces HomeKit characteristic spam during curtain movement
+  - Only updates when position changes by ≥5% or reaches target
+  - Small changes are batched with 1000ms delay
+- **Curtain Reached Target Detection**: Logs info message when curtain reaches its target position
+- **motorTurn=0 Stop Signal Handling**: Properly handles explicit stop signals from curtain devices
+- **Command Queue Config Options**: New `commandQueueInterval` and `commandQueueConcurrency` config options
+
+### Changed
+- **Command Queue Logging**: Now shows device display names instead of raw device IDs for easier debugging
+- **Reduced Verbose Logging**: Changed curtain diagnostic logs from info to debug level
+
 ## [1.0.12] - 2026-01-11
 
 ### Added
 - **Command Queue with Throttling**: Added request queuing to prevent bulk command overload on cloud API
-  - Commands are now spaced 250ms apart with max 3 concurrent requests
+  - Commands are now spaced 500ms apart with max 2 concurrent requests
   - LAN commands bypass the queue (no rate limiting on local network)
   - Prevents timeouts when HomeKit scenes trigger multiple devices simultaneously
 - **LAN Control Diagnostics**: Enhanced logging for LAN mode troubleshooting

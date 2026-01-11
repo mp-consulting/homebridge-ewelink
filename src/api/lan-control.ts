@@ -23,6 +23,34 @@ export class LANControl {
   }
 
   /**
+   * Register a device for LAN control using IP from API response
+   * This allows controlling devices before mDNS discovery finds them
+   */
+  registerDevice(deviceId: string, ip: string, port: number, deviceKey: string, encrypt: boolean = true): void {
+    if (!ip || !port) {
+      return;
+    }
+
+    // Only add if not already discovered via mDNS
+    if (this.devices.has(deviceId)) {
+      return;
+    }
+
+    const device: LANDevice = {
+      deviceId,
+      ip,
+      port,
+      deviceKey,
+      encrypt,
+    };
+
+    this.devices.set(deviceId, device);
+    const cachedDevice = this.platform.deviceCache.get(deviceId);
+    const deviceName = cachedDevice?.name || deviceId;
+    this.platform.log.debug(`[LAN] Registered ${deviceName} at ${ip}:${port} from API`);
+  }
+
+  /**
    * Start LAN discovery and control
    */
   async start(): Promise<void> {

@@ -28,7 +28,13 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.12 (Latest)
+### v1.0.13 (Latest)
+- 🛑 **Curtain Mid-Movement Stop** - Tap a moving curtain to stop it instantly
+- 📉 **Position Update Debouncing** - Reduced HomeKit characteristic updates during curtain movement
+- 🎯 **Reached Target Detection** - Clear logging when curtains reach their target position
+- ⚙️ **Command Queue Config** - New options to tune queue interval and concurrency
+
+### v1.0.12
 - 🚀 **Command Queue with Throttling** - Prevents bulk command overload when HomeKit scenes trigger multiple devices
 - 🔍 **LAN Control Diagnostics** - Enhanced logging to troubleshoot LAN mode availability
 - ⚡ **Improved Command Flow** - LAN commands now bypass the queue for instant response

@@ -32,6 +32,10 @@ export interface EWeLinkPlatformConfig extends PlatformConfig {
   disableDeviceLogging?: boolean;
   /** Show offline devices as off */
   offlineAsOff?: boolean;
+  /** Command queue minimum interval in milliseconds (default: 250) */
+  commandQueueInterval?: number;
+  /** Command queue maximum concurrent commands (default: 3) */
+  commandQueueConcurrency?: number;
   /** Ignored home IDs */
   ignoredHomes?: string[];
   /** Internal API server host */
@@ -435,6 +439,12 @@ export interface EWeLinkDevice {
   denyFeatures?: string[];
   /** Channel count */
   channelCount?: number;
+  /** Local type - 1 if device supports LAN control */
+  localtype?: number;
+  /** Device IP address for LAN control */
+  ip?: string;
+  /** Device port for LAN control */
+  port?: number;
 }
 
 /**

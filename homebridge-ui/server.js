@@ -118,6 +118,10 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
           model: d.productModel || d.extra?.model,
           uiid: d.extra?.uiid,
           online: d.online,
+          // LAN control info
+          lanEnabled: d.localtype === 1,
+          lanIp: d.ip || null,
+          lanPort: d.port || null,
         })),
         total: devices.length,
       };
