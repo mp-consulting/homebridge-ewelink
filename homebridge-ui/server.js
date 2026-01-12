@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
+import { Bonjour } from 'bonjour-service';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, '..', 'dist');
@@ -99,30 +100,80 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
   }
 
   /**
+   * Discover LAN devices via mDNS (quick scan)
+   * Returns a map of deviceId -> { ip, port }
+   */
+  async discoverLanDevices(timeoutMs = 3000) {
+    return new Promise((resolve) => {
+      const lanDevices = new Map();
+      let bonjour;
+
+      try {
+        bonjour = new Bonjour();
+        const browser = bonjour.find({ type: 'ewelink' }, (service) => {
+          // Extract device ID from service name (e.g., "eWeLink_1001edbf36" -> "1001edbf36")
+          const match = service.name?.match(/eWeLink_([a-f0-9]+)/i);
+          if (match) {
+            const deviceId = match[1];
+            const ip = service.addresses?.find((addr) => addr && !addr.includes(':'));
+            if (ip) {
+              lanDevices.set(deviceId, { ip, port: service.port || 8081 });
+            }
+          }
+        });
+
+        // Stop after timeout
+        setTimeout(() => {
+          browser.stop();
+          bonjour.destroy();
+          resolve(lanDevices);
+        }, timeoutMs);
+      } catch {
+        if (bonjour) {
+          bonjour.destroy();
+        }
+        resolve(lanDevices);
+      }
+    });
+  }
+
+  /**
    * Handle get devices request
    */
   async handleGetDevices(payload) {
     this.validate(payload, ['accessToken']);
 
     try {
+      // Start LAN discovery first (takes 3 seconds)
+      const lanDiscoveryPromise = this.discoverLanDevices();
+
+      // Fetch devices from cloud API
       const api = await this.createApi({ countryCode: payload.region || 'us' }, payload.accessToken);
       const result = await api.getDevices();
       const devices = Array.isArray(result) ? result : (result.devices || []);
 
+      // Wait for LAN discovery to complete
+      const lanDevices = await lanDiscoveryPromise;
+
       return {
         success: true,
-        devices: devices.map(d => ({
-          deviceId: d.deviceid,
-          name: d.name,
-          brand: d.brandName,
-          model: d.productModel || d.extra?.model,
-          uiid: d.extra?.uiid,
-          online: d.online,
-          // LAN control info
-          lanEnabled: d.localtype === 1,
-          lanIp: d.ip || null,
-          lanPort: d.port || null,
-        })),
+        devices: devices.map(d => {
+          const lanInfo = lanDevices.get(d.deviceid);
+          const lanIp = lanInfo?.ip || d.ip || null;
+          // Consider LAN-enabled if API says so OR if we discovered it via mDNS
+          const lanEnabled = d.localtype === 1 || !!lanInfo;
+          return {
+            deviceId: d.deviceid,
+            name: d.name,
+            brand: d.brandName,
+            model: d.productModel || d.extra?.model,
+            uiid: d.extra?.uiid,
+            online: d.online,
+            lanEnabled,
+            lanIp,
+            lanPort: lanInfo?.port || d.port || null,
+          };
+        }),
         total: devices.length,
       };
     } catch (error) {
