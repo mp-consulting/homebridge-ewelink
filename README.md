@@ -28,7 +28,12 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.13 (Latest)
+### v1.0.14 (Latest)
+- 🌐 **Improved LAN Discovery** - Replaced mDNS library for better compatibility with mDNS proxies
+- 📡 **Cross-VLAN Support** - Devices on different network segments now discovered via UniFi mDNS Proxy
+- 🔧 **Enhanced Diagnostics** - Better logging for LAN-capable devices without API-provided IPs
+
+### v1.0.13
 - 🛑 **Curtain Mid-Movement Stop** - Tap a moving curtain to stop it instantly
 - 📉 **Position Update Debouncing** - Reduced HomeKit characteristic updates during curtain movement
 - 🎯 **Reached Target Detection** - Clear logging when curtains reach their target position

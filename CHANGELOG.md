@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.14] - 2026-01-12
+
+### Changed
+- **Improved LAN Discovery**: Replaced `multicast-dns` with `bonjour-service` for mDNS device discovery
+  - Better compatibility with mDNS proxies/reflectors (e.g., UniFi Gateway mDNS Proxy)
+  - Devices on different VLANs are now properly discovered when mDNS proxy is enabled
+  - Fixed issue where Node.js raw multicast sockets weren't receiving proxied mDNS responses
+- **Enhanced LAN Diagnostics**: Added logging for devices that support LAN but don't have IP from API
+
 ## [1.0.13] - 2026-01-11
 
 ### Added

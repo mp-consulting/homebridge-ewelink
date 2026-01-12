@@ -1,21 +1,20 @@
 import dgram from 'dgram';
 import crypto from 'crypto';
-import mdns from 'multicast-dns';
+import { Bonjour, type Service, type Browser } from 'bonjour-service';
 import { EWeLinkPlatform } from '../platform.js';
 import { LANDevice, DeviceParams } from '../types/index.js';
 import { CHANNEL_SUFFIX_PATTERN } from '../constants/device-constants.js';
 
-const MDNS_SERVICE_TYPE = '_ewelink._tcp.local';
-
 /**
  * LAN Control for local device communication
+ * Uses bonjour-service for mDNS discovery which works better with mDNS proxies/reflectors
  */
 export class LANControl {
   private readonly platform: EWeLinkPlatform;
   private readonly devices: Map<string, LANDevice> = new Map();
-  private mdnsClient: ReturnType<typeof mdns> | null = null;
+  private bonjour: InstanceType<typeof Bonjour> | null = null;
+  private browser: Browser | null = null;
   private udpSocket: dgram.Socket | null = null;
-  private mdnsQueryInterval: NodeJS.Timeout | null = null;
   private running = false;
 
   constructor(platform: EWeLinkPlatform) {
@@ -61,8 +60,8 @@ export class LANControl {
     this.running = true;
     this.platform.log.info('Starting LAN control (mDNS discovery)...');
 
-    // Start mDNS discovery
-    await this.startMdnsDiscovery();
+    // Start mDNS discovery using bonjour-service
+    this.startBonjourDiscovery();
 
     // Start UDP listener for device announcements
     await this.startUdpListener();
@@ -116,115 +115,107 @@ export class LANControl {
   }
 
   /**
-   * Start mDNS discovery
+   * Start mDNS discovery using bonjour-service
+   * This works better with mDNS proxies/reflectors (like UniFi) than raw multicast-dns
    */
-  private async startMdnsDiscovery(): Promise<void> {
-    return new Promise((resolve) => {
-      this.mdnsClient = mdns();
-
-      this.mdnsClient.on('response', (response) => {
-        this.handleMdnsResponse(response);
-      });
-
-      this.mdnsClient.on('error', (error) => {
-        this.platform.log.error('mDNS error:', error.message);
-      });
-
-      // Query for eWeLink devices
-      this.mdnsClient.query({
-        questions: [{
-          name: MDNS_SERVICE_TYPE,
-          type: 'PTR',
-        }],
-      });
-
-      // Periodic re-query
-      this.mdnsQueryInterval = setInterval(() => {
-        if (this.mdnsClient && this.running) {
-          this.mdnsClient.query({
-            questions: [{
-              name: MDNS_SERVICE_TYPE,
-              type: 'PTR',
-            }],
-          });
-        }
-      }, 60000);
-
-      resolve();
-    });
-  }
-
-  /**
-   * Handle mDNS response
-   */
-  private handleMdnsResponse(response: mdns.ResponsePacket): void {
+  private startBonjourDiscovery(): void {
     try {
-      // Look for eWeLink device TXT records
-      for (const answer of response.answers) {
-        if (answer.type === 'TXT' && answer.data) {
-          const txtData = this.parseTxtRecord(answer.data);
+      this.bonjour = new Bonjour();
 
-          if (txtData.id && txtData.type === 'diy_plug' || txtData.type === undefined) {
-            const deviceId = txtData.id;
-            const encrypt = txtData.encrypt === 'true';
+      // Browse for eWeLink devices
+      this.browser = this.bonjour.find({ type: 'ewelink' }, (service: Service) => {
+        this.handleServiceDiscovery(service);
+      });
 
-            // Find A record for IP
-            const aRecord = response.additionals?.find(
-              (a) => a.type === 'A' && a.name.includes(deviceId),
-            );
-
-            if (aRecord && 'data' in aRecord) {
-              const lanDevice: LANDevice = {
-                deviceId,
-                ip: aRecord.data as string,
-                port: parseInt(txtData.port || '8081', 10),
-                encrypt,
-                iv: txtData.iv,
-              };
-
-              // Get device key from cache
-              const cachedDevice = this.platform.deviceCache.get(deviceId);
-              if (cachedDevice) {
-                lanDevice.deviceKey = cachedDevice.devicekey;
-              }
-
-              this.devices.set(deviceId, lanDevice);
-              this.platform.log.debug(`Discovered LAN device: ${deviceId} at ${lanDevice.ip}:${lanDevice.port}`);
-            }
-          }
+      this.browser?.on('down', (service: Service) => {
+        // Device went offline - optionally remove from devices map
+        const deviceId = this.extractDeviceIdFromService(service);
+        if (deviceId) {
+          const cachedDevice = this.platform.deviceCache.get(deviceId);
+          const deviceName = cachedDevice?.name || deviceId;
+          this.platform.log.debug(`[LAN] Device went offline: ${deviceName}`);
+          // Don't remove - device might still be reachable
         }
-      }
+      });
+
+      this.platform.log.debug('[LAN] Bonjour browser started for _ewelink._tcp services');
+
     } catch (error) {
-      this.platform.log.debug('Error parsing mDNS response:', error);
+      this.platform.log.error('Failed to start Bonjour discovery:', error);
     }
   }
 
   /**
-   * Parse TXT record data
+   * Extract device ID from service name (e.g., "eWeLink_1001edbf36" -> "1001edbf36")
    */
-  private parseTxtRecord(data: string | Buffer | (string | Buffer)[]): Record<string, string> {
-    const result: Record<string, string> = {};
+  private extractDeviceIdFromService(service: Service): string | null {
+    const match = service.name?.match(/eWeLink_([a-f0-9]+)/i);
+    return match ? match[1] : null;
+  }
 
-    const items = Array.isArray(data) ? data : [data];
+  /**
+   * Handle discovered service
+   */
+  private handleServiceDiscovery(service: Service): void {
+    try {
+      const deviceId = this.extractDeviceIdFromService(service);
 
-    for (const item of items) {
-      const str = typeof item === 'string' ? item : item.toString();
-      const eqIndex = str.indexOf('=');
-      if (eqIndex > 0) {
-        const key = str.substring(0, eqIndex);
-        const value = str.substring(eqIndex + 1);
-        result[key] = value;
+      if (!deviceId) {
+        this.platform.log.debug(`[LAN] Ignoring service without device ID: ${service.name}`);
+        return;
       }
-    }
 
-    return result;
+      // Get IP address from service
+      const ip = service.addresses?.find((addr: string) => {
+        // Prefer IPv4 addresses
+        return addr && !addr.includes(':');
+      }) || service.addresses?.[0];
+
+      if (!ip) {
+        this.platform.log.debug(`[LAN] No IP address for device ${deviceId}`);
+        return;
+      }
+
+      const port = service.port || 8081;
+
+      // Parse TXT records for encryption info
+      const txt = service.txt || {};
+      const encrypt = txt.encrypt === 'true';
+
+      // Get device key from cache
+      const cachedDevice = this.platform.deviceCache.get(deviceId);
+      const deviceKey = cachedDevice?.devicekey;
+      const deviceName = cachedDevice?.name || deviceId;
+
+      // Check if we already have this device
+      const existing = this.devices.get(deviceId);
+      if (existing && existing.ip === ip && existing.port === port) {
+        // No change
+        return;
+      }
+
+      const lanDevice: LANDevice = {
+        deviceId,
+        ip,
+        port,
+        encrypt,
+        deviceKey,
+        iv: txt.iv,
+      };
+
+      this.devices.set(deviceId, lanDevice);
+      this.platform.log.debug(`[LAN] Discovered device: ${deviceName} at ${ip}:${port}`);
+
+    } catch (error) {
+      this.platform.log.debug('[LAN] Error handling service discovery:', error);
+    }
   }
 
   /**
    * Start UDP listener for device announcements
    */
   private async startUdpListener(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
         this.udpSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
@@ -251,7 +242,7 @@ export class LANControl {
   /**
    * Handle UDP message from device
    */
-  private handleUdpMessage(msg: Buffer, rinfo: dgram.RemoteInfo): void {
+  private handleUdpMessage(msg: Buffer, _rinfo: dgram.RemoteInfo): void {
     try {
       const data = JSON.parse(msg.toString());
 
@@ -432,15 +423,14 @@ export class LANControl {
   stop(): void {
     this.running = false;
 
-    // Clear mDNS query interval
-    if (this.mdnsQueryInterval) {
-      clearInterval(this.mdnsQueryInterval);
-      this.mdnsQueryInterval = null;
+    if (this.browser) {
+      this.browser.stop();
+      this.browser = null;
     }
 
-    if (this.mdnsClient) {
-      this.mdnsClient.destroy();
-      this.mdnsClient = null;
+    if (this.bonjour) {
+      this.bonjour.destroy();
+      this.bonjour = null;
     }
 
     if (this.udpSocket) {

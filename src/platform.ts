@@ -278,20 +278,32 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
         // Pre-register devices with IP info from API (before mDNS discovery)
         let lanRegisteredCount = 0;
+        let lanCapableNoIp = 0;
         for (const device of devices) {
-          if (device.localtype === 1 && device.ip && device.port) {
-            this.lanControl.registerDevice(
-              device.deviceid,
-              device.ip,
-              device.port,
-              device.devicekey,
-              true, // encrypt
-            );
-            lanRegisteredCount++;
+          if (device.localtype === 1) {
+            if (device.ip && device.port) {
+              this.lanControl.registerDevice(
+                device.deviceid,
+                device.ip,
+                device.port,
+                device.devicekey,
+                true, // encrypt
+              );
+              lanRegisteredCount++;
+            } else {
+              lanCapableNoIp++;
+              this.log.debug(
+                `[${device.name}] LAN capable but no IP from API ` +
+                  `(localtype=${device.localtype}, ip=${device.ip}, port=${device.port})`,
+              );
+            }
           }
         }
         if (lanRegisteredCount > 0) {
           this.log.info(`Pre-registered ${lanRegisteredCount} device(s) for LAN control from API`);
+        }
+        if (lanCapableNoIp > 0) {
+          this.log.info(`${lanCapableNoIp} device(s) support LAN but API didn't provide IP addresses`);
         }
 
         await this.lanControl.start();
