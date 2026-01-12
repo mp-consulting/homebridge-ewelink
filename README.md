@@ -28,7 +28,11 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.14 (Latest)
+### v1.0.15 (Latest)
+- 🖥️ **UI LAN Discovery** - Configuration UI now shows real-time LAN status via mDNS discovery
+- 🔍 **Accurate LAN Display** - Device list shows actual discovered IPs instead of API data
+
+### v1.0.14
 - 🌐 **Improved LAN Discovery** - Replaced mDNS library for better compatibility with mDNS proxies
 - 📡 **Cross-VLAN Support** - Devices on different network segments now discovered via UniFi mDNS Proxy
 - 🔧 **Enhanced Diagnostics** - Better logging for LAN-capable devices without API-provided IPs
