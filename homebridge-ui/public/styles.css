@@ -157,6 +157,42 @@ select {
   color: white;
 }
 
+.status-rf {
+  background-color: #9c27b0;
+  color: white;
+}
+
+/* RF Sub-device styling */
+.rf-subdevice {
+  margin-left: 1.5rem;
+  background-color: rgba(156, 39, 176, 0.05);
+  border-left: 3px solid #9c27b0;
+}
+
+.dark-mode .rf-subdevice {
+  background-color: rgba(156, 39, 176, 0.1);
+}
+
+/* Button names for RF devices */
+.device-buttons {
+  font-size: 0.8rem;
+  color: var(--bs-secondary);
+  margin-top: 0.25rem;
+}
+
+.button-name {
+  background-color: rgba(156, 39, 176, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 500;
+  color: #9c27b0;
+}
+
+.dark-mode .button-name {
+  background-color: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+}
+
 /* Utility classes */
 .hidden {
   display: none !important;

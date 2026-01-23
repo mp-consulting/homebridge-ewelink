@@ -50,12 +50,15 @@ export class RFBridgeAccessory extends BaseAccessory {
   private handleRFButtonUpdate(rfChannel: number): void {
     this.logDebug(`RF button triggered on channel ${rfChannel}`);
 
-    // Find the corresponding RF button accessory
+    // Find the corresponding RF button accessory by checking if rfChannel is a key in its buttons
+    // This matches the reference implementation's approach
     let buttonAccessory: PlatformAccessory<AccessoryContext> | undefined;
     for (const acc of this.platform.accessories.values()) {
+      const buttons = acc.context.buttons as Record<string, string> | undefined;
       if (
         acc.context.device?.deviceid === this.deviceId &&
-        acc.context.rfButtonIndex === rfChannel
+        buttons &&
+        Object.prototype.hasOwnProperty.call(buttons, rfChannel.toString())
       ) {
         buttonAccessory = acc;
         break;
@@ -67,10 +70,10 @@ export class RFBridgeAccessory extends BaseAccessory {
       return;
     }
 
-    // Trigger the button through its handler
+    // Trigger the button through its handler with the specific channel
     const handler = this.platform.getAccessoryHandler(buttonAccessory.UUID);
     if (handler && 'triggerButton' in handler && typeof handler.triggerButton === 'function') {
-      (handler as { triggerButton: () => void }).triggerButton();
+      (handler as { triggerButton: (channel: number) => void }).triggerButton(rfChannel);
     }
   }
 
@@ -94,12 +97,15 @@ export class RFBridgeAccessory extends BaseAccessory {
   private handleRFSensorUpdate(channel: number, timestamp: string): void {
     this.logDebug(`RF sensor triggered on channel ${channel} at ${timestamp}`);
 
-    // Find the corresponding RF sensor accessory
+    // Find the corresponding RF sensor accessory by checking if channel is a key in its buttons
+    // This matches the reference implementation's approach
     let sensorAccessory: PlatformAccessory<AccessoryContext> | undefined;
     for (const acc of this.platform.accessories.values()) {
+      const buttons = acc.context.buttons as Record<string, string> | undefined;
       if (
         acc.context.device?.deviceid === this.deviceId &&
-        acc.context.rfButtonIndex === channel
+        buttons &&
+        Object.prototype.hasOwnProperty.call(buttons, channel.toString())
       ) {
         sensorAccessory = acc;
         break;

@@ -28,7 +28,11 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.15 (Latest)
+### v1.0.19 (Latest)
+- 🐛 **RF Bridge Sub-Device Fix** - Fixed routing of RF button/sensor triggers to correct accessories
+- 🎛️ **RF Sub-Devices in UI** - Configuration UI now shows learned RF devices with button names
+
+### v1.0.15
 - 🖥️ **UI LAN Discovery** - Configuration UI now shows real-time LAN status via mDNS discovery
 - 🔍 **Accurate LAN Display** - Device list shows actual discovered IPs instead of API data
 

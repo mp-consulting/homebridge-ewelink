@@ -4,6 +4,8 @@
     "homebridge-ui"
   ],
   "ext": "ts,js,json,html,css",
-  "ignore": ["src/**/*.spec.ts"],
-  "exec": "tsc && homebridge -I -D -C ./test/hbConfig"
+  "ignore": [
+    "src/**/*.spec.ts"
+  ],
+  "exec": "tsc && npx homebridge-config-ui-x run -U ./test/hbConfig -D -I 2>&1 | tee ./test/hbConfig/homebridge.log"
 }

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.19] - 2026-01-23
+
+### Fixed
+- **RF Bridge Sub-Device Lookup**: Fixed bug where RF button/sensor triggers weren't routed correctly
+  - Changed lookup logic to match reference implementation (checks if RF channel is a key in buttons object)
+  - Multi-button remotes now correctly trigger the specific button that was pressed
+  - Sensor triggers now properly find matching RF sensor accessories
+
+### Added
+- **RF Sub-Devices in UI**: Configuration UI now displays RF Bridge sub-devices
+  - Shows learned RF devices (buttons, sensors, curtains) with their eWeLink names
+  - Displays individual button names for multi-button remotes
+  - Visual styling with purple badge and indentation for sub-devices
+
 ## [1.0.18] - 2026-01-12
 
 ### Fixed

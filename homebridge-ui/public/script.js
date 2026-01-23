@@ -48,14 +48,22 @@
         : d.lanEnabled
           ? '<span class="status-badge status-lan-disabled">LAN: No IP</span>'
           : '<span class="status-badge status-cloud">Cloud Only</span>';
+      const isSubdevice = d.isRfSubdevice;
+      const subdeviceClass = isSubdevice ? 'rf-subdevice' : '';
+      const subdeviceIndicator = isSubdevice ? '<span class="status-badge status-rf">RF Sub-device</span>' : '';
+      const buttonInfo = d.buttons && d.buttons.length > 0
+        ? `<div class="device-buttons">Buttons: ${d.buttons.map(b => `<span class="button-name">${escapeHtml(b)}</span>`).join(', ')}</div>`
+        : '';
       return `
-      <div class="device-item">
+      <div class="device-item ${subdeviceClass}">
         <div class="device-info">
           <div class="device-name">${escapeHtml(d.name)}</div>
           <div class="device-id">ID: ${d.deviceId}</div>
           <div class="device-model">${d.brand || 'Unknown'} - ${d.model || 'Unknown'} (UIID: ${d.uiid || 'N/A'})</div>
+          ${buttonInfo}
         </div>
         <div class="device-status">
+          ${subdeviceIndicator}
           <span class="status-badge ${d.online ? 'status-online' : 'status-offline'}">${d.online ? 'Online' : 'Offline'}</span>
           ${lanStatus}
         </div>

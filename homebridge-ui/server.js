@@ -155,26 +155,86 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
       // Wait for LAN discovery to complete
       const lanDevices = await lanDiscoveryPromise;
 
+      // RF Bridge UIIDs
+      const RF_BRIDGE_UIIDS = [28, 98];
+
+      // Build device list including RF sub-devices
+      const deviceList = [];
+
+      for (const d of devices) {
+        const lanInfo = lanDevices.get(d.deviceid);
+        const lanIp = lanInfo?.ip || d.ip || null;
+        const lanEnabled = d.localtype === 1 || !!lanInfo;
+        const uiid = d.extra?.uiid;
+
+        // Add the main device
+        deviceList.push({
+          deviceId: d.deviceid,
+          name: d.name,
+          brand: d.brandName,
+          model: d.productModel || d.extra?.model,
+          uiid,
+          online: d.online,
+          lanEnabled,
+          lanIp,
+          lanPort: lanInfo?.port || d.port || null,
+        });
+
+        // If this is an RF Bridge, expand sub-devices from zyx_info
+        if (RF_BRIDGE_UIIDS.includes(uiid) && d.tags?.zyx_info) {
+          let channelCounter = 0;
+          for (const rfDevice of d.tags.zyx_info) {
+            const swNumber = channelCounter + 1;
+            const remoteType = rfDevice.remote_type;
+
+            // Determine sub-device type
+            let subType;
+            if (['1', '2', '3', '4'].includes(remoteType)) {
+              subType = 'RF Button';
+            } else if (remoteType === '5') {
+              subType = 'RF Curtain';
+            } else if (['6', '7'].includes(remoteType)) {
+              subType = 'RF Sensor';
+            } else {
+              subType = 'RF Device';
+            }
+
+            // Parse button names from buttonName array
+            // buttonName is an array like [{0: "Button 1"}, {1: "Button 2"}]
+            const buttons = {};
+            if (rfDevice.buttonName && Array.isArray(rfDevice.buttonName)) {
+              rfDevice.buttonName.forEach((btnMap) => {
+                Object.assign(buttons, btnMap);
+              });
+            }
+            const buttonCount = Object.keys(buttons).length || 1;
+            const buttonNames = Object.values(buttons);
+
+            deviceList.push({
+              deviceId: `${d.deviceid}SW${swNumber}`,
+              name: rfDevice.name,
+              brand: d.brandName,
+              model: subType,
+              uiid: `${uiid}-sub`,
+              online: d.online,
+              lanEnabled,
+              lanIp,
+              lanPort: lanInfo?.port || d.port || null,
+              isRfSubdevice: true,
+              parentDeviceId: d.deviceid,
+              buttons: buttonNames,
+              buttonCount,
+            });
+
+            channelCounter += buttonCount;
+          }
+        }
+      }
+
       return {
         success: true,
-        devices: devices.map(d => {
-          const lanInfo = lanDevices.get(d.deviceid);
-          const lanIp = lanInfo?.ip || d.ip || null;
-          // Consider LAN-enabled if API says so OR if we discovered it via mDNS
-          const lanEnabled = d.localtype === 1 || !!lanInfo;
-          return {
-            deviceId: d.deviceid,
-            name: d.name,
-            brand: d.brandName,
-            model: d.productModel || d.extra?.model,
-            uiid: d.extra?.uiid,
-            online: d.online,
-            lanEnabled,
-            lanIp,
-            lanPort: lanInfo?.port || d.port || null,
-          };
-        }),
-        total: devices.length,
+        devices: deviceList,
+        total: deviceList.length,
       };
     } catch (error) {
       throw new RequestError(error.message || 'Failed to get devices', { status: 500 });

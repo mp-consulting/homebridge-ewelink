@@ -112,16 +112,18 @@ export class RFButtonAccessory extends BaseAccessory {
   /**
    * External trigger from RF Bridge
    * Called when the physical RF button is pressed
+   * @param rfChannel - The RF channel that was triggered (button index from eWeLink)
    */
-  triggerButton(): void {
-    // Get the first button channel (most RF buttons have only one channel)
-    const channel = Array.from(this.buttonServices.keys())[0];
+  triggerButton(rfChannel?: number): void {
+    // Use provided channel or fall back to first button
+    const channel = rfChannel ?? Array.from(this.buttonServices.keys())[0];
     if (channel === undefined) {
       return;
     }
 
     const service = this.buttonServices.get(channel);
     if (!service) {
+      this.logDebug(`No service found for channel ${channel}`);
       return;
     }
 
