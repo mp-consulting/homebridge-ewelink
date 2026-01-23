@@ -38,16 +38,16 @@ export class RFButtonAccessory extends BaseAccessory {
       let service = accessory.getServiceById(this.Service.Switch, subtype);
 
       if (!service) {
-        // Create new service
         service = accessory.addService(this.Service.Switch, name, subtype);
-      } else {
-        // Update display name if it changed
-        if (service.displayName !== name) {
-          service.setCharacteristic(this.Characteristic.Name, name);
-          service.setCharacteristic(this.Characteristic.ConfiguredName, name);
-          service.displayName = name;
-        }
       }
+
+      // Update the name to ensure it's correct
+      service.displayName = name;
+      service.setCharacteristic(this.Characteristic.Name, name);
+
+      // Add ConfiguredName for better HomeKit display
+      service.addOptionalCharacteristic(this.Characteristic.ConfiguredName);
+      service.updateCharacteristic(this.Characteristic.ConfiguredName, name);
 
       // Configure the switch
       service.getCharacteristic(this.Characteristic.On)

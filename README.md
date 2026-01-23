@@ -28,7 +28,10 @@ Homebridge plugin to integrate eWeLink devices into HomeKit.
 
 ## Recent Updates
 
-### v1.0.19 (Latest)
+### v1.0.20 (Latest)
+- 🏷️ **RF Button Names Fix** - Fixed button names not displaying correctly in HomeKit
+
+### v1.0.19
 - 🐛 **RF Bridge Sub-Device Fix** - Fixed routing of RF button/sensor triggers to correct accessories
 - 🎛️ **RF Sub-Devices in UI** - Configuration UI now shows learned RF devices with button names
 
