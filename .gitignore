@@ -21,8 +21,8 @@ homebridge-ui/settings.d.ts
 # macOS
 .DS_Store
 
-# Test configuration
-test/
+# Test coverage
+coverage/
 
 # npm
 *.tgz
@@ -31,3 +31,5 @@ package-lock.json
 # Environment
 .env
 .env.local
+
+/test/hbConfig/*
