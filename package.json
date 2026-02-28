@@ -33,6 +33,10 @@
   ],
   "author": "mp-consulting",
   "license": "MIT",
+  "funding": {
+    "type": "paypal",
+    "url": "https://paypal.me/mickaelpalma"
+  },
   "homepage": "https://github.com/mp-consulting/homebridge-ewelink#readme",
   "repository": {
     "type": "git",
