@@ -32,3 +32,4 @@ coverage/
 .env.local
 
 /test/hbConfig/*
+!/test/hbConfig/config.sample.json

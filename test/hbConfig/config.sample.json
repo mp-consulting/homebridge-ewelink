@@ -1,0 +1,24 @@
+{
+    "bridge": {
+        "name": "PluginBridge",
+        "username": "AA:BB:CC:DD:EE:FF",
+        "port": 51826,
+        "pin": "031-45-154"
+    },
+    "plugins": [
+        "homebridge-config-ui-x"
+    ],
+    "platforms": [
+        {
+            "name": "Config",
+            "port": 8581,
+            "auth": "none",
+            "platform": "config"
+        },
+        {
+            "name": "Homebridge eWeLink",
+            "platform": "Homebridge eWeLink"
+        }
+    ],
+    "accessories": []
+}
