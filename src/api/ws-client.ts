@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
-import { EWeLinkPlatform } from '../platform.js';
-import { WSMessage, DeviceParams, WebSocketAuthError } from '../types/index.js';
+import type { EWeLinkPlatform } from '../platform.js';
+import type { WSMessage, DeviceParams } from '../types/index.js';
+import { WebSocketAuthError } from '../types/index.js';
 import { EWELINK_APP_ID } from '../settings.js';
 import { CryptoUtils } from '../utils/crypto-utils.js';
 import { API_TIMEOUTS } from '../constants/api-constants.js';
@@ -389,7 +390,7 @@ export class WSClient {
     this.connected = false;
 
     // Reject all pending requests
-    for (const [sequence, pending] of this.pendingRequests) {
+    for (const [, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout);
       pending.reject(new Error('WebSocket disconnected'));
     }

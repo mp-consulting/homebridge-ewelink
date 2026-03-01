@@ -1,4 +1,4 @@
-import { DeviceParams } from '../types/index.js';
+import type { DeviceParams } from '../types/index.js';
 
 /**
  * Helper class for switch-related operations

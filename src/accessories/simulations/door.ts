@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
-import { EWeLinkPlatform } from '../../platform.js';
-import { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
+import type { EWeLinkPlatform } from '../../platform.js';
+import type { AccessoryContext, DeviceParams, MultiDeviceConfig } from '../../types/index.js';
 import { sleep, generateRandomString } from '../../utils/sleep.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';

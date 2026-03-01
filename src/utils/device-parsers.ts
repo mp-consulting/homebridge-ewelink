@@ -1,4 +1,4 @@
-import { DeviceParams } from '../types/index.js';
+import type { DeviceParams } from '../types/index.js';
 
 /**
  * Utility class for parsing device parameter values

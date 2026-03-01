@@ -1,8 +1,8 @@
 import dgram from 'dgram';
 import crypto from 'crypto';
 import { Bonjour, type Service, type Browser } from 'bonjour-service';
-import { EWeLinkPlatform } from '../platform.js';
-import { LANDevice, DeviceParams } from '../types/index.js';
+import type { EWeLinkPlatform } from '../platform.js';
+import type { LANDevice, DeviceParams } from '../types/index.js';
 import { CHANNEL_SUFFIX_PATTERN } from '../constants/device-constants.js';
 
 /**
@@ -82,9 +82,9 @@ export class LANControl {
 
     if (discoveredCount === 0) {
       this.platform.log.warn(
-        `LAN discovery: No devices found via mDNS after 10 seconds. ` +
-        `This is normal if your devices don't support LAN mode or are on a different network segment. ` +
-        `Commands will use cloud (WebSocket) instead.`,
+        'LAN discovery: No devices found via mDNS after 10 seconds. ' +
+        'This is normal if your devices don\'t support LAN mode or are on a different network segment. ' +
+        'Commands will use cloud (WebSocket) instead.',
       );
     } else {
       this.platform.log.info(

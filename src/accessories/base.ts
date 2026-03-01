@@ -1,12 +1,12 @@
-import {
+import type {
   PlatformAccessory,
   Service,
   Characteristic,
   CharacteristicValue,
   WithUUID,
 } from 'homebridge';
-import { EWeLinkPlatform } from '../platform.js';
-import {
+import type { EWeLinkPlatform } from '../platform.js';
+import type {
   AccessoryContext,
   DeviceParams,
   EWeLinkDevice,

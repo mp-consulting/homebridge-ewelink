@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue, Service, WithUUID } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue, Service, WithUUID } from 'homebridge';
 import { BaseAccessory } from './base.js';
-import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../types/index.js';
+import type { EWeLinkPlatform } from '../platform.js';
+import type { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../types/index.js';
 import { SENSOR_TIMING } from '../constants/timing-constants.js';
 
 type SensorType = 'motion' | 'contact' | 'water' | 'smoke' | 'co' | 'co2' | 'occupancy' | 'button' | 'doorbell';

@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
-import { EWeLinkPlatform } from '../../platform.js';
-import { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../../types/index.js';
+import type { EWeLinkPlatform } from '../../platform.js';
+import type { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { getBatteryType } from '../../constants/device-catalog.js';
 

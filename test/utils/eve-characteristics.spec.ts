@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('homebridge', () => ({
+  Formats: { UINT16: 'uint16', FLOAT: 'float', UINT32: 'uint32' },
+  Perms: { PAIRED_READ: 'pr', NOTIFY: 'ev', PAIRED_WRITE: 'pw' },
+  Units: { SECONDS: 'seconds' },
+}));
+
 import { EVE_CHARACTERISTIC_UUIDS, EveCharacteristics } from '../../src/utils/eve-characteristics.js';
 
 // Create a mock Characteristic base class

@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
-import { EWeLinkPlatform } from '../../platform.js';
-import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
+import type { EWeLinkPlatform } from '../../platform.js';
+import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { DeviceValueParser } from '../../utils/device-parsers.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';

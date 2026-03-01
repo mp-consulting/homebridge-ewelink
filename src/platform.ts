@@ -1,4 +1,4 @@
-import {
+import type {
   API,
   DynamicPlatformPlugin,
   Logging,
@@ -9,7 +9,7 @@ import {
 } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
-import { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
+import type { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
 import { isRFButtonType, isRFSensorType, isRFCurtainType, CHANNEL_SUFFIX_PATTERN } from './constants/device-constants.js';
 import {
   isTHSensorDevice,
@@ -25,7 +25,7 @@ import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
 import { EveCharacteristics } from './utils/eve-characteristics.js';
 import { CommandQueue } from './utils/command-queue.js';
-import { BaseAccessory } from './accessories/base.js';
+import type { BaseAccessory } from './accessories/base.js';
 
 // Core accessory handlers
 import { SwitchAccessory } from './accessories/switch.js';
@@ -444,6 +444,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
 
       // Determine sub-device type based on remote_type
       let subType: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let handler: RFButtonAccessory | RFSensorAccessory | any;
       const remoteType = rfDevice.remote_type;
 
@@ -770,6 +771,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /**
    * Get device-specific configuration
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private getDeviceConfig(deviceId: string, category: DeviceCategory): any {
     switch (category) {
       case DeviceCategory.SINGLE_SWITCH:
@@ -794,6 +796,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /**
    * Process device groups from eWeLink cloud
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async processGroups(groups: any[]): Promise<void> {
     if (!this.ewelinkApi || groups.length === 0) {
       return;

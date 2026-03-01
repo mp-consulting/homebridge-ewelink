@@ -1,16 +1,16 @@
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { createHmac } from 'crypto';
-import { EWeLinkPlatform } from '../platform.js';
+import type { EWeLinkPlatform } from '../platform.js';
 import { API_REGIONS, EWELINK_APP_ID, EWELINK_APP_SECRET } from '../settings.js';
 import { TokenStorage } from '../utils/token-storage.js';
 import { CryptoUtils } from '../utils/crypto-utils.js';
 import { API_TIMEOUTS, WEBSOCKET_HOST_MAPPING, WEBSOCKET_FALLBACK_HOSTS } from '../constants/api-constants.js';
 import { getRegionFromCountryCode } from '../constants/region-constants.js';
-import {
+import type {
   EWeLinkDevice,
   APIResponse,
   LoginResponse,
-  DeviceListResponse,
   RefreshTokenResponse,
 } from '../types/index.js';
 
@@ -61,7 +61,7 @@ export class EWeLinkAPI {
 
           try {
             await this.refreshAccessToken();
-            originalRequest.headers['Authorization'] = `Bearer ${this.accessToken}`;
+            originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
             return this.httpClient(originalRequest);
           } catch (refreshError) {
             return Promise.reject(refreshError);
@@ -212,7 +212,7 @@ export class EWeLinkAPI {
         this.platform.log.debug(`API Key: ${this.apiKey.substring(0, 8)}...`);
 
         // Set default authorization header
-        this.httpClient.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+        this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
 
         // Save tokens to shared storage
         this.tokenStorage.save({
@@ -269,7 +269,7 @@ export class EWeLinkAPI {
 
     this.accessToken = response.data.data!.at;
     this.refreshToken = response.data.data!.rt;
-    this.httpClient.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+    this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
 
     this.platform.log.debug('Token refreshed successfully');
   }
@@ -306,6 +306,7 @@ export class EWeLinkAPI {
   /**
    * Get list of devices and groups
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getDevices(): Promise<{ devices: EWeLinkDevice[]; groups: any[] }> {
     try {
       // First get the list of homes
@@ -317,6 +318,7 @@ export class EWeLinkAPI {
       }
 
       const allDevices: EWeLinkDevice[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allGroups: any[] = [];
 
       // Get devices for each home
@@ -547,7 +549,7 @@ export class EWeLinkAPI {
     this.region = tokens.region as keyof typeof API_REGIONS;
 
     // Update HTTP client
-    this.httpClient.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+    this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
 
     this.platform.log.debug(`Reloaded tokens - Access token: ${this.accessToken.substring(0, 20)}...`);
     return true;
@@ -564,7 +566,7 @@ export class EWeLinkAPI {
     if (refreshToken) {
       this.refreshToken = refreshToken;
     }
-    this.httpClient.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+    this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
   }
 
   /**

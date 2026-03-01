@@ -1,4 +1,5 @@
-import { API, Characteristic, Formats, Perms, Units } from 'homebridge';
+import type { API, Characteristic } from 'homebridge';
+import { Formats, Perms, Units } from 'homebridge';
 
 /**
  * Eve Home characteristic UUIDs

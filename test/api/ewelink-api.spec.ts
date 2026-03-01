@@ -392,7 +392,7 @@ describe('EWeLinkAPI', () => {
     it('should update authorization header', () => {
       api.setCredentials('new-access-token');
 
-      expect(mockAxiosInstance.defaults.headers.common['Authorization']).toBe('Bearer new-access-token');
+      expect(mockAxiosInstance.defaults.headers.common.Authorization).toBe('Bearer new-access-token');
     });
   });
 

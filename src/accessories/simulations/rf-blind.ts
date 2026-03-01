@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
-import { EWeLinkPlatform } from '../../platform.js';
-import { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../../types/index.js';
+import type { EWeLinkPlatform } from '../../platform.js';
+import type { AccessoryContext, DeviceParams, RFSubdeviceConfig } from '../../types/index.js';
 import { sleep, generateRandomString } from '../../utils/sleep.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 

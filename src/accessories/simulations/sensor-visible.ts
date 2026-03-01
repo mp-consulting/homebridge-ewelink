@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
 import { BaseAccessory } from '../base.js';
-import { EWeLinkPlatform } from '../../platform.js';
-import { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
+import type { EWeLinkPlatform } from '../../platform.js';
+import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 import { isContactSensor, hasBattery, getBatteryType } from '../../constants/device-catalog.js';

@@ -1,7 +1,7 @@
-import { PlatformAccessory } from 'homebridge';
+import type { PlatformAccessory } from 'homebridge';
 import { BaseAccessory } from './base.js';
-import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams } from '../types/index.js';
+import type { EWeLinkPlatform } from '../platform.js';
+import type { AccessoryContext, DeviceParams } from '../types/index.js';
 
 /**
  * RF Bridge Accessory (UIID 28, 98)

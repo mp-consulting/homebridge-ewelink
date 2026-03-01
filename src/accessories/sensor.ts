@@ -1,7 +1,7 @@
-import { PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
-import { EWeLinkPlatform } from '../platform.js';
-import { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
+import type { EWeLinkPlatform } from '../platform.js';
+import type { AccessoryContext, DeviceParams, SensorDeviceConfig } from '../types/index.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
 import { BATTERY_MIN, BATTERY_MAX, DEFAULT_BATTERY } from '../constants/device-constants.js';
 import {
