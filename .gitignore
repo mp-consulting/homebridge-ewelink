@@ -1,7 +1,4 @@
-# Dependency directories
-node_modules/
-
-# Build output
+# Compiled output
 dist/
 
 # Generated files in homebridge-ui (copied from dist during build)
@@ -12,24 +9,47 @@ homebridge-ui/constants/
 homebridge-ui/settings.js
 homebridge-ui/settings.d.ts
 
-# IDE
-.idea/
-*.swp
-*.swo
-.vscode/
+# Dependencies
+node_modules/
 
-# macOS
-.DS_Store
+# Test runtime data
+/test/hbConfig/*
+!/test/hbConfig/config.sample.json
 
-# Test coverage
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
 coverage/
+*.lcov
 
-# npm
-*.tgz
+# Debug dumps
+tmp/
+
+# Logs
+*.log
 
 # Environment
 .env
-.env.local
+.env.*
 
-/test/hbConfig/*
-!/test/hbConfig/config.sample.json
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+.vscode-test/
+*.swp
+
+# npm
+*.tgz
+.npm
+.eslintcache
+
+# Claude Code
+.claude/
+
+# BMad agent files
+_bmad/
+_bmad-output/

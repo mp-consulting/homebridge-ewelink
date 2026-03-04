@@ -1,10 +1,21 @@
 # Source
 src/
 
+# Development tools
+scripts/
+.claude/
+_bmad/
+_bmad-output/
+tmp/
+
 # Config
+.github/
+.gitignore
 tsconfig.json
 eslint.config.js
+vitest.config.ts
 nodemon.json
+CLAUDE.md
 
 # Test
 test/
@@ -12,16 +23,10 @@ test/
 # IDE
 .idea/
 .vscode/
-
-# macOS
-.DS_Store
-
-# Git
-.git/
-.gitignore
-
-# Documentation
-CLAUDE.md
+.vscode-test/
 
 # npm
 *.tgz
+
+# macOS
+.DS_Store
