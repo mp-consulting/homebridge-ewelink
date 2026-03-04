@@ -361,6 +361,34 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     // Log device UIID for debugging
     this.log.debug(`Device "${device.name}" [${device.deviceid}] - UIID: ${uiid}, Category: ${category}`);
 
+    // RF/Zigbee bridges should not be exposed as HomeKit accessories themselves,
+    // only their sub-devices are. We still need a handler for event routing.
+    if (category === DeviceCategory.RF_BRIDGE) {
+      // Remove previously cached bridge accessory from HomeKit if it exists
+      if (existingAccessory) {
+        this.log.info(`Removing bridge device from HomeKit (not user-facing): ${device.name}`);
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
+        this.accessories.delete(uuid);
+      }
+
+      // Create a lightweight accessory object for the handler (not registered in HomeKit)
+      const bridgeAccessory = new this.api.platformAccessory<AccessoryContext>(
+        device.name,
+        uuid,
+      );
+      bridgeAccessory.context.device = device;
+      bridgeAccessory.context.deviceId = device.deviceid;
+      bridgeAccessory.context.category = category;
+
+      // Initialize handler so it can route RF events to sub-devices
+      const handler = new RFBridgeAccessory(this, bridgeAccessory);
+      this.accessoryHandlers.set(bridgeAccessory.UUID, handler);
+
+      // Create sub-devices for learned RF devices
+      await this.createRFSubDevices(device);
+      return;
+    }
+
     if (existingAccessory) {
       // Update existing accessory
       this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
@@ -407,12 +435,6 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Register accessory
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       this.accessories.set(uuid, accessory);
-    }
-
-    // Create RF sub-devices if this is an RF Bridge
-    if (category === DeviceCategory.RF_BRIDGE) {
-      await this.createRFSubDevices(device);
-      return; // RF Bridge doesn't need single accessory
     }
 
     // Create multi-channel sub-devices if this is a multi-switch device

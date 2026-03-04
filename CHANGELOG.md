@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.21] - 2026-03-04
+
+### Fixed
+- **Bridge Devices Visible in HomeKit**: Sonoff RF Bridge and ZB Bridge devices no longer appear as accessories in HomeKit
+  - Bridge devices are now intercepted before accessory registration
+  - Previously cached bridge accessories are automatically removed on restart
+  - RF event routing to sub-devices (buttons, sensors) continues to work as before
+
 ## [1.0.20] - 2026-01-23
 
 ### Fixed
