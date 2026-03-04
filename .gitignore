@@ -42,6 +42,9 @@ tmp/
 .vscode-test/
 *.swp
 
+# Homebridge UI kit (built assets, included in npm but not git)
+homebridge-ui/public/lib/
+
 # npm
 *.tgz
 .npm
