@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.22] - 2026-03-04
+
+### Improved
+- **Config UI**: Redesign with homebridge-ui-kit design system
+  - Bootstrap 5.3 with shared kit (CSS + JS)
+  - Active session detection with subtle animated progress bar while loading
+  - Devices tab: device list matching LG ThinQ layout, count badge in card header
+  - Muted LAN/RF badges, consistent badge order (RF → LAN → Online)
+  - Countries sorted alphabetically within each regional group
+  - Settings tab: connection mode, debug toggle, offline-as-off toggle
+  - RF sub-device indentation and button name chips preserved
+  - Inline Yes/No restart confirmation (replaces browser confirm dialog)
+
 ## [1.0.21] - 2026-03-04
 
 ### Fixed
