@@ -93,7 +93,7 @@ export class EWeLinkAPI {
     const { username, password } = this.platform.config;
 
     this.platform.log.debug(`Username: ${username ? username.substring(0, 3) + '***' : 'EMPTY'}`);
-    this.platform.log.debug(`Password: ${password ? '***' + password.substring(password.length - 3) : 'EMPTY'}`);
+    this.platform.log.debug(`Password: ${password ? '[REDACTED]' : 'EMPTY'}`);
 
     if (!username || !password) {
       throw new Error('Username and password are required');
@@ -129,9 +129,7 @@ export class EWeLinkAPI {
     }
 
     const dataToSign = JSON.stringify(loginData);
-    this.platform.log.debug(`Data to sign: ${dataToSign}`);
-    this.platform.log.debug(`Password in data (first 5 chars): ${this.currentPassword.substring(0, 5)}`);
-    this.platform.log.debug(`Password length: ${this.currentPassword.length}`);
+    this.platform.log.debug(`Data to sign: ${dataToSign.replace(/"password":"[^"]*"/, '"password":"[REDACTED]"')}`);
 
     const signature = this.generateSignature(dataToSign);
     this.platform.log.debug(`FULL Signature: ${signature}`);
@@ -161,7 +159,6 @@ export class EWeLinkAPI {
       this.platform.log.debug(`Response status: ${response.status}`);
       this.platform.log.debug(`Response error code: ${body.error}`);
       this.platform.log.debug(`Response message: ${body.msg || 'none'}`);
-      this.platform.log.debug(`Full response: ${JSON.stringify(body, null, 2)}`);
 
       // Handle region redirect (error 10004)
       if (body.error === 10004 && body.data?.region) {
@@ -196,7 +193,7 @@ export class EWeLinkAPI {
           .toString('utf8')
           .replace(/\r\n|\n|\r/g, '')
           .trim();
-        this.platform.log.debug(`Password changed from ${originalPassword.length} to ${this.currentPassword.length} chars`);
+        this.platform.log.debug(`Password length changed from ${originalPassword.length} to ${this.currentPassword.length} chars`);
         return await this.login();
       }
 
@@ -207,9 +204,7 @@ export class EWeLinkAPI {
         this.refreshToken = body.data.rt;
         this.apiKey = body.data.user.apikey;
 
-        this.platform.log.debug(`Access token: ${this.accessToken.substring(0, 20)}...`);
-        this.platform.log.debug(`Refresh token: ${this.refreshToken.substring(0, 20)}...`);
-        this.platform.log.debug(`API Key: ${this.apiKey.substring(0, 8)}...`);
+        this.platform.log.debug('Tokens received and stored');
 
         // Set default authorization header
         this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
@@ -551,7 +546,7 @@ export class EWeLinkAPI {
     // Update HTTP client
     this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
 
-    this.platform.log.debug(`Reloaded tokens - Access token: ${this.accessToken.substring(0, 20)}...`);
+    this.platform.log.debug('Tokens reloaded from storage');
     return true;
   }
 
