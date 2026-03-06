@@ -43,8 +43,6 @@ tmp/
 *.swp
 
 # Homebridge UI kit (built assets, included in npm but not git)
-homebridge-ui/public/kit.css
-homebridge-ui/public/kit.js
 
 # npm
 *.tgz
@@ -57,3 +55,4 @@ homebridge-ui/public/kit.js
 # BMad agent files
 _bmad/
 _bmad-output/
+homebridge-ui/public/lib/

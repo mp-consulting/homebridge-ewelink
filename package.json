@@ -10,7 +10,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "npm run lint -- --fix",
     "watch": "npm run build && npm link && nodemon",
-    "copy:ui-kit": "cp node_modules/@mp-consulting/homebridge-ui-kit/dist/kit.css homebridge-ui/public/ && cp node_modules/@mp-consulting/homebridge-ui-kit/dist/kit.js homebridge-ui/public/",
+    "copy:ui-kit": "mkdir -p homebridge-ui/public/lib && cp node_modules/@mp-consulting/homebridge-ui-kit/dist/kit.css homebridge-ui/public/lib/ && cp node_modules/@mp-consulting/homebridge-ui-kit/dist/kit.js homebridge-ui/public/lib/",
     "build": "npm run copy:ui-kit && rimraf ./dist && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
