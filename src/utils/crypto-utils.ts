@@ -9,6 +9,6 @@ export class CryptoUtils {
    * Used for API authentication and WebSocket connections.
    */
   static generateNonce(): string {
-    return randomBytes(8).toString('hex');
+    return randomBytes(4).toString('hex'); // 4 bytes = 8 hex chars, as required by the API
   }
 }
