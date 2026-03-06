@@ -19,7 +19,9 @@
     "prepare": "npm run build",
     "publish:npm": "npm publish --registry=https://registry.npmjs.org --access=public",
     "publish:github": "npm publish --registry=https://npm.pkg.github.com --access=public",
-    "publish:all": "npm run publish:npm && npm run publish:github"
+    "publish:all": "npm run publish:npm && npm run publish:github",
+    "detect-api-changes": "npx tsx scripts/detect-api-changes.ts",
+    "detect-api-changes:save": "npx tsx scripts/detect-api-changes.ts --save"
   },
   "keywords": [
     "homebridge",
@@ -78,6 +80,7 @@
     "rimraf": "^6.1.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.1",
+    "tsx": "^4.19.4",
     "vitest": "^4.0.18"
   },
   "files": [
