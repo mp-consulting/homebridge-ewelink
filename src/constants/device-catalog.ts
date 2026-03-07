@@ -540,6 +540,26 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     supportedSimulations: ['switch'],
   },
 
+  276: {
+    uiid: 276,
+    category: 'outlet',
+    name: 'Power Detection Plug S61',
+    models: ['S61STPF'],
+    brand: 'SONOFF',
+    primaryService: 'Outlet',
+    capabilities: {
+      powerMonitoring: 'full',
+      channels: 1,
+      supportsLAN: true,
+    },
+    params: {
+      switchStyle: 'multi',
+      onOffParam: 'switches',
+      power: { power: 'power', voltage: 'voltage', current: 'current' },
+    },
+    supportedSimulations: ['switch'],
+  },
+
   // ==========================================================================
   // MULTI-CHANNEL SWITCHES
   // ==========================================================================
