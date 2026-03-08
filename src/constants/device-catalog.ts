@@ -2216,6 +2216,25 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     },
   },
 
+  7029: {
+    uiid: 7029,
+    category: 'multi_switch',
+    name: 'Zigbee MINI DUO-L',
+    models: ['MINI DUO-L'],
+    brand: 'SONOFF',
+    notes: 'Supports OTA',
+    primaryService: 'Switch',
+    capabilities: {
+      powerMonitoring: 'none',
+      channels: 2,
+      supportsLAN: false,
+    },
+    params: {
+      switchStyle: 'multi',
+      onOffParam: 'switches',
+    },
+  },
+
   7010: {
     uiid: 7010,
     category: 'single_switch',
