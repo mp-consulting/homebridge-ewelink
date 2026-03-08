@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.29] - 2026-03-08
+
+### Added
+
+- **Device support**: Cygnett WiFi LED Bulb CCT (UIID 52)
+- **Device support**: CAST Tablet (UIID 223) — recognized as bridge, no controllable services
+- **Device support**: Smart Circuit Breaker (UIID 226) — outlet with power monitoring
+- **Device support**: eWeLink Zigbee E27 Bulb 18w CCT (UIID 7009)
+
 ## [1.0.28] - 2026-03-08
 
 ### Added

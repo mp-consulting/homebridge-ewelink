@@ -93,7 +93,7 @@ export interface DeviceParamsDef {
     requiresMode?: boolean;
   };
   /** Color temperature parameter */
-  colorTemp?: { param: string; min: number; max: number };
+  colorTemp?: { param: string; min: number; max: number; asString?: boolean };
   /** RGB color parameters */
   rgb?: { r: string; g: string; b: string; br?: string };
   /** Position parameter for curtains */
@@ -1090,6 +1090,27 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     notes: 'channel0 scale 25-255 maps to HomeKit 0-100, value as string',
   },
 
+  52: {
+    uiid: 52,
+    category: 'light',
+    name: 'CCT Light',
+    models: ['Cygnett A19 B22'],
+    primaryService: 'Lightbulb',
+    capabilities: {
+      lightType: 'cct',
+      powerMonitoring: 'none',
+      channels: 1,
+      supportsLAN: true,
+    },
+    params: {
+      switchStyle: 'state',
+      onOffParam: 'state',
+      brightness: { param: 'channel0', min: 25, max: 255, asString: true },
+      colorTemp: { param: 'channel1', min: 0, max: 255, asString: true },
+    },
+    notes: 'channel0 brightness 25-255, channel1 color temp 0-255, values as strings',
+  },
+
   // ==========================================================================
   // LIGHTS - RGB ONLY
   // ==========================================================================
@@ -1665,6 +1686,41 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
       temperature: 'temperature',
     },
     notes: 'Temperature sensor only, no switches',
+  },
+
+  226: {
+    uiid: 226,
+    category: 'outlet',
+    name: 'Smart Circuit Breaker',
+    models: ['EAKCB-EWE-M', 'TOB9e-63M'],
+    primaryService: 'Outlet',
+    capabilities: {
+      powerMonitoring: 'full',
+      channels: 1,
+      supportsLAN: true,
+    },
+    params: {
+      switchStyle: 'single',
+      onOffParam: 'switch',
+      power: { power: 'phase_0_p', voltage: 'phase_0_v', current: 'phase_0_c' },
+    },
+    notes: 'Switch uses boolean true/false. Power values are raw (not divided by 100)',
+  },
+
+  223: {
+    uiid: 223,
+    category: 'panel',
+    name: 'CAST Tablet',
+    brand: 'SONOFF',
+    primaryService: 'Switch',
+    capabilities: {
+      powerMonitoring: 'none',
+      channels: 1,
+      isBridge: true,
+      supportsLAN: false,
+    },
+    params: {},
+    notes: 'Display/cast device with no controllable HomeKit services',
   },
 
   228: {
@@ -2252,6 +2308,28 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
       switchStyle: 'multi',
       onOffParam: 'switches',
     },
+  },
+
+  7009: {
+    uiid: 7009,
+    category: 'light',
+    name: 'Zigbee E27 Bulb',
+    models: ['eWeLink Zigbee E27 Bulb 18w'],
+    brand: 'eWeLink',
+    primaryService: 'Lightbulb',
+    capabilities: {
+      lightType: 'cct',
+      powerMonitoring: 'none',
+      channels: 1,
+      supportsLAN: false,
+    },
+    params: {
+      switchStyle: 'single',
+      onOffParam: 'switch',
+      brightness: { param: 'normal.br', min: 0, max: 100 },
+      colorTemp: { param: 'normal.ct', min: 0, max: 100 },
+    },
+    notes: 'CCT mode via ltype "normal". RGB mode uses hue/saturation (not yet supported)',
   },
 
   7010: {
