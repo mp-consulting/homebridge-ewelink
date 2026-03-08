@@ -2352,6 +2352,26 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
       power: { power: 'power' },
     },
   },
+
+  7034: {
+    uiid: 7034,
+    category: 'curtain',
+    name: 'Zigbee Curtain Motor',
+    models: ['MINI-ZBRBS'],
+    brand: 'SONOFF',
+    primaryService: 'WindowCovering',
+    capabilities: {
+      powerMonitoring: 'none',
+      channels: 1,
+      supportsLAN: false,
+    },
+    params: {
+      switchStyle: 'single',
+      onOffParam: 'switch',
+      position: { current: 'setclose', target: 'setclose', inverted: true },
+    },
+    notes: 'setclose: 0=open, 100=closed (inverted from HomeKit)',
+  },
 } as const;
 
 // ============================================================================
