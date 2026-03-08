@@ -1667,6 +1667,25 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     notes: 'Temperature sensor only, no switches',
   },
 
+  228: {
+    uiid: 228,
+    category: 'panel',
+    name: 'NSPanel Pro 120',
+    models: ['NSPanel120PW'],
+    brand: 'SONOFF',
+    primaryService: 'TemperatureSensor',
+    capabilities: {
+      powerMonitoring: 'none',
+      channels: 1,
+      hasTemperature: true,
+      supportsLAN: true,
+    },
+    params: {
+      temperature: 'temperature',
+    },
+    notes: 'Temperature sensor only, no switches. Zigbee coordinator.',
+  },
+
   // ==========================================================================
   // RF BRIDGES
   // ==========================================================================
@@ -2783,10 +2802,10 @@ export function isGroupDevice(uiid: number): boolean {
 }
 
 /**
- * Check if UIID is NSPanel Pro (UIID 195)
+ * Check if UIID is NSPanel Pro (UIID 195, 228)
  */
 export function isNSPanelPro(uiid: number): boolean {
-  return uiid === 195;
+  return uiid === 195 || uiid === 228;
 }
 
 /**
