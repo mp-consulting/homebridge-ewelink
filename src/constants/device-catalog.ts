@@ -2372,6 +2372,27 @@ export const DEVICE_CATALOG: Record<number, DeviceCatalogEntry> = {
     },
   },
 
+  7033: {
+    uiid: 7033,
+    category: 'sensor',
+    name: 'Zigbee Temperature Sensor',
+    models: ['SNZB-02LD'],
+    brand: 'SONOFF',
+    primaryService: 'TemperatureSensor',
+    additionalServices: ['Battery'],
+    capabilities: {
+      powerMonitoring: 'none',
+      channels: 1,
+      hasTemperature: true,
+      hasBattery: true,
+      isSensor: true,
+      supportsLAN: false,
+    },
+    params: {
+      temperature: 'temperature',
+    },
+  },
+
   7034: {
     uiid: 7034,
     category: 'curtain',
