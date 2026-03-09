@@ -9,12 +9,13 @@
  * Usage:
  *   npx tsx scripts/detect-api-changes.ts          # compare against snapshot
  *   npx tsx scripts/detect-api-changes.ts --save   # save new snapshot
+ *   npx tsx scripts/detect-api-changes.ts --dump   # save pretty payloads to tmp/api-payloads.json
  *
  * Credentials are read from test/hbConfig/config.json (eWeLink platform entry).
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // ---------------------------------------------------------------------------
@@ -207,6 +208,7 @@ async function apiGet(host: string, path: string, token: string, params?: Record
 
 async function main() {
   const saveMode = process.argv.includes('--save');
+  const dumpMode = process.argv.includes('--dump');
   const snapshotPath = join(process.cwd(), 'scripts', 'api-snapshot.json');
 
   const creds = loadCredentials();
@@ -256,14 +258,18 @@ async function main() {
   // -------------------------------------------------------------------------
 
   const endpoints: Record<string, Schema> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payloads: Record<string, any> = {};
 
   // Login response schema
   endpoints['POST /v2/user/login'] = extractSchema(loginResp);
+  payloads['POST /v2/user/login'] = loginResp;
 
   // Family list
   console.log('GET /v2/family ...');
   const familyResp = await apiGet(host, '/v2/family', token);
   endpoints['GET /v2/family'] = extractSchema(familyResp);
+  payloads['GET /v2/family'] = familyResp;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const families: { id: string; name: string }[] = (familyResp?.data?.familyList as any[]) ?? [];
   console.log(`  OK (${families.length} home(s))\n`);
@@ -274,6 +280,7 @@ async function main() {
     console.log(`GET /v2/device/thing (family: ${families[0].name}) ...`);
     const thingResp = await apiGet(host, '/v2/device/thing', token, { num: '0', familyid: familyId });
     endpoints['GET /v2/device/thing'] = extractSchema(thingResp);
+    payloads['GET /v2/device/thing'] = thingResp;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const things: any[] = (thingResp?.data?.thingList as any[]) ?? [];
     console.log(`  OK (${things.length} item(s))\n`);
@@ -288,10 +295,23 @@ async function main() {
     version: 8,
   }, token);
   endpoints['POST /dispatch/app'] = extractSchema(dispatchResp);
+  payloads['POST /dispatch/app'] = dispatchResp;
   console.log(`  ${dispatchResp?.domain ? 'OK (ws: ' + dispatchResp.domain + ')' : 'Failed (no domain)'}\n`);
 
   // -------------------------------------------------------------------------
-  // 3. Save or compare
+  // 3. Dump payloads
+  // -------------------------------------------------------------------------
+
+  if (dumpMode) {
+    const tmpDir = join(process.cwd(), 'tmp');
+    mkdirSync(tmpDir, { recursive: true });
+    const dumpPath = join(tmpDir, 'api-payloads.json');
+    writeFileSync(dumpPath, JSON.stringify(payloads, null, 2));
+    console.log(`Payloads saved to ${dumpPath}\n`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. Save or compare
   // -------------------------------------------------------------------------
 
   if (saveMode || !existsSync(snapshotPath)) {
