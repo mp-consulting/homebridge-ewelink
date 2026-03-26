@@ -11,8 +11,8 @@ Homebridge plugin to integrate eWeLink devices into HomeKit. Complete TypeScript
 
 - **Hybrid Connection** - Automatic LAN/cloud failover; LAN commands bypass the cloud queue for instant response
 - **Real-time Updates** - Instant status changes via WebSocket with automatic reconnection and exponential backoff
-- **22 Device Types** - Switches, outlets, lights, curtains, fans, thermostats, sensors, RF Bridge, and more
-- **47+ Accessory Types** - Including 25 simulation accessories (garage, lock, valve, blind, heater, cooler, etc.)
+- **21 Device Types** - Switches, outlets, lights, curtains, fans, thermostats, sensors, panels, RF Bridge, and more
+- **45 Accessory Types** - Including 24 simulation accessories (garage, lock, valve, blind, heater, cooler, etc.)
 - **Multi-Channel Devices** - Per-channel accessories for SONOFF 4CH, DUALR3, and similar devices
 - **RF Bridge** - Automatic sub-device creation for RF buttons and sensors (UIID 28, 98)
 - **Group Control** - Full eWeLink cloud group discovery and control
@@ -29,19 +29,19 @@ Homebridge plugin to integrate eWeLink devices into HomeKit. Complete TypeScript
 
 | Category | UIIDs |
 |----------|-------|
-| Single-channel switches | 1, 6, 14, 24, 27, 77, 78, 81, 107, 112, 138, 160, 168, 182, 190 |
-| Multi-channel switches | 2, 3, 4, 7, 8, 9, 29, 30, 31, 41, 82, 83, 84, 113, 114, 139–141, 161–163, 178, 210–212 |
-| Smart plugs with power monitoring | 5, 32, 126, 165, 262 |
-| SONOFF Mini S-MAN (6-ch programmable) | 174 |
-| SONOFF Mate S-MATE (3-btn programmable) | 177 |
+| Single-channel switches | 1, 6, 14, 24, 27, 77, 78, 81, 107, 112, 138, 160, 209 |
+| Multi-channel switches | 2, 3, 4, 7, 8, 9, 29, 30, 31, 82, 83, 84, 113, 114, 126, 139–141, 161, 162, 210–212 |
+| Outlets with power monitoring | 5, 32, 165, 182, 190, 191, 225, 226, 262, 276 |
+| SONOFF SwitchMan R5 (6-ch programmable) | 174 |
+| SONOFF S-MATE (programmable button) | 177 |
 
 ### Lights
 
 | Category | UIIDs |
 |----------|-------|
 | Dimmable | 36, 44, 57 |
+| CCT | 52, 103 |
 | RGB | 22 |
-| Color temperature (CCT) | 103 |
 | RGB+CCT | 33, 59, 104, 135–137, 173 |
 
 ### Curtains & Motors
@@ -57,22 +57,43 @@ Homebridge plugin to integrate eWeLink devices into HomeKit. Complete TypeScript
 |----------|-------|
 | Temperature/Humidity | 15, 181 |
 | Contact/Door | 102, 154 |
-| Motion | 130, 133, 191, 195 |
-| Smart thermostat | 127 |
+| Motion | 130 |
 | TH10/TH16 monitoring | 15, 18 |
+| Smart thermostat | 127 |
+| Air conditioner | 151 |
+| Humidifier | 19 |
+| Diffuser | 25 |
 | Ceiling fans (iFan03/04) | 34 |
+
+### Panels
+
+| Category | UIIDs |
+|----------|-------|
+| NSPanel | 133 |
+| NSPanel Pro | 195, 228 |
+| CAST Tablet | 223 |
 
 ### RF & Zigbee
 
 | Category | UIIDs |
 |----------|-------|
 | RF 433MHz Bridge | 28, 98 |
-| Zigbee bridges | 66, 128, 168 |
-| Zigbee switches | 1000, 7000 |
-| Zigbee lights (dimmer, CCT, RGB+CCT) | 1257, 1258, 3258 |
-| Zigbee curtains | 1514, 7006 |
-| Zigbee sensors | 1770, 1771, 2026, 3026, 4026, 5026, 7002, 7003, 7014, 7016, 7019 |
+| Zigbee bridges | 66, 128, 168, 243 |
+| Zigbee switches | 1000, 1009, 1256, 7000, 7004, 7005, 7010 |
+| Zigbee multi-channel switches | 2256, 3256, 4256, 7029 |
+| Zigbee lights (dimmer, CCT, RGB+CCT) | 1257, 1258, 3258, 7009 |
+| Zigbee curtains | 1514, 7006, 7034 |
+| Zigbee sensors | 1770, 1771, 2026, 3026, 4026, 5026, 7002, 7003, 7014, 7016, 7019, 7033 |
 | Zigbee thermostats | 7017 |
+| Zigbee water valve | 7027 |
+| Zigbee power monitoring switch | 7032 |
+
+### Other
+
+| Category | UIIDs |
+|----------|-------|
+| Virtual devices | 265 |
+| Device groups | 5000 |
 
 ## Installation
 

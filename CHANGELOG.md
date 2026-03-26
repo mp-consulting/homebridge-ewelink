@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.30] - 2026-03-26
+
+### Changed
+
+- **Dependencies**: Updated all dependencies to latest compatible versions
+- **README**: Fixed supported devices list to accurately reflect the device catalog (added 27 missing UIIDs, removed 3 non-existent UIIDs, added Panels and Other sections)
+
+### Added
+
+- **Scripts**: `--dump` flag for `detect-api-changes` to save raw API payloads
+
 ## [1.0.29] - 2026-03-08
 
 ### Added
