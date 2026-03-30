@@ -56,7 +56,7 @@ export class ColorUtils {
     const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
     const m = v - c;
 
-    let r = 0, g = 0, b = 0;
+    let r: number, g: number, b: number;
 
     if (h >= 0 && h < 60) {
       r = c; g = x; b = 0;
@@ -166,13 +166,7 @@ export function rgb2hs(r: number, g: number, b: number): [number, number] {
   const delta = max - min;
 
   let h = 0;
-  let s = 0;
-
-  if (max === 0) {
-    s = 0;
-  } else {
-    s = (delta / max) * 100;
-  }
+  const s = max === 0 ? 0 : (delta / max) * 100;
 
   if (max === min) {
     h = 0;

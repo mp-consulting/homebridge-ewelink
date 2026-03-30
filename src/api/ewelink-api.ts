@@ -240,7 +240,7 @@ export class EWeLinkAPI {
         this.platform.log.error(`  Response Data: ${JSON.stringify(error.response?.data, null, 2)}`);
         this.platform.log.error(`  Request URL: ${error.config?.url}`);
         this.platform.log.error(`  Request Method: ${error.config?.method}`);
-        throw new Error(`Login failed: ${error.response?.data?.msg || error.message}`);
+        throw new Error(`Login failed: ${error.response?.data?.msg || error.message}`, { cause: error });
       }
       this.platform.log.error(`Non-HTTP Error: ${error}`);
       throw error;
@@ -292,7 +292,7 @@ export class EWeLinkAPI {
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        throw new Error(`Failed to get homes: ${error.response?.data?.msg || error.message}`);
+        throw new Error(`Failed to get homes: ${error.response?.data?.msg || error.message}`, { cause: error });
       }
       throw error;
     }
@@ -353,7 +353,7 @@ export class EWeLinkAPI {
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        throw new Error(`Failed to get devices: ${error.response?.data?.msg || error.message}`);
+        throw new Error(`Failed to get devices: ${error.response?.data?.msg || error.message}`, { cause: error });
       }
       throw error;
     }
