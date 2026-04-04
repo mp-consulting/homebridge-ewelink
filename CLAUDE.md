@@ -190,6 +190,6 @@ Every eWeLink device has a UIID that determines its type and capabilities. Devic
 
 ## Homebridge UI
 
-Config UI located in `homebridge-ui/`:
+Uses Homebridge custom UI framework (`homebridge-ui/`) for plugin configuration management:
 - `server.js` - Express server for configuration
 - `public/` - Frontend assets (HTML, JS, CSS)
