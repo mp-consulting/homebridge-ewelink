@@ -1,7 +1,7 @@
 {
   "name": "@mp-consulting/homebridge-ewelink",
   "displayName": "eWeLink",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "type": "module",
   "description": "Homebridge plugin to integrate eWeLink devices into HomeKit",
   "main": "dist/index.js",
