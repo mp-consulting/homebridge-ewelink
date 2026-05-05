@@ -25,6 +25,7 @@ import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
 import { EveCharacteristics } from './utils/eve-characteristics.js';
 import { CommandQueue } from './utils/command-queue.js';
+import { sanitizeHomeKitName } from './utils/name-utils.js';
 import type { BaseAccessory } from './accessories/base.js';
 
 // Core accessory handlers
@@ -238,7 +239,47 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   configureAccessory(accessory: PlatformAccessory): void {
     this.log.info('Loading accessory from cache:', accessory.displayName);
+    this.sanitizeAccessoryNames(accessory);
     this.accessories.set(accessory.UUID, accessory as PlatformAccessory<AccessoryContext>);
+  }
+
+  /**
+   * Replace any Name / ConfiguredName values that contain characters HAP-NodeJS
+   * rejects. This silences the "invalid 'ConfiguredName' characteristic" warning
+   * introduced in Homebridge 2.0 for accessories cached under older versions.
+   */
+  private sanitizeAccessoryNames(accessory: PlatformAccessory): void {
+    const safeDisplay = sanitizeHomeKitName(accessory.displayName);
+    if (safeDisplay !== accessory.displayName) {
+      accessory.displayName = safeDisplay;
+    }
+
+    for (const service of accessory.services) {
+      const safeServiceName = sanitizeHomeKitName(service.displayName, safeDisplay);
+      if (safeServiceName !== service.displayName) {
+        service.displayName = safeServiceName;
+      }
+
+      const nameChar = service.testCharacteristic(this.Characteristic.Name)
+        ? service.getCharacteristic(this.Characteristic.Name)
+        : undefined;
+      if (nameChar && typeof nameChar.value === 'string') {
+        const safe = sanitizeHomeKitName(nameChar.value, safeDisplay);
+        if (safe !== nameChar.value) {
+          service.updateCharacteristic(this.Characteristic.Name, safe);
+        }
+      }
+
+      const configuredChar = service.testCharacteristic(this.Characteristic.ConfiguredName)
+        ? service.getCharacteristic(this.Characteristic.ConfiguredName)
+        : undefined;
+      if (configuredChar && typeof configuredChar.value === 'string' && configuredChar.value.length > 0) {
+        const safe = sanitizeHomeKitName(configuredChar.value, safeDisplay);
+        if (safe !== configuredChar.value) {
+          service.updateCharacteristic(this.Characteristic.ConfiguredName, safe);
+        }
+      }
+    }
   }
 
   /**
@@ -418,7 +459,7 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       this.log.info('Adding new accessory:', device.name);
 
       const accessory = new this.api.platformAccessory<AccessoryContext>(
-        device.name,
+        sanitizeHomeKitName(device.name),
         uuid,
       );
 
@@ -504,12 +545,14 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Create or update accessory
       let subAccessory = this.accessories.get(uuid);
 
+      const safeRfName = sanitizeHomeKitName(rfDevice.name);
+
       if (!subAccessory) {
         // Create new sub-accessory
         this.log.info(`Adding RF sub-device: ${rfDevice.name} (type: ${subType})`);
 
         subAccessory = new this.api.platformAccessory<AccessoryContext>(
-          rfDevice.name,
+          safeRfName,
           uuid,
         );
 
@@ -526,8 +569,8 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         const infoService = subAccessory.getService(this.Service.AccessoryInformation);
         if (infoService) {
           infoService
-            .setCharacteristic(this.Characteristic.Name, rfDevice.name)
-            .setCharacteristic(this.Characteristic.ConfiguredName, rfDevice.name)
+            .setCharacteristic(this.Characteristic.Name, safeRfName)
+            .setCharacteristic(this.Characteristic.ConfiguredName, safeRfName)
             .setCharacteristic(this.Characteristic.Manufacturer, bridgeDevice.brandName || 'eWeLink')
             .setCharacteristic(this.Characteristic.Model, `RF ${subType}`)
             .setCharacteristic(this.Characteristic.SerialNumber, fullDeviceId)
@@ -542,13 +585,13 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         this.log.info(`Restoring RF sub-device: ${rfDevice.name} (type: ${subType})`);
 
         // Update display name if it changed
-        if (subAccessory.displayName !== rfDevice.name) {
-          subAccessory.displayName = rfDevice.name;
+        if (subAccessory.displayName !== safeRfName) {
+          subAccessory.displayName = safeRfName;
           const infoService = subAccessory.getService(this.Service.AccessoryInformation);
           if (infoService) {
             infoService
-              .setCharacteristic(this.Characteristic.Name, rfDevice.name)
-              .setCharacteristic(this.Characteristic.ConfiguredName, rfDevice.name);
+              .setCharacteristic(this.Characteristic.Name, safeRfName)
+              .setCharacteristic(this.Characteristic.ConfiguredName, safeRfName);
           }
         }
 
@@ -630,9 +673,10 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
       // Determine if we need to create or update the accessory
       if (!subAccessory) {
         // Create new sub-accessory
+        const safeName = sanitizeHomeKitName(device.name);
         const displayName = channel === 0
-          ? device.name
-          : `${device.name} ${channel}`;
+          ? safeName
+          : `${safeName} ${channel}`;
 
         subAccessory = new this.api.platformAccessory<AccessoryContext>(displayName, uuid);
 

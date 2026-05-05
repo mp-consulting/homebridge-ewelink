@@ -3,6 +3,7 @@ import { BaseAccessory } from './base.js';
 import type { EWeLinkPlatform } from '../platform.js';
 import type { AccessoryContext, DeviceParams } from '../types/index.js';
 import { TIMING } from '../constants/timing-constants.js';
+import { sanitizeHomeKitName } from '../utils/name-utils.js';
 
 /**
  * RF Button Accessory
@@ -31,6 +32,8 @@ export class RFButtonAccessory extends BaseAccessory {
       const channelNum = Number.parseInt(channel, 10);
       this.buttonNames.set(channelNum, name);
 
+      const safeName = sanitizeHomeKitName(name);
+
       // Use subtype to identify service (stable across name changes)
       const subtype = `switch${channel}`;
 
@@ -38,16 +41,16 @@ export class RFButtonAccessory extends BaseAccessory {
       let service = accessory.getServiceById(this.Service.Switch, subtype);
 
       if (!service) {
-        service = accessory.addService(this.Service.Switch, name, subtype);
+        service = accessory.addService(this.Service.Switch, safeName, subtype);
       }
 
       // Update the name to ensure it's correct
-      service.displayName = name;
-      service.setCharacteristic(this.Characteristic.Name, name);
+      service.displayName = safeName;
+      service.setCharacteristic(this.Characteristic.Name, safeName);
 
       // Add ConfiguredName for better HomeKit display
       service.addOptionalCharacteristic(this.Characteristic.ConfiguredName);
-      service.updateCharacteristic(this.Characteristic.ConfiguredName, name);
+      service.updateCharacteristic(this.Characteristic.ConfiguredName, safeName);
 
       // Configure the switch
       service.getCharacteristic(this.Characteristic.On)
