@@ -33,6 +33,14 @@ export class ValveAccessory extends BaseAccessory {
   /** Interval that pushes RemainingDuration updates to HomeKit while the timer runs */
   private remainingTick?: NodeJS.Timeout;
 
+  /**
+   * The duration the user actually configured. We mirror remaining time onto
+   * SetDuration during an active run because iOS Home app drives its countdown
+   * UI off SetDuration + the moment it observed Active=ACTIVE — and resets that
+   * moment on app reopen. Restoring this on deactivate puts the slider back.
+   */
+  private userSetDuration: number = POLLING.VALVE_DEFAULT_DURATION_S;
+
   /** Power monitoring support */
   private readonly powerReadings: boolean;
 
@@ -84,8 +92,15 @@ export class ValveAccessory extends BaseAccessory {
 
     // Configure duration characteristics if timer not disabled
     if (!this.disableTimer) {
-      // Set default duration
-      this.service.updateCharacteristic(this.Characteristic.SetDuration, POLLING.VALVE_DEFAULT_DURATION_S);
+      // Persist the user's configured SetDuration in the accessory context so
+      // it survives Homebridge restarts. Reading from the cached SetDuration
+      // characteristic isn't reliable: while the valve is active we mirror
+      // remaining time onto SetDuration, so a restart mid-run would otherwise
+      // capture the wrong value.
+      this.userSetDuration = accessory.context.valveSetDuration && accessory.context.valveSetDuration > 0
+        ? accessory.context.valveSetDuration
+        : POLLING.VALVE_DEFAULT_DURATION_S;
+      this.service.updateCharacteristic(this.Characteristic.SetDuration, this.userSetDuration);
       // RemainingDuration may already exist on a cached service from a prior run;
       // unguarded addCharacteristic throws "duplicate UUID" and aborts discovery.
       if (!this.service.testCharacteristic(this.Characteristic.RemainingDuration)) {
@@ -179,9 +194,7 @@ export class ValveAccessory extends BaseAccessory {
 
       // Start timer if activating and timer not disabled
       if (on && !this.disableTimer) {
-        const durationChar = this.service.getCharacteristic(this.Characteristic.SetDuration);
-        const duration = durationChar.value as number || POLLING.VALVE_DEFAULT_DURATION_S;
-        this.startTimer(duration);
+        this.startTimer(this.userSetDuration);
       } else {
         this.clearTimer();
         if (!this.disableTimer) {
@@ -204,10 +217,16 @@ export class ValveAccessory extends BaseAccessory {
   }
 
   /**
-   * Set duration (only updates timer if valve is active)
+   * Set duration. Records the user's configured duration and restarts the
+   * auto-off timer if the valve is currently active.
    */
   private async setDuration(value: CharacteristicValue): Promise<void> {
     const duration = value as number;
+    if (duration <= 0) {
+      return;
+    }
+    this.userSetDuration = duration;
+    this.accessory.context.valveSetDuration = duration;
     const isActive = this.service.getCharacteristic(this.Characteristic.Active).value;
 
     if (isActive === this.Characteristic.Active.ACTIVE) {
@@ -217,11 +236,15 @@ export class ValveAccessory extends BaseAccessory {
   }
 
   /**
-   * Start (or restart) the auto-off timer and record the start time so
-   * RemainingDuration can be computed on demand when HomeKit re-reads it.
-   * Also push periodic RemainingDuration updates: iOS Home app caches the
-   * last notified value and counts down locally, so without periodic pushes
-   * the value it shows when the app is reopened is the original full duration.
+   * Start (or restart) the auto-off timer.
+   *
+   * iOS Home app drives the active-valve countdown UI off SetDuration plus its
+   * own internal "Active became ACTIVE" timestamp, and that timestamp resets on
+   * app reopen — so updating only RemainingDuration (which iOS appears to
+   * ignore for this UI) didn't fix the visible reset. We mirror remaining time
+   * onto SetDuration every second instead; iOS then always reads a value that
+   * matches the actual time left, and the original user-configured duration is
+   * restored on deactivate via clearTimer().
    */
   private startTimer(duration: number): void {
     this.clearTimerHandles();
@@ -234,16 +257,21 @@ export class ValveAccessory extends BaseAccessory {
     this.remainingTick = setInterval(() => {
       const remaining = this.computeRemaining();
       this.service.updateCharacteristic(this.Characteristic.RemainingDuration, remaining);
+      this.service.updateCharacteristic(this.Characteristic.SetDuration, remaining);
     }, 1000);
   }
 
   /**
-   * Clear the auto-off timer and forget its start time.
+   * Clear the auto-off timer, forget its start time, and restore the user's
+   * configured SetDuration so the slider returns to its pre-activation value.
    */
   private clearTimer(): void {
     this.clearTimerHandles();
     this.timerStartedAt = undefined;
     this.timerDuration = undefined;
+    if (!this.disableTimer) {
+      this.service.updateCharacteristic(this.Characteristic.SetDuration, this.userSetDuration);
+    }
   }
 
   private clearTimerHandles(): void {

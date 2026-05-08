@@ -694,6 +694,8 @@ export interface AccessoryContext {
   cachePositionState?: number;
   /** Cache last start time for position calculations (in deciseconds) */
   cacheLastStartTime?: number;
+  /** User-configured Valve/Tap auto-off duration in seconds; persisted across restarts */
+  valveSetDuration?: number;
   /** Channel count for multi-channel devices */
   channelCount?: number;
   /** Switch number (0=master, 1-N=individual channels) */

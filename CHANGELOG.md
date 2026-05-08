@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.40] - 2026-05-08
+
+### Fixed
+
+- **Valve countdown still resets on Home app reopen after v1.0.39**: iOS Home app drives the active-valve countdown UI off `SetDuration` plus its own internal "Active became ACTIVE" timestamp, and resets that timestamp on app reopen — so updating only `RemainingDuration` (which iOS appears to ignore for this UI) didn't fix the visible reset. `ValveAccessory` now mirrors the remaining time onto `SetDuration` every second while the timer runs, so iOS always reads a value matching the actual time left. The user's configured duration is persisted in `accessory.context.valveSetDuration` (so it survives restarts and isn't clobbered by the mid-run mirror) and restored to the slider when the valve closes.
+
+### Changed
+
+- **Side effect**: while a valve is active, opening the device settings shows the slider counting down rather than the originally configured value. The configured value is restored when the valve closes. This trade-off is what allows iOS to display a correct countdown on app reopen.
+
 ## [1.0.39] - 2026-05-08
 
 ### Fixed
