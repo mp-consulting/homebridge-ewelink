@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.38] - 2026-05-08
+
+### Fixed
+
+- **Valve/Tap timer appears to reset when reopening the Home app**: `RemainingDuration` was set to the full duration when the timer started but had no `onGet` handler, so when iOS HomeKit re-read the characteristic on app reopen HAP returned the cached full value and the app started a fresh local countdown from the top. `ValveAccessory` now records the timer's start time and exposes an `onGet` that returns the actual remaining seconds, so the countdown resumes correctly.
+
 ## [1.0.37] - 2026-05-08
 
 ### Fixed

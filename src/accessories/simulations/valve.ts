@@ -24,6 +24,12 @@ export class ValveAccessory extends BaseAccessory {
   /** Timer for auto-off */
   private timer?: NodeJS.Timeout;
 
+  /** Epoch ms when the current timer started */
+  private timerStartedAt?: number;
+
+  /** Duration in seconds for the currently running timer */
+  private timerDuration?: number;
+
   /** Power monitoring support */
   private readonly powerReadings: boolean;
 
@@ -82,6 +88,11 @@ export class ValveAccessory extends BaseAccessory {
       if (!this.service.testCharacteristic(this.Characteristic.RemainingDuration)) {
         this.service.addCharacteristic(this.Characteristic.RemainingDuration);
       }
+
+      // Without an onGet, HAP returns the cached full duration on app reopen,
+      // so iOS restarts its local countdown from the top — looking like a reset.
+      this.service.getCharacteristic(this.Characteristic.RemainingDuration)
+        .onGet(this.getRemainingDuration.bind(this));
 
       this.service.getCharacteristic(this.Characteristic.SetDuration)
         .onSet(this.setDuration.bind(this));
@@ -167,23 +178,9 @@ export class ValveAccessory extends BaseAccessory {
       if (on && !this.disableTimer) {
         const durationChar = this.service.getCharacteristic(this.Characteristic.SetDuration);
         const duration = durationChar.value as number || POLLING.VALVE_DEFAULT_DURATION_S;
-        this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
-
-        // Clear existing timer
-        if (this.timer) {
-          clearTimeout(this.timer);
-        }
-
-        // Set new timer
-        this.timer = setTimeout(() => {
-          this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
-        }, duration * 1000);
+        this.startTimer(duration);
       } else {
-        // Clear timer if deactivating
-        if (this.timer) {
-          clearTimeout(this.timer);
-          this.timer = undefined;
-        }
+        this.clearTimer();
         if (!this.disableTimer) {
           this.service.updateCharacteristic(this.Characteristic.RemainingDuration, 0);
         }
@@ -211,21 +208,51 @@ export class ValveAccessory extends BaseAccessory {
     const isActive = this.service.getCharacteristic(this.Characteristic.Active).value;
 
     if (isActive === this.Characteristic.Active.ACTIVE) {
-      // Update remaining duration
-      this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
-
-      // Clear existing timer
-      if (this.timer) {
-        clearTimeout(this.timer);
-      }
-
-      // Set new timer with updated duration
-      this.timer = setTimeout(() => {
-        this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
-      }, duration * 1000);
-
+      this.startTimer(duration);
       this.logDebug(`Valve duration updated to ${duration}s while active`);
     }
+  }
+
+  /**
+   * Start (or restart) the auto-off timer and record the start time so
+   * RemainingDuration can be computed on demand when HomeKit re-reads it.
+   */
+  private startTimer(duration: number): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+    }
+    this.timerStartedAt = Date.now();
+    this.timerDuration = duration;
+    this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
+    this.timer = setTimeout(() => {
+      this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
+    }, duration * 1000);
+  }
+
+  /**
+   * Clear the auto-off timer and forget its start time.
+   */
+  private clearTimer(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+    this.timerStartedAt = undefined;
+    this.timerDuration = undefined;
+  }
+
+  /**
+   * Compute remaining seconds from the recorded start time so HomeKit
+   * resumes the countdown correctly after the app is reopened.
+   */
+  private async getRemainingDuration(): Promise<CharacteristicValue> {
+    return this.handleGet(() => {
+      if (this.timerStartedAt === undefined || this.timerDuration === undefined) {
+        return 0;
+      }
+      const elapsed = (Date.now() - this.timerStartedAt) / 1000;
+      return Math.max(0, Math.round(this.timerDuration - elapsed));
+    }, 'RemainingDuration');
   }
 
   /**
@@ -244,6 +271,13 @@ export class ValveAccessory extends BaseAccessory {
       this.Characteristic.InUse,
       isOn ? this.Characteristic.InUse.IN_USE : this.Characteristic.InUse.NOT_IN_USE,
     );
+
+    // If the device turned off out-of-band, drop any pending timer so
+    // RemainingDuration reports 0 on the next read.
+    if (!isOn && !this.disableTimer && this.timer) {
+      this.clearTimer();
+      this.service.updateCharacteristic(this.Characteristic.RemainingDuration, 0);
+    }
 
     // Update Eve power characteristics if supported
     if (this.powerReadings) {
