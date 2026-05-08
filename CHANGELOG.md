@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.36] - 2026-05-08
+
+### Added
+
+- **Device support**: Sonoff Zigbee Smart Water Valve (SWV-BSP, UIID 7027) is now exposed in HomeKit as a faucet by default (HomeKit `Valve` service with `ValveType = Water faucet`). The user-facing `showAs` config still overrides — set `showAs: "switch"` to fall back to the previous switch behavior, or `showAs: "valve"` for a generic valve.
+
+### Fixed
+
+- **Stale services on simulation switch**: `TapAccessory` and `ValveAccessory` now strip any leftover `Switch` / `Outlet` services from the cached accessory before adding the `Valve` service. This prevents seeing both a switch and a faucet/valve in HomeKit when a device is re-routed to a simulation (e.g. when a UIID's default routing changes between releases).
+
+### Changed
+
+- **Dependencies**: Bumped `homebridge` devDep from `^2.0.0-beta.55` to `^2.0.1` (latest stable). Plugin runtime engine range (`^1.8.0 || ^2.0.0-beta.0`) is unchanged.
+
 ## [1.0.35] - 2026-05-05
 
 ### Fixed

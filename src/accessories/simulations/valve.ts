@@ -53,6 +53,11 @@ export class ValveAccessory extends BaseAccessory {
     this.powerReadings = hasPowerMonitoring(uiid) || this.supportsPowerMonitoring();
     this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
 
+    // Drop stale services from a prior routing (e.g. cached Switch/Outlet
+    // before the device was re-routed to the valve simulation).
+    this.removeServiceIfExists(this.Service.Switch);
+    this.removeServiceIfExists(this.Service.Outlet);
+
     // Set up the valve service
     this.service = this.getOrAddService(this.Service.Valve);
 

@@ -40,6 +40,11 @@ export class TapAccessory extends BaseAccessory {
     // Check timer configuration
     this.disableTimer = this.deviceConfig?.disableTimer || false;
 
+    // Drop stale services from a prior routing (e.g. cached Switch/Outlet
+    // before the device was re-routed to the faucet simulation).
+    this.removeServiceIfExists(this.Service.Switch);
+    this.removeServiceIfExists(this.Service.Outlet);
+
     // Set up the valve service (faucets use valve service)
     this.service = this.getOrAddService(this.Service.Valve);
 

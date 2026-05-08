@@ -2916,6 +2916,14 @@ export function isPanelDevice(uiid: number): boolean {
 }
 
 /**
+ * Check if UIID is a water valve device (primaryService = Valve, e.g. SWV-BSP UIID 7027)
+ */
+export function isWaterValveDevice(uiid: number): boolean {
+  const device = DEVICE_CATALOG[uiid];
+  return device?.primaryService === 'Valve';
+}
+
+/**
  * Get brightness parameter definition for a UIID
  * Returns the brightness parameter config from catalog, or undefined if not dimmable
  */

@@ -16,6 +16,7 @@ import {
   isDimmableLightForFan,
   isGroupDevice,
   isProgrammableSwitch,
+  isWaterValveDevice,
   getChannelCount,
   hasCurtainParams,
 } from './constants/device-catalog.js';
@@ -828,6 +829,12 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     // 7. Handle outlet simulation
     if (showAs === 'outlet') {
       return new OutletAccessory(this, accessory);
+    }
+
+    // 8. Default water-valve devices (e.g. SWV-BSP UIID 7027) to a HomeKit faucet.
+    //    Skipped if the user explicitly chose 'switch' to keep the override path.
+    if (isWaterValveDevice(uiid) && showAs !== 'switch') {
+      return new TapAccessory(this, accessory);
     }
 
     // Default: regular switch
