@@ -19,6 +19,17 @@ describe('SwitchHelper', () => {
         const params: DeviceParams = {};
         expect(SwitchHelper.getCurrentState(params)).toBe(false);
       });
+
+      it('should return true when switch is the boolean true (e.g. SWV-BSP Zigbee report)', () => {
+        // Some Zigbee devices send `switch: true/false` instead of 'on'/'off'.
+        const params = { switch: true } as unknown as DeviceParams;
+        expect(SwitchHelper.getCurrentState(params)).toBe(true);
+      });
+
+      it('should return false when switch is the boolean false', () => {
+        const params = { switch: false } as unknown as DeviceParams;
+        expect(SwitchHelper.getCurrentState(params)).toBe(false);
+      });
     });
 
     describe('multi-channel switch', () => {

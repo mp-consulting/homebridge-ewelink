@@ -15,11 +15,19 @@ export class SwitchHelper {
       const switchState = deviceParams.switches.find(
         s => s.outlet === channelIndex,
       );
-      return switchState?.switch === 'on';
+      return SwitchHelper.isOn(switchState?.switch);
     }
 
     // Single-channel switch
-    return deviceParams.switch === 'on';
+    return SwitchHelper.isOn(deviceParams.switch);
+  }
+
+  /**
+   * Coerce a switch value to a boolean. Some Zigbee devices (e.g. SWV-BSP UIID 7027)
+   * report `switch` as a JSON boolean instead of the eWeLink-canonical 'on'/'off' string.
+   */
+  static isOn(value: unknown): boolean {
+    return value === 'on' || value === true;
   }
 
   /**

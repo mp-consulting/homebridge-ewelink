@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.37] - 2026-05-08
+
+### Fixed
+
+- **Device discovery aborted by Tap/Valve simulations on second start**: `TapAccessory` and `ValveAccessory` called `service.addCharacteristic(RemainingDuration)` unconditionally. On any restart where the cached `Valve` service already had that characteristic, HAP-NodeJS threw `Cannot add a Characteristic with the same UUID` and `discoverDevices()` aborted mid-loop — leaving every device processed after the first water-valve device with no handler registered, causing repeated `No handler found for device update` log spam and silently broken HomeKit state sync. Now gated behind `testCharacteristic`.
+- **One bad accessory could kill the whole platform**: `discoverDevices()` iterates devices in order and a thrown error in `addAccessory` would bubble up and stop the loop. Each call is now wrapped in a `try/catch` so a single malformed device only logs an error and the rest of the device list keeps initializing.
+- **Boolean `switch` values from Zigbee devices ignored**: some Zigbee devices (e.g. SWV-BSP UIID 7027) report state as `{"switch": true | false}` rather than the eWeLink-canonical `{"switch": "on" | "off"}`. `SwitchHelper.getCurrentState` strict-compared to the string `'on'`, so HomeKit never observed the device turning on via WebSocket updates. Comparison now accepts both forms.
+
 ## [1.0.36] - 2026-05-08
 
 ### Added

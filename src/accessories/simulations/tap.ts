@@ -64,7 +64,11 @@ export class TapAccessory extends BaseAccessory {
     if (!this.disableTimer) {
       // Set default duration
       this.service.updateCharacteristic(this.Characteristic.SetDuration, POLLING.VALVE_DEFAULT_DURATION_S);
-      this.service.addCharacteristic(this.Characteristic.RemainingDuration);
+      // RemainingDuration may already exist on a cached service from a prior run;
+      // unguarded addCharacteristic throws "duplicate UUID" and aborts discovery.
+      if (!this.service.testCharacteristic(this.Characteristic.RemainingDuration)) {
+        this.service.addCharacteristic(this.Characteristic.RemainingDuration);
+      }
 
       this.service.getCharacteristic(this.Characteristic.SetDuration)
         .onSet(this.setDuration.bind(this));

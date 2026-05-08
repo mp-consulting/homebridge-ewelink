@@ -357,9 +357,17 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
         await this.wsClient.connect();
       }
 
-      // Register/update accessories
+      // Register/update accessories. Wrap per-device so a bug initializing one
+      // accessory cannot abort the whole loop and leave later devices unhandled.
       for (const device of devices) {
-        await this.addAccessory(device);
+        try {
+          await this.addAccessory(device);
+        } catch (error) {
+          this.log.error(
+            `Failed to initialize accessory for ${device.name} [${device.deviceid}]: ` +
+              (error instanceof Error ? error.message : String(error)),
+          );
+        }
       }
 
       // Process device groups
