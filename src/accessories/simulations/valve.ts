@@ -30,6 +30,9 @@ export class ValveAccessory extends BaseAccessory {
   /** Duration in seconds for the currently running timer */
   private timerDuration?: number;
 
+  /** Interval that pushes RemainingDuration updates to HomeKit while the timer runs */
+  private remainingTick?: NodeJS.Timeout;
+
   /** Power monitoring support */
   private readonly powerReadings: boolean;
 
@@ -216,29 +219,50 @@ export class ValveAccessory extends BaseAccessory {
   /**
    * Start (or restart) the auto-off timer and record the start time so
    * RemainingDuration can be computed on demand when HomeKit re-reads it.
+   * Also push periodic RemainingDuration updates: iOS Home app caches the
+   * last notified value and counts down locally, so without periodic pushes
+   * the value it shows when the app is reopened is the original full duration.
    */
   private startTimer(duration: number): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-    }
+    this.clearTimerHandles();
     this.timerStartedAt = Date.now();
     this.timerDuration = duration;
     this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
     this.timer = setTimeout(() => {
       this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
     }, duration * 1000);
+    this.remainingTick = setInterval(() => {
+      const remaining = this.computeRemaining();
+      this.service.updateCharacteristic(this.Characteristic.RemainingDuration, remaining);
+    }, 1000);
   }
 
   /**
    * Clear the auto-off timer and forget its start time.
    */
   private clearTimer(): void {
+    this.clearTimerHandles();
+    this.timerStartedAt = undefined;
+    this.timerDuration = undefined;
+  }
+
+  private clearTimerHandles(): void {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = undefined;
     }
-    this.timerStartedAt = undefined;
-    this.timerDuration = undefined;
+    if (this.remainingTick) {
+      clearInterval(this.remainingTick);
+      this.remainingTick = undefined;
+    }
+  }
+
+  private computeRemaining(): number {
+    if (this.timerStartedAt === undefined || this.timerDuration === undefined) {
+      return 0;
+    }
+    const elapsed = (Date.now() - this.timerStartedAt) / 1000;
+    return Math.max(0, Math.round(this.timerDuration - elapsed));
   }
 
   /**
@@ -246,13 +270,7 @@ export class ValveAccessory extends BaseAccessory {
    * resumes the countdown correctly after the app is reopened.
    */
   private async getRemainingDuration(): Promise<CharacteristicValue> {
-    return this.handleGet(() => {
-      if (this.timerStartedAt === undefined || this.timerDuration === undefined) {
-        return 0;
-      }
-      const elapsed = (Date.now() - this.timerStartedAt) / 1000;
-      return Math.max(0, Math.round(this.timerDuration - elapsed));
-    }, 'RemainingDuration');
+    return this.handleGet(() => this.computeRemaining(), 'RemainingDuration');
   }
 
   /**

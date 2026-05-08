@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.39] - 2026-05-08
+
+### Fixed
+
+- **Valve timer still reset on Home app reopen after v1.0.38**: the v1.0.38 fix only added an `onGet` for `RemainingDuration`, but iOS Home app caches the last notified value and counts down locally rather than re-issuing a GET when reopened. `ValveAccessory` now also pushes `RemainingDuration` updates every second while the timer runs, so the cached/notified value iOS uses on reopen reflects the actual remaining time and the countdown resumes correctly.
+
 ## [1.0.38] - 2026-05-08
 
 ### Fixed
