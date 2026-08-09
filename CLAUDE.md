@@ -182,7 +182,7 @@ Every eWeLink device has a UIID that determines its type and capabilities. Devic
 ## Important Notes
 
 - **TypeScript**: ES modules, compiled to `dist/`
-- **Node.js**: ^20.18.0 || ^22.9.0 || ^24
+- **Node.js**: ^22.10.0 || ^24.0.0 || ^26.0.0
 - **Homebridge**: ^1.8.0 || ^2.0.0-beta.0
 - **Linting**: ESLint with strict rules, zero warnings allowed
 - **No test suite**: Manual testing required
