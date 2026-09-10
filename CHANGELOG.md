@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.46] - 2026-09-10
+
+### Changed
+
+- **Dropped the unused `crypto-js` dependency** (and its `@types/crypto-js` types): nothing in the plugin imported it, so it only added weight to every install.
+- **Dependencies**: Updated all dependencies to latest compatible versions, including `axios` ^1.20.0, `ws` ^8.21.3, `bonjour-service` ^1.4.4 and `@homebridge/plugin-ui-utils` ^2.2.6, plus dev-only major bumps for `vitest` (4→5) and `@types/node` (25→26).
+
 ## [1.0.45] - 2026-08-10
 
 ### Fixed
