@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
  */
 export class CryptoUtils {
   /**
-   * Generate a cryptographically secure random nonce string (8 hex bytes = 16 chars).
+   * Generate a cryptographically secure random nonce string (4 random bytes = 8 hex chars).
    * Used for API authentication and WebSocket connections.
    */
   static generateNonce(): string {

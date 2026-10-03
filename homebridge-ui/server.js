@@ -62,11 +62,11 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
       const api = await this.createApi(payload);
       await api.login();
 
+      // refreshToken is deliberately not sent to the browser
       return {
         success: true,
         apiKey: api.apiKey,
         accessToken: api.accessToken,
-        refreshToken: api.refreshToken,
         region: api.region,
       };
     } catch (error) {
@@ -83,14 +83,14 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
       const storage = new TokenStorage(this.homebridgeStoragePath);
       const tokens = storage.load();
 
-      if (!tokens || !storage.isValid()) {
+      if (!tokens || !storage.isValid(tokens)) {
         return { success: false, message: 'No valid session found' };
       }
 
+      // refreshToken is deliberately not sent to the browser
       return {
         success: true,
         accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
         apiKey: tokens.apiKey,
         region: tokens.region,
       };

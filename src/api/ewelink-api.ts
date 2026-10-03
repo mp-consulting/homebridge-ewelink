@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axios from 'axios';
 import { createHmac } from 'crypto';
 import type { EWeLinkPlatform } from '../platform.js';
@@ -14,6 +14,18 @@ import type {
   RefreshTokenResponse,
 } from '../types/index.js';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** Set once a request has been retried after a token refresh */
+    _retry?: boolean;
+    /** Never attempt a token refresh for this request (login/refresh calls) */
+    _skipAuthRefresh?: boolean;
+  }
+}
+
+/** eWeLink v2 body-level error codes meaning the access token is invalid or expired */
+const TOKEN_ERROR_CODES = [401, 402];
+
 /**
  * eWeLink HTTP API Client
  */
@@ -21,19 +33,27 @@ export class EWeLinkAPI {
   private readonly platform: EWeLinkPlatform;
   private readonly httpClient: AxiosInstance;
   private httpHost: string;
-  private readonly tokenStorage: TokenStorage;
+  private readonly tokenStorage: TokenStorage | null;
   public apiKey = '';
   public accessToken = '';
   public refreshToken = '';
   public region: keyof typeof API_REGIONS;
   private triedBase64 = false;
+  /** In-flight token refresh, shared by concurrent requests that hit an auth error */
+  private refreshPromise: Promise<void> | null = null;
 
   constructor(platform: EWeLinkPlatform) {
     this.platform = platform;
 
-    // Initialize token storage
-    const storagePath = platform.api?.user?.storagePath?.() || platform.api?.user?.persistPath?.() || '/tmp';
-    this.tokenStorage = new TokenStorage(storagePath);
+    // Initialize token storage (disabled when no Homebridge storage path is available,
+    // e.g. when instantiated by the UI server)
+    const storagePath = platform.api?.user?.storagePath?.() || platform.api?.user?.persistPath?.();
+    if (storagePath) {
+      this.tokenStorage = new TokenStorage(storagePath);
+    } else {
+      this.tokenStorage = null;
+      platform.log.debug('No Homebridge storage path available - token persistence disabled');
+    }
 
     // Determine region from country code
     this.region = getRegionFromCountryCode(platform.config.countryCode) as keyof typeof API_REGIONS;
@@ -50,27 +70,73 @@ export class EWeLinkAPI {
     });
 
     // Add response interceptor for token refresh
+    // eWeLink v2 usually reports expired tokens as HTTP 200 with body `error: 401/402`,
+    // but a plain HTTP 401 is handled as well
     this.httpClient.interceptors.response.use(
-      (response) => response,
+      async (response) => {
+        if (TOKEN_ERROR_CODES.includes(response.data?.error) && this.canRefresh(response.config)) {
+          this.platform.log.debug(`Access token rejected (error ${response.data.error}), refreshing...`);
+          return this.retryWithFreshToken(response.config);
+        }
+        return response;
+      },
       async (error) => {
         const originalRequest = error.config;
 
         // If 401 and we haven't retried yet, refresh token
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-
-          try {
-            await this.refreshAccessToken();
-            originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
-            return this.httpClient(originalRequest);
-          } catch (refreshError) {
-            return Promise.reject(refreshError);
-          }
+        if (error.response?.status === 401 && this.canRefresh(originalRequest)) {
+          return this.retryWithFreshToken(originalRequest);
         }
 
         return Promise.reject(error);
       },
     );
+  }
+
+  /**
+   * Whether a failed request is eligible for a token refresh + retry
+   */
+  private canRefresh(config: AxiosRequestConfig | undefined): config is AxiosRequestConfig {
+    return !!config && !config._retry && !config._skipAuthRefresh && !!this.refreshToken;
+  }
+
+  /**
+   * Refresh the access token and replay the original request once
+   * Rejects with the refresh error if the refresh fails
+   */
+  private async retryWithFreshToken(config: AxiosRequestConfig): Promise<AxiosResponse> {
+    config._retry = true;
+    await this.refreshAccessToken();
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${this.accessToken}`;
+    return this.httpClient(config);
+  }
+
+  /**
+   * Switch API region and point the HTTP client at the matching host
+   */
+  private applyRegion(region: string): void {
+    if (!(region in API_REGIONS)) {
+      throw new Error(`Unknown region received: ${region}`);
+    }
+    this.region = region as keyof typeof API_REGIONS;
+    this.httpHost = API_REGIONS[this.region].httpHost;
+    this.httpClient.defaults.baseURL = `https://${this.httpHost}`;
+  }
+
+  /**
+   * Persist current tokens to shared storage (no-op when persistence is disabled)
+   */
+  private persistTokens(): void {
+    if (!this.tokenStorage) {
+      return;
+    }
+    this.tokenStorage.save({
+      accessToken: this.accessToken,
+      refreshToken: this.refreshToken,
+      apiKey: this.apiKey,
+      region: this.region,
+    });
   }
 
   /**
@@ -150,6 +216,7 @@ export class EWeLinkAPI {
             'X-CK-Nonce': nonce,
             'Authorization': `Sign ${signature}`,
           },
+          _skipAuthRefresh: true,
         },
       );
 
@@ -165,21 +232,8 @@ export class EWeLinkAPI {
         const givenRegion = body.data.region as string;
         this.platform.log.info(`Region redirect required: ${this.httpHost} -> ${givenRegion}`);
 
-        // Update http host based on region
-        switch (givenRegion) {
-          case 'eu':
-          case 'us':
-          case 'as':
-            this.httpHost = `${givenRegion}-apia.coolkit.cc`;
-            break;
-          case 'cn':
-            this.httpHost = 'cn-apia.coolkit.cn';
-            break;
-          default:
-            throw new Error(`Unknown region received: ${givenRegion}`);
-        }
-
-        this.httpClient.defaults.baseURL = `https://${this.httpHost}`;
+        // Update region and http host
+        this.applyRegion(givenRegion);
         this.platform.log.debug(`Retrying login with new host: ${this.httpHost}`);
         return await this.login();
       }
@@ -210,12 +264,7 @@ export class EWeLinkAPI {
         this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
 
         // Save tokens to shared storage
-        this.tokenStorage.save({
-          accessToken: this.accessToken,
-          refreshToken: this.refreshToken,
-          apiKey: this.apiKey,
-          region: this.region,
-        });
+        this.persistTokens();
         this.platform.log.debug('Tokens saved to shared storage');
 
         this.platform.log.info('✓ Successfully logged in to eWeLink');
@@ -223,23 +272,25 @@ export class EWeLinkAPI {
         return;
       }
 
-      // Handle other errors
-      this.platform.log.error('Login failed - no access token in response');
+      // Handle other errors (full body only at debug level - it may contain account details)
+      this.platform.log.error(`Login failed - no access token in response (error ${body.error})`);
+      this.platform.log.debug(`Login response body: ${JSON.stringify(body)}`);
       if (body.msg) {
         throw new Error(`${body.msg} [${body.error}]`);
       } else {
-        throw new Error(`Login failed: ${JSON.stringify(body)}`);
+        throw new Error(`Login failed: unexpected response [${body.error}]`);
       }
 
     } catch (error) {
       this.platform.log.debug('=== LOGIN END (ERROR) ===');
       if (axios.isAxiosError(error)) {
-        this.platform.log.error('HTTP Error Details:');
-        this.platform.log.error(`  Status: ${error.response?.status}`);
-        this.platform.log.error(`  Status Text: ${error.response?.statusText}`);
-        this.platform.log.error(`  Response Data: ${JSON.stringify(error.response?.data, null, 2)}`);
-        this.platform.log.error(`  Request URL: ${error.config?.url}`);
-        this.platform.log.error(`  Request Method: ${error.config?.method}`);
+        this.platform.log.error(
+          `Login HTTP error: ${error.response?.status ?? 'no response'} ${error.response?.statusText ?? ''} - ` +
+          `${error.response?.data?.msg || error.message}` +
+          (error.response?.data?.error !== undefined ? ` [${error.response.data.error}]` : ''),
+        );
+        this.platform.log.debug(`  Response Data: ${JSON.stringify(error.response?.data, null, 2)}`);
+        this.platform.log.debug(`  Request: ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
         throw new Error(`Login failed: ${error.response?.data?.msg || error.message}`, { cause: error });
       }
       this.platform.log.error(`Non-HTTP Error: ${error}`);
@@ -249,22 +300,39 @@ export class EWeLinkAPI {
 
   /**
    * Refresh access token
+   * Single-flight: concurrent callers share the same in-flight refresh
    */
-  private async refreshAccessToken(): Promise<void> {
+  private refreshAccessToken(): Promise<void> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.performTokenRefresh().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
+  }
+
+  /**
+   * Perform the refresh request (bypasses the auth-refresh interceptor to avoid loops)
+   */
+  private async performTokenRefresh(): Promise<void> {
     const response = await this.httpClient.post<APIResponse<RefreshTokenResponse>>(
       '/v2/user/refresh',
       {
         rt: this.refreshToken,
       },
+      {
+        _skipAuthRefresh: true,
+      },
     );
 
-    if (response.data.error !== 0) {
-      throw new Error('Failed to refresh token');
+    if (response.data.error !== 0 || !response.data.data?.at) {
+      throw new Error(`Failed to refresh token [${response.data.error}]`);
     }
 
-    this.accessToken = response.data.data!.at;
-    this.refreshToken = response.data.data!.rt;
+    this.accessToken = response.data.data.at;
+    this.refreshToken = response.data.data.rt;
     this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
+    this.persistTokens();
 
     this.platform.log.debug('Token refreshed successfully');
   }
@@ -530,9 +598,9 @@ export class EWeLinkAPI {
    * Reload tokens from storage (for use when UI updates tokens)
    */
   async reloadTokensFromStorage(): Promise<boolean> {
-    const tokens = this.tokenStorage.load();
+    const tokens = this.tokenStorage?.loadValid() ?? null;
 
-    if (!tokens || !this.tokenStorage.isValid()) {
+    if (!tokens) {
       this.platform.log.debug('No valid tokens found in storage');
       return false;
     }
@@ -541,7 +609,13 @@ export class EWeLinkAPI {
     this.accessToken = tokens.accessToken;
     this.refreshToken = tokens.refreshToken;
     this.apiKey = tokens.apiKey;
-    this.region = tokens.region as keyof typeof API_REGIONS;
+    if (tokens.region && tokens.region !== this.region) {
+      if (tokens.region in API_REGIONS) {
+        this.applyRegion(tokens.region);
+      } else {
+        this.platform.log.debug(`Ignoring unknown region in stored tokens: ${tokens.region}`);
+      }
+    }
 
     // Update HTTP client
     this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
@@ -553,13 +627,16 @@ export class EWeLinkAPI {
   /**
    * Set authentication credentials (for use by UI server)
    */
-  setCredentials(accessToken: string, apiKey?: string, refreshToken?: string): void {
+  setCredentials(accessToken: string, apiKey?: string, refreshToken?: string, region?: string): void {
     this.accessToken = accessToken;
     if (apiKey) {
       this.apiKey = apiKey;
     }
     if (refreshToken) {
       this.refreshToken = refreshToken;
+    }
+    if (region && region !== this.region && region in API_REGIONS) {
+      this.applyRegion(region);
     }
     this.httpClient.defaults.headers.common.Authorization = `Bearer ${this.accessToken}`;
   }

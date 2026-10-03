@@ -12,6 +12,13 @@ import { CHANNEL_SUFFIX_PATTERN } from '../constants/device-constants.js';
  * WebSocket client for real-time device updates
  */
 export class WSClient {
+  /** Upper bound for the reconnect backoff delay */
+  private static readonly MAX_RECONNECT_DELAY_MS = 300000;
+  /** Random +/- fraction applied to reconnect delays to avoid thundering herds */
+  private static readonly RECONNECT_JITTER = 0.2;
+  /** Rejection message for requests already sent when the socket closed (not safe to resend) */
+  static readonly IN_FLIGHT_LOST_MESSAGE = 'WebSocket closed before response';
+
   private readonly platform: EWeLinkPlatform;
   private ws: WebSocket | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -20,7 +27,19 @@ export class WSClient {
   private reconnecting = false;
   private connected = false;
   private reconnectAttempts = 0;
+  /** After this many attempts, keep retrying at the maximum backoff delay */
   private maxReconnectAttempts = 10;
+  /**
+   * Set by disconnect() - suppresses any further reconnects until start() or connect() is
+   * called. Internal reconnect paths never clear it.
+   */
+  private stopped = false;
+  /** Time of the last message received (any message counts as liveness) */
+  private lastMessageAt = 0;
+  /** Last sequence number issued (keeps sequences unique and increasing) */
+  private lastSequence = 0;
+  /** Reject function of an in-progress connect(), so disconnect() can abort it */
+  private pendingConnectReject: ((reason: Error) => void) | null = null;
   private pendingRequests: Map<string, {
     resolve: (value: boolean) => void;
     reject: (reason?: unknown) => void;
@@ -32,56 +51,160 @@ export class WSClient {
   }
 
   /**
-   * Connect to WebSocket server
+   * Connect in the background: on failure, keep retrying with backoff until
+   * connected or disconnect() is called. Never rejects; resolves once the first
+   * attempt has settled (successfully or not).
+   */
+  async start(): Promise<void> {
+    this.stopped = false;
+    try {
+      await this.openSocket();
+    } catch (error) {
+      if (this.stopped) {
+        return;
+      }
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const tokenInvalidated = (error instanceof WebSocketAuthError && error.code === 406)
+        || errorMessage.includes('AUTH_TOKEN_INVALIDATED');
+      this.platform.log.warn(`WebSocket connection failed: ${errorMessage} - retrying in the background`);
+      this.scheduleReconnect(tokenInvalidated);
+    }
+  }
+
+  /**
+   * Connect to WebSocket server (explicit user call: re-enables reconnects after disconnect())
    */
   async connect(): Promise<void> {
+    this.stopped = false;
+    return this.openSocket();
+  }
+
+  /**
+   * Open and authenticate a socket. Does not touch `stopped`, so a reconnect racing with
+   * disconnect() cannot revive the client.
+   */
+  private async openSocket(): Promise<void> {
     if (!this.platform.ewelinkApi) {
       throw new Error('API not initialized');
     }
 
     const wsHost = await this.platform.ewelinkApi.getWsHost();
+    if (this.stopped) {
+      throw new Error('WebSocket disconnected');
+    }
     this.platform.log.debug('Connecting to WebSocket:', wsHost);
 
-    return new Promise((resolve, reject) => {
+    // Never leave a previous socket (and its listeners) alive
+    this.closeSocket();
+    this.connected = false;
+
+    return new Promise<void>((resolve, reject) => {
+      const settle = (error?: Error) => {
+        this.pendingConnectReject = null;
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+      this.pendingConnectReject = settle;
+
       try {
-        this.ws = new WebSocket(wsHost, {
+        const ws = new WebSocket(wsHost, {
           handshakeTimeout: 30000,
         });
+        this.ws = ws;
 
-        this.ws.on('open', () => {
+        ws.on('open', () => {
           this.platform.log.debug('WebSocket connection opened');
           this.authenticate()
             .then(() => {
               this.connected = true;
               this.reconnectAttempts = 0; // Reset on successful connection
               this.startHeartbeat();
-              resolve();
+              settle();
             })
-            .catch(reject);
+            .catch((error: Error) => {
+              // Tear down the half-open socket; the caller decides whether to retry
+              if (this.ws === ws) {
+                this.closeSocket();
+              }
+              settle(error);
+            });
         });
 
-        this.ws.on('message', (data) => {
+        ws.on('message', (data) => {
+          this.lastMessageAt = Date.now();
           this.handleMessage(data.toString());
         });
 
-        this.ws.on('error', (error) => {
+        ws.on('error', (error) => {
           this.platform.log.error('WebSocket error:', error.message);
           if (!this.connected) {
-            reject(error);
+            settle(error);
           }
         });
 
-        this.ws.on('close', (code, reason) => {
+        ws.on('close', (code, reason) => {
           this.platform.log.debug('WebSocket closed:', code, reason.toString());
           this.connected = false;
           this.stopHeartbeat();
-          this.scheduleReconnect();
+          // These requests were already sent: the device may have executed them, so they
+          // must not be resent blindly (see CommandDispatcher retry rules)
+          this.rejectPendingRequests(new Error(WSClient.IN_FLIGHT_LOST_MESSAGE));
+          if (this.ws === ws) {
+            this.ws = null;
+          }
+          if (!this.stopped) {
+            this.scheduleReconnect();
+          }
         });
 
       } catch (error) {
-        reject(error);
+        settle(error instanceof Error ? error : new Error(String(error)));
       }
     });
+  }
+
+  /**
+   * Detach listeners from the current socket and terminate it
+   */
+  private closeSocket(): void {
+    const ws = this.ws;
+    if (!ws) {
+      return;
+    }
+    this.ws = null;
+    ws.removeAllListeners();
+    // ws may emit 'error' while aborting a handshake - swallow it instead of crashing
+    ws.on('error', () => {});
+    ws.terminate();
+  }
+
+  /**
+   * Reject and clear all in-flight command/query requests
+   */
+  private rejectPendingRequests(reason: Error): void {
+    for (const [, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(reason);
+    }
+    this.pendingRequests.clear();
+  }
+
+  /**
+   * Generate a unique, increasing sequence number (millisecond timestamp format)
+   */
+  private nextSequence(): string {
+    this.lastSequence = Math.max(Date.now(), this.lastSequence + 1);
+    return String(this.lastSequence);
+  }
+
+  /**
+   * Whether the socket is authenticated and open for sending
+   */
+  private isSocketReady(): boolean {
+    return this.connected && this.ws?.readyState === WebSocket.OPEN;
   }
 
   /**
@@ -103,11 +226,12 @@ export class WSClient {
       nonce,
       ts: timestamp,
       userAgent: 'app',
-      sequence: String(Date.now()),
+      sequence: this.nextSequence(),
       version: 8,
     };
 
     return new Promise((resolve, reject) => {
+      // On timeout the caller (connect) tears the socket down, removing handleAuth with it
       const timeout = setTimeout(() => {
         reject(new Error('Authentication timeout'));
       }, API_TIMEOUTS.WEBSOCKET_AUTH);
@@ -230,7 +354,7 @@ export class WSClient {
    * Send command to device
    */
   async sendCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
-    if (!this.ws || !this.connected || !this.platform.ewelinkApi) {
+    if (!this.isSocketReady() || !this.platform.ewelinkApi) {
       this.platform.log.warn(`Cannot send command to ${deviceId}: WebSocket not ready`);
       return false;
     }
@@ -244,7 +368,7 @@ export class WSClient {
       return false;
     }
 
-    const sequence = String(Date.now());
+    const sequence = this.nextSequence();
 
     const message = {
       action: 'update',
@@ -284,9 +408,19 @@ export class WSClient {
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
+    this.lastMessageAt = Date.now();
 
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.connected) {
+        // Nothing received for two intervals - the connection is dead even if TCP hasn't noticed.
+        // Terminating triggers the close handler, which schedules a reconnect.
+        const silenceMs = Date.now() - this.lastMessageAt;
+        if (silenceMs > this.heartbeatIntervalMs * 2) {
+          this.platform.log.warn(`WebSocket silent for ${Math.round(silenceMs / 1000)}s, reconnecting...`);
+          this.ws.terminate();
+          return;
+        }
+
         this.ws.send('ping');
         this.platform.log.debug('Heartbeat ping sent');
       }
@@ -307,32 +441,38 @@ export class WSClient {
    * Schedule reconnection
    */
   private scheduleReconnect(forceLogin = false): void {
-    if (this.reconnecting) {
-      return;
-    }
-
-    // Check if max reconnect attempts reached
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.platform.log.error(
-        `WebSocket max reconnection attempts (${this.maxReconnectAttempts}) reached. ` +
-        'Please check your credentials or restart Homebridge.',
-      );
+    if (this.reconnecting || this.stopped) {
       return;
     }
 
     this.reconnecting = true;
     this.reconnectAttempts++;
 
-    // Exponential backoff: 5s, 10s, 20s, 40s, 80s, ... (capped at 300s)
+    // Never give up: past the max attempts, keep retrying at the capped delay
+    if (this.reconnectAttempts === this.maxReconnectAttempts + 1) {
+      this.platform.log.error(
+        `WebSocket still disconnected after ${this.maxReconnectAttempts} attempts. ` +
+        `Will keep retrying every ~${WSClient.MAX_RECONNECT_DELAY_MS / 1000}s - please check your credentials and network.`,
+      );
+    }
+
+    // Exponential backoff: 5s, 10s, 20s, 40s, 80s, ... (capped at 300s), with +/-20% jitter
     const baseDelay = NETWORK_INTERVALS.WEBSOCKET_RECONNECT;
-    const backoffDelay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), 300000);
+    const exponent = Math.min(this.reconnectAttempts - 1, this.maxReconnectAttempts);
+    const backoffDelay = Math.min(baseDelay * Math.pow(2, exponent), WSClient.MAX_RECONNECT_DELAY_MS);
+    const delay = Math.round(backoffDelay * (1 - WSClient.RECONNECT_JITTER + Math.random() * 2 * WSClient.RECONNECT_JITTER));
 
     this.platform.log.info(
-      `Scheduling WebSocket reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} ` +
-      `in ${Math.round(backoffDelay / 1000)}s...`,
+      `Scheduling WebSocket reconnection attempt ${this.reconnectAttempts} ` +
+      `in ${Math.round(delay / 1000)}s...`,
     );
 
     this.reconnectTimeout = setTimeout(async () => {
+      this.reconnectTimeout = null;
+      if (this.stopped) {
+        this.reconnecting = false;
+        return;
+      }
       this.platform.log.info('Attempting to reconnect to WebSocket...');
 
       try {
@@ -348,9 +488,19 @@ export class WSClient {
           }
         }
 
-        await this.connect();
+        // disconnect() may have been called while logging in / reloading tokens
+        if (this.stopped) {
+          this.reconnecting = false;
+          return;
+        }
+
+        await this.openSocket();
         this.reconnecting = false;
       } catch (error) {
+        if (this.stopped) {
+          this.reconnecting = false;
+          return;
+        }
         const errorMessage = error instanceof Error ? error.message : String(error);
         const isAuthError = error instanceof WebSocketAuthError;
 
@@ -368,13 +518,15 @@ export class WSClient {
           this.scheduleReconnect(false); // Normal retry
         }
       }
-    }, backoffDelay);
+    }, delay);
   }
 
   /**
    * Disconnect from WebSocket
    */
   disconnect(): void {
+    this.stopped = true;
+    this.reconnecting = false;
     this.stopHeartbeat();
 
     if (this.reconnectTimeout) {
@@ -382,19 +534,13 @@ export class WSClient {
       this.reconnectTimeout = null;
     }
 
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
+    // Detach listeners first so the close event cannot schedule a reconnect
+    this.closeSocket();
     this.connected = false;
 
-    // Reject all pending requests
-    for (const [, pending] of this.pendingRequests) {
-      clearTimeout(pending.timeout);
-      pending.reject(new Error('WebSocket disconnected'));
-    }
-    this.pendingRequests.clear();
+    // Abort an in-progress connect() and reject all pending requests
+    this.pendingConnectReject?.(new Error('WebSocket disconnected'));
+    this.rejectPendingRequests(new Error('WebSocket disconnected'));
   }
 
   /**
@@ -410,7 +556,7 @@ export class WSClient {
   async queryDeviceState(deviceId: string): Promise<boolean> {
     const displayName = this.platform.getDeviceDisplayName(deviceId);
 
-    if (!this.ws || !this.connected || !this.platform.ewelinkApi) {
+    if (!this.isSocketReady() || !this.platform.ewelinkApi) {
       this.platform.log.warn(`Cannot query device ${displayName}: WebSocket not connected`);
       return false;
     }
@@ -421,7 +567,7 @@ export class WSClient {
       return false;
     }
 
-    const sequence = String(Date.now());
+    const sequence = this.nextSequence();
     const message = {
       action: 'query',
       apikey: apiKey,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import crypto from 'crypto';
 import { createMockPlatform } from '../__mocks__/homebridge.js';
 
 // Use globalThis for shared mock state (accessible from mocks)
@@ -516,21 +517,45 @@ describe('LANControl', () => {
       expect(typeof body.data).toBe('string'); // encrypted base64
     });
 
-    it('should not encrypt when deviceKey is missing', async () => {
-      // Register device with encryption but no key
+    it('should fall back to cloud instead of sending plaintext when the deviceKey is unknown', async () => {
+      // Register device with encryption but no key (and none in the device cache)
       lanControl.registerDevice('no-key-device', '192.168.1.100', 8081, '', true);
+
+      await expect(lanControl.sendCommand('no-key-device', { switch: 'on' })).resolves.toBe(false);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should resolve a missing deviceKey lazily from the device cache when sending', async () => {
+      lanControl.registerDevice('late-key-device', '192.168.1.100', 8081, '', true);
+      // Cloud discovery fills the device cache after LAN registration
+      mockPlatform.deviceCache.set('late-key-device', { name: 'Late', devicekey: 'late-key' } as any);
 
       (global.fetch as any).mockResolvedValueOnce({
         json: () => Promise.resolve({ error: 0 }),
       });
 
-      await lanControl.sendCommand('no-key-device', { switch: 'on' });
+      await expect(lanControl.sendCommand('late-key-device', { switch: 'on' })).resolves.toBe(true);
 
-      const fetchCall = (global.fetch as any).mock.calls[0];
-      const body = JSON.parse(fetchCall[1].body);
+      const body = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+      expect(body.encrypt).toBe(true);
+      expect(lanControl.getLanDevice('late-key-device')?.deviceKey).toBe('late-key');
+    });
 
-      // Without a device key, encryption is skipped
-      expect(body.encrypt).toBeUndefined();
+    it('should fill a missing deviceKey on an existing entry when registered again', () => {
+      lanControl.registerDevice('refill-device', '192.168.1.100', 8081, '', true);
+      lanControl.registerDevice('refill-device', '192.168.1.200', 9999, 'fresh-key', true);
+
+      const device = lanControl.getLanDevice('refill-device');
+      expect(device?.deviceKey).toBe('fresh-key');
+      // Address of the existing entry is kept
+      expect(device?.ip).toBe('192.168.1.100');
+    });
+
+    it('should not overwrite a known deviceKey when registered again', () => {
+      lanControl.registerDevice('keyed-device', '192.168.1.100', 8081, 'original-key', true);
+      lanControl.registerDevice('keyed-device', '192.168.1.100', 8081, 'other-key', true);
+
+      expect(lanControl.getLanDevice('keyed-device')?.deviceKey).toBe('original-key');
     });
   });
 
@@ -557,6 +582,40 @@ describe('LANControl', () => {
       const device = lanControl.getLanDevice('1001edbf36');
       expect(device?.ip).toBe('192.168.1.150');
       expect(device?.port).toBe(8081);
+    });
+
+    it('should fill a missing device key when the service is re-announced after cloud login', async () => {
+      // mDNS finds the device before cloud discovery: no key in the cache yet
+      await lanControl.start();
+      const announce = () => mockState.bonjourServiceCallback!({
+        name: 'eWeLink_1001edbf36',
+        addresses: ['192.168.1.150'],
+        port: 8081,
+        txt: { encrypt: 'true' },
+      });
+      announce();
+      expect(lanControl.getLanDevice('1001edbf36')?.deviceKey).toBeUndefined();
+
+      // Same ip/port re-announcement once the cloud filled the cache
+      mockPlatform.deviceCache.set('1001edbf36', { name: 'mDNS Device', devicekey: 'mdns-device-key' } as any);
+      announce();
+      expect(lanControl.getLanDevice('1001edbf36')?.deviceKey).toBe('mdns-device-key');
+    });
+
+    it('should fill a missing device key on an mDNS entry from API registration, keeping its encrypt flag', async () => {
+      await lanControl.start();
+      mockState.bonjourServiceCallback!({
+        name: 'eWeLink_1001edbf36',
+        addresses: ['192.168.1.150'],
+        port: 8081,
+        txt: { encrypt: 'true' },
+      });
+
+      lanControl.registerDevice('1001edbf36', '192.168.1.150', 8081, 'api-key', true);
+
+      const device = lanControl.getLanDevice('1001edbf36');
+      expect(device?.deviceKey).toBe('api-key');
+      expect(device?.encrypt).toBe(true);
     });
 
     it('should prefer IPv4 addresses', async () => {
@@ -781,6 +840,209 @@ describe('LANControl', () => {
       }
 
       expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+    });
+  });
+  describe('UDP message validation', () => {
+    // Mirror of the device-side AES-128-CBC scheme (key = md5(deviceKey))
+    const encryptForDevice = (params: object, deviceKey: string) => {
+      const iv = crypto.randomBytes(16);
+      const key = crypto.createHash('md5').update(Buffer.from(deviceKey)).digest();
+      const cipher = crypto.createCipheriv('aes-128-cbc', key, iv);
+      const data = cipher.update(JSON.stringify(params), 'utf8', 'base64') + cipher.final('base64');
+      return { data, iv: iv.toString('base64') };
+    };
+
+    const sendUdp = (payload: object, address = '192.168.1.100') => {
+      mockState.udpMessageCallback!(Buffer.from(JSON.stringify(payload)), { address, port: 8082 });
+    };
+
+    it('should ignore UDP updates from an address other than the device IP', async () => {
+      lanControl.registerDevice('test-udp-device', '192.168.1.100', 8081, 'device-key', false);
+      await lanControl.start();
+
+      sendUdp({ deviceid: 'test-udp-device', action: 'update', params: { switch: 'on' } }, '192.168.1.66');
+
+      expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+      expect(mockPlatform.log.debug).toHaveBeenCalledWith(expect.stringContaining('unexpected address'));
+    });
+
+    it('should drop plaintext params for an encrypted device', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, 'device-key', true);
+      await lanControl.start();
+
+      sendUdp({ deviceid: 'enc-device', action: 'update', params: { switch: 'on' } });
+
+      expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+      expect(mockPlatform.log.debug).toHaveBeenCalledWith(expect.stringContaining('Dropping unencrypted'));
+    });
+
+    it('should accept a correctly encrypted update for an encrypted device', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, 'device-key', true);
+      await lanControl.start();
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'device-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv, params: { switch: 'on' } });
+
+      expect(mockPlatform.handleDeviceUpdate).toHaveBeenCalledWith('enc-device', { switch: 'off' });
+    });
+
+    it('should drop an encrypted update that fails to decrypt', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, 'device-key', true);
+      await lanControl.start();
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'wrong-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv, params: { switch: 'on' } });
+
+      expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should drop encrypted-device updates when no device key is known', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, '', true);
+      await lanControl.start();
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'device-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv });
+
+      expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should resolve a missing device key lazily from the device cache for UDP updates', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, '', true);
+      await lanControl.start();
+      mockPlatform.deviceCache.set('enc-device', { name: 'Enc', devicekey: 'device-key' } as any);
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'device-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv });
+
+      expect(mockPlatform.handleDeviceUpdate).toHaveBeenCalledWith('enc-device', { switch: 'off' });
+    });
+
+    it('should accept an authenticated encrypted update from a new address and follow it', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, 'device-key', true);
+      await lanControl.start();
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'device-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv }, '192.168.1.77');
+
+      expect(mockPlatform.handleDeviceUpdate).toHaveBeenCalledWith('enc-device', { switch: 'off' });
+      expect(lanControl.getLanDevice('enc-device')?.ip).toBe('192.168.1.77');
+      expect(mockPlatform.log.debug).toHaveBeenCalledWith(expect.stringContaining('address changed'));
+    });
+
+    it('should not follow a new address when the encrypted update fails to decrypt', async () => {
+      lanControl.registerDevice('enc-device', '192.168.1.100', 8081, 'device-key', true);
+      await lanControl.start();
+
+      const { data, iv } = encryptForDevice({ switch: 'off' }, 'wrong-key');
+      sendUdp({ deviceid: 'enc-device', action: 'update', encrypt: true, data, iv }, '192.168.1.77');
+
+      expect(mockPlatform.handleDeviceUpdate).not.toHaveBeenCalled();
+      expect(lanControl.getLanDevice('enc-device')?.ip).toBe('192.168.1.100');
+    });
+  });
+
+  describe('stale LAN entries / cooldown', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      lanControl.registerDevice('test-device', '192.168.1.100', 8081, 'device-key', false);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const failNext = (times: number) => {
+      for (let i = 0; i < times; i++) {
+        (global.fetch as any).mockRejectedValueOnce(new Error('timeout'));
+      }
+    };
+
+    it('should skip LAN for 60s after 3 consecutive failures', async () => {
+      failNext(3);
+      for (let i = 0; i < 3; i++) {
+        expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(false);
+      }
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+
+      // In cooldown: returns false without touching the network
+      expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(false);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+
+      // After cooldown LAN is tried again
+      vi.advanceTimersByTime(60000);
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+      expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(true);
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('should reset the failure count after a successful command', async () => {
+      failNext(2);
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+
+      failNext(2);
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+
+      // Only 2 failures since the success - still not in cooldown
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+      expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(true);
+      expect(global.fetch).toHaveBeenCalledTimes(6);
+    });
+
+    it('should count device error responses as failures', async () => {
+      for (let i = 0; i < 3; i++) {
+        (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 500 }) });
+        await lanControl.sendCommand('test-device', { switch: 'on' });
+      }
+
+      expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(false);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should enter cooldown on a Bonjour down event and leave it on the next up event', async () => {
+      await lanControl.start();
+      // mDNS service names carry hex device ids
+      mockPlatform.deviceCache.set('1001edbf36', { name: 'Hex Device' } as any);
+      const hexService = { name: 'eWeLink_1001edbf36', addresses: ['192.168.1.150'], port: 8081, txt: {} };
+      mockState.bonjourServiceCallback!(hexService);
+
+      mockState.bonjourDownCallback!(hexService);
+      expect(await lanControl.sendCommand('1001edbf36', { switch: 'on' })).toBe(false);
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      mockState.bonjourServiceCallback!(hexService);
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+      expect(await lanControl.sendCommand('1001edbf36', { switch: 'on' })).toBe(true);
+    });
+
+    it('should leave cooldown when a valid UDP update arrives', async () => {
+      await lanControl.start();
+      failNext(3);
+      for (let i = 0; i < 3; i++) {
+        await lanControl.sendCommand('test-device', { switch: 'on' });
+      }
+
+      mockState.udpMessageCallback!(
+        Buffer.from(JSON.stringify({ deviceid: 'test-device', action: 'update', params: { switch: 'on' } })),
+        { address: '192.168.1.100', port: 8082 },
+      );
+
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+      expect(await lanControl.sendCommand('test-device', { switch: 'on' })).toBe(true);
+    });
+
+    it('should use the LAN HTTP timeout constant', async () => {
+      const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+      (global.fetch as any).mockResolvedValueOnce({ json: () => Promise.resolve({ error: 0 }) });
+
+      await lanControl.sendCommand('test-device', { switch: 'on' });
+
+      expect(timeoutSpy).toHaveBeenCalledWith(3000);
+      timeoutSpy.mockRestore();
     });
   });
 });

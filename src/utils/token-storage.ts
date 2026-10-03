@@ -1,4 +1,4 @@
-import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, chmodSync } from 'fs';
 import { join } from 'path';
 
 export interface StoredTokens {
@@ -8,6 +8,12 @@ export interface StoredTokens {
   region: string;
   timestamp: number;
 }
+
+/** Owner read/write only - the file contains account credentials */
+const TOKEN_FILE_MODE = 0o600;
+
+/** Maximum age of stored tokens before they are considered stale (24 hours) */
+const TOKEN_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Simple file-based token storage for sharing between plugin and UI
@@ -29,7 +35,7 @@ export class TokenStorage {
     };
 
     try {
-      writeFileSync(this.storagePath, JSON.stringify(data, null, 2), 'utf8');
+      this.writeSecure(JSON.stringify(data, null, 2));
     } catch (error) {
       console.error('Failed to save tokens:', error);
     }
@@ -53,18 +59,24 @@ export class TokenStorage {
   }
 
   /**
-   * Check if stored tokens are still valid (not older than 24 hours)
+   * Load tokens only if they are still valid (single file read)
    */
-  isValid(): boolean {
+  loadValid(): StoredTokens | null {
     const tokens = this.load();
-    if (!tokens) {
+    return this.isValid(tokens) ? tokens : null;
+  }
+
+  /**
+   * Check if stored tokens are still valid (not older than 24 hours)
+   * Pass already-loaded tokens to avoid reading the file again
+   */
+  isValid(tokens: StoredTokens | null = this.load()): boolean {
+    if (!tokens || typeof tokens.timestamp !== 'number') {
       return false;
     }
 
     const age = Date.now() - tokens.timestamp;
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-
-    return age < maxAge;
+    return age < TOKEN_MAX_AGE_MS;
   }
 
   /**
@@ -73,10 +85,19 @@ export class TokenStorage {
   clear(): void {
     try {
       if (existsSync(this.storagePath)) {
-        writeFileSync(this.storagePath, '{}', 'utf8');
+        this.writeSecure('{}');
       }
     } catch (error) {
       console.error('Failed to clear tokens:', error);
     }
+  }
+
+  /**
+   * Write the token file with owner-only permissions
+   * The mode option only applies on creation, so existing files are chmod'ed as well
+   */
+  private writeSecure(content: string): void {
+    writeFileSync(this.storagePath, content, { encoding: 'utf8', mode: TOKEN_FILE_MODE });
+    chmodSync(this.storagePath, TOKEN_FILE_MODE);
   }
 }

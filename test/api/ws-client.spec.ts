@@ -9,20 +9,28 @@ const mockWsSend = vi.fn();
 const mockWsClose = vi.fn();
 const mockWsOn = vi.fn();
 const mockWsOff = vi.fn();
+const mockWsTerminate = vi.fn();
+const mockWsRemoveAllListeners = vi.fn();
 
 // Mock WebSocket module with class defined inside the factory
 vi.mock('ws', () => {
   class MockWebSocket {
+    static OPEN = 1;
+    readyState = 1;
     send: typeof mockWsSend;
     close: typeof mockWsClose;
     on: typeof mockWsOn;
     off: typeof mockWsOff;
+    terminate: typeof mockWsTerminate;
+    removeAllListeners: typeof mockWsRemoveAllListeners;
 
     constructor(_url: string, _options?: object) {
       this.send = mockWsSend;
       this.close = mockWsClose;
       this.on = mockWsOn;
       this.off = mockWsOff;
+      this.terminate = mockWsTerminate;
+      this.removeAllListeners = mockWsRemoveAllListeners;
     }
   }
 
@@ -37,6 +45,20 @@ function triggerWsEvent(event: string, ...args: unknown[]) {
   if (handlers) {
     handlers.forEach(handler => handler(...args));
   }
+}
+
+// Minimal open socket for tests that inject ws directly
+function openSocket(overrides: Record<string, unknown> = {}) {
+  return {
+    readyState: 1,
+    send: mockWsSend,
+    on: mockWsOn,
+    off: mockWsOff,
+    close: mockWsClose,
+    terminate: mockWsTerminate,
+    removeAllListeners: mockWsRemoveAllListeners,
+    ...overrides,
+  };
 }
 
 // Import after mocking
@@ -67,6 +89,13 @@ describe('WSClient', () => {
         }
       }
     });
+
+    mockWsRemoveAllListeners.mockImplementation(() => {
+      eventHandlers.clear();
+    });
+
+    // Neutral jitter (factor 1.0) so reconnect delays are deterministic
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
     mockPlatform = createMockPlatform();
 
@@ -100,6 +129,7 @@ describe('WSClient', () => {
     }
     vi.clearAllTimers();
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {
@@ -207,14 +237,68 @@ describe('WSClient', () => {
   });
 
   describe('disconnect', () => {
-    it('should close WebSocket connection', () => {
-      (wsClient as any).ws = { close: mockWsClose };
+    it('should detach listeners and terminate WebSocket connection', () => {
+      (wsClient as any).ws = openSocket();
       (wsClient as any).connected = true;
 
       wsClient.disconnect();
 
-      expect(mockWsClose).toHaveBeenCalled();
+      expect(mockWsRemoveAllListeners).toHaveBeenCalled();
+      expect(mockWsTerminate).toHaveBeenCalled();
+      expect((wsClient as any).ws).toBeNull();
       expect(wsClient.isConnected()).toBe(false);
+    });
+
+    it('should not schedule a reconnect after disconnect', async () => {
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      triggerWsEvent('message', JSON.stringify({ error: 0, config: { hbInterval: 90 } }));
+      await connectPromise;
+
+      wsClient.disconnect();
+
+      // Listeners are gone, but even a direct close/scheduleReconnect must be ignored
+      triggerWsEvent('close', 1000, Buffer.from('bye'));
+      (wsClient as any).scheduleReconnect();
+      await vi.advanceTimersByTimeAsync(600000);
+
+      expect(mockPlatform.log.info).not.toHaveBeenCalledWith(
+        expect.stringContaining('Scheduling WebSocket reconnection'),
+      );
+      expect((mockPlatform as any).ewelinkApi.getWsHost).toHaveBeenCalledTimes(1);
+    });
+
+    it('should cancel a reconnect that is already scheduled', async () => {
+      (wsClient as any).scheduleReconnect();
+      wsClient.disconnect();
+
+      await vi.advanceTimersByTimeAsync(600000);
+
+      expect(mockPlatform.log.info).not.toHaveBeenCalledWith('Attempting to reconnect to WebSocket...');
+    });
+
+    it('should abort an in-progress connect', async () => {
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+
+      wsClient.disconnect();
+
+      await expect(connectPromise).rejects.toThrow('WebSocket disconnected');
+    });
+
+    it('should allow connect() again after disconnect', async () => {
+      wsClient.disconnect();
+      expect((wsClient as any).stopped).toBe(true);
+
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      triggerWsEvent('message', JSON.stringify({ error: 0, config: { hbInterval: 90 } }));
+      await connectPromise;
+
+      expect((wsClient as any).stopped).toBe(false);
+      expect(wsClient.isConnected()).toBe(true);
     });
 
     it('should clear pending requests and reject them', () => {
@@ -223,7 +307,7 @@ describe('WSClient', () => {
       const timeout = setTimeout(() => {}, 10000);
 
       (wsClient as any).pendingRequests.set('test-seq', { resolve, reject, timeout });
-      (wsClient as any).ws = { close: mockWsClose };
+      (wsClient as any).ws = openSocket();
 
       wsClient.disconnect();
 
@@ -237,7 +321,7 @@ describe('WSClient', () => {
 
       (wsClient as any).heartbeatInterval = heartbeatInterval;
       (wsClient as any).reconnectTimeout = reconnectTimeout;
-      (wsClient as any).ws = { close: mockWsClose };
+      (wsClient as any).ws = openSocket();
 
       wsClient.disconnect();
 
@@ -269,7 +353,7 @@ describe('WSClient', () => {
 
     it('should warn when device not in cache', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       await wsClient.sendCommand('unknown-device', { switch: 'on' });
 
@@ -280,7 +364,7 @@ describe('WSClient', () => {
 
     it('should send command successfully when connected', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       const commandPromise = wsClient.sendCommand('test-device', { switch: 'on' });
 
@@ -301,7 +385,7 @@ describe('WSClient', () => {
 
     it('should strip channel suffix from device ID', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       // Add device with parent ID
       mockPlatform.deviceCache.set('parent-device', {
@@ -326,7 +410,7 @@ describe('WSClient', () => {
 
     it('should handle command timeout', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       // Attach catch handler immediately to prevent unhandled rejection
       let caughtError: Error | undefined;
@@ -348,11 +432,11 @@ describe('WSClient', () => {
 
     it('should handle send error', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = {
+      (wsClient as any).ws = openSocket({
         send: vi.fn().mockImplementation(() => {
           throw new Error('Send failed');
         }),
-      };
+      });
 
       await expect(
         wsClient.sendCommand('test-device', { switch: 'on' }),
@@ -382,7 +466,7 @@ describe('WSClient', () => {
 
     it('should warn when no API key available', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
       (mockPlatform as any).ewelinkApi.getApiKey = vi.fn().mockReturnValue('');
 
       await wsClient.queryDeviceState('test-device');
@@ -394,7 +478,7 @@ describe('WSClient', () => {
 
     it('should send query message successfully', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       const queryPromise = wsClient.queryDeviceState('test-device');
 
@@ -416,7 +500,7 @@ describe('WSClient', () => {
 
     it('should handle query timeout', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = { send: mockWsSend };
+      (wsClient as any).ws = openSocket();
 
       // Attach catch handler immediately to prevent unhandled rejection
       let caughtError: Error | undefined;
@@ -435,11 +519,11 @@ describe('WSClient', () => {
 
     it('should handle query send error', async () => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = {
+      (wsClient as any).ws = openSocket({
         send: vi.fn().mockImplementation(() => {
           throw new Error('Query send failed');
         }),
-      };
+      });
 
       await expect(
         wsClient.queryDeviceState('test-device'),
@@ -450,11 +534,7 @@ describe('WSClient', () => {
   describe('message handling', () => {
     beforeEach(() => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = {
-        send: mockWsSend,
-        on: mockWsOn,
-        off: mockWsOff,
-      };
+      (wsClient as any).ws = openSocket();
     });
 
     it('should handle plain text pong message', () => {
@@ -619,11 +699,7 @@ describe('WSClient', () => {
   describe('heartbeat', () => {
     beforeEach(() => {
       (wsClient as any).connected = true;
-      (wsClient as any).ws = {
-        send: mockWsSend,
-        on: mockWsOn,
-        off: mockWsOff,
-      };
+      (wsClient as any).ws = openSocket();
     });
 
     it('should send ping on heartbeat interval', () => {
@@ -666,6 +742,38 @@ describe('WSClient', () => {
     });
   });
 
+  describe('start', () => {
+    it('should schedule a background reconnect instead of rejecting when connect fails', async () => {
+      (mockPlatform as any).ewelinkApi.getWsHost.mockRejectedValueOnce(new Error('dispatch down'));
+
+      await expect(wsClient.start()).resolves.toBeUndefined();
+
+      expect(mockPlatform.log.warn).toHaveBeenCalledWith(expect.stringContaining('dispatch down'));
+      expect((wsClient as any).reconnectTimeout).not.toBeNull();
+    });
+
+    it('should force a fresh login on retry after a 406 token invalidation', async () => {
+      const { WebSocketAuthError } = await import('../../src/types/index.js');
+      vi.spyOn(wsClient as any, 'openSocket').mockRejectedValueOnce(new WebSocketAuthError('AUTH_TOKEN_INVALIDATED', 406));
+      const schedule = vi.spyOn(wsClient as any, 'scheduleReconnect');
+
+      await wsClient.start();
+
+      expect(schedule).toHaveBeenCalledWith(true);
+    });
+
+    it('should not schedule a reconnect when disconnected during the attempt', async () => {
+      vi.spyOn(wsClient as any, 'openSocket').mockImplementationOnce(async () => {
+        wsClient.disconnect();
+        throw new Error('WebSocket disconnected');
+      });
+
+      await wsClient.start();
+
+      expect((wsClient as any).reconnectTimeout).toBeNull();
+    });
+  });
+
   describe('reconnection', () => {
     it('should not reconnect if already reconnecting', () => {
       (wsClient as any).reconnecting = true;
@@ -677,14 +785,18 @@ describe('WSClient', () => {
       );
     });
 
-    it('should stop after max reconnection attempts', () => {
+    it('should keep retrying at the capped delay after max reconnection attempts', () => {
       (wsClient as any).reconnectAttempts = 10;
 
       (wsClient as any).scheduleReconnect();
 
       expect(mockPlatform.log.error).toHaveBeenCalledWith(
-        expect.stringContaining('max reconnection attempts'),
+        expect.stringContaining('still disconnected after 10 attempts'),
       );
+      expect(mockPlatform.log.info).toHaveBeenCalledWith(
+        expect.stringContaining('attempt 11 in 300s'),
+      );
+      expect((wsClient as any).reconnectTimeout).not.toBeNull();
     });
 
     it('should use exponential backoff for reconnection delay', () => {
@@ -693,8 +805,22 @@ describe('WSClient', () => {
       (wsClient as any).scheduleReconnect();
 
       expect(mockPlatform.log.info).toHaveBeenCalledWith(
-        expect.stringContaining('Scheduling WebSocket reconnection attempt 1/10'),
+        expect.stringContaining('Scheduling WebSocket reconnection attempt 1 in 5s'),
       );
+    });
+
+    it('should apply +/-20% jitter to the reconnect delay', () => {
+      vi.mocked(Math.random).mockReturnValue(0);
+      (wsClient as any).reconnectAttempts = 1; // 2nd attempt: 10s base
+
+      (wsClient as any).scheduleReconnect();
+      expect(mockPlatform.log.info).toHaveBeenCalledWith(expect.stringContaining('in 8s'));
+
+      (wsClient as any).reconnecting = false;
+      (wsClient as any).reconnectAttempts = 1;
+      vi.mocked(Math.random).mockReturnValue(0.9999);
+      (wsClient as any).scheduleReconnect();
+      expect(mockPlatform.log.info).toHaveBeenCalledWith(expect.stringContaining('in 12s'));
     });
 
     it('should attempt reconnection after delay', async () => {
@@ -733,9 +859,8 @@ describe('WSClient', () => {
     it('should handle reconnection error and schedule another attempt', async () => {
       (wsClient as any).reconnectAttempts = 0;
 
-      // Mock connect to fail
-      const originalConnect = wsClient.connect.bind(wsClient);
-      wsClient.connect = vi.fn().mockRejectedValue(new Error('Connection failed'));
+      // Mock the socket open to fail
+      vi.spyOn(wsClient as any, 'openSocket').mockRejectedValue(new Error('Connection failed'));
 
       (wsClient as any).scheduleReconnect();
 
@@ -745,9 +870,45 @@ describe('WSClient', () => {
         'Reconnection failed:',
         'Connection failed',
       );
+    });
 
-      // Restore
-      wsClient.connect = originalConnect;
+    it('should not open a socket when disconnected during an in-flight relogin', async () => {
+      let resolveLogin!: () => void;
+      (mockPlatform as any).ewelinkApi.login.mockReturnValue(new Promise<void>(r => {
+        resolveLogin = r;
+      }));
+      const openSocket = vi.spyOn(wsClient as any, 'openSocket');
+
+      (wsClient as any).scheduleReconnect(true);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect((mockPlatform as any).ewelinkApi.login).toHaveBeenCalled();
+
+      // Shutdown while the 406 relogin is still pending
+      wsClient.disconnect();
+      resolveLogin();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(openSocket).not.toHaveBeenCalled();
+      expect((mockPlatform as any).ewelinkApi.getWsHost).not.toHaveBeenCalled();
+      expect((wsClient as any).ws).toBeNull();
+      expect((wsClient as any).reconnectTimeout).toBeNull();
+    });
+
+    it('should not open a socket when disconnected during an in-flight token reload', async () => {
+      let resolveReload!: () => void;
+      (mockPlatform as any).ewelinkApi.reloadTokensFromStorage.mockReturnValue(new Promise<void>(r => {
+        resolveReload = r;
+      }));
+
+      (wsClient as any).scheduleReconnect(false);
+      await vi.advanceTimersByTimeAsync(5000);
+
+      wsClient.disconnect();
+      resolveReload();
+      await vi.advanceTimersByTimeAsync(60000);
+
+      expect((mockPlatform as any).ewelinkApi.getWsHost).not.toHaveBeenCalled();
+      expect((wsClient as any).stopped).toBe(true);
     });
 
     it('should cap exponential backoff at 300 seconds', () => {
@@ -867,6 +1028,139 @@ describe('WSClient', () => {
       await expect((wsClient as any).authenticate()).rejects.toThrow(
         'WebSocket or API not initialized',
       );
+    });
+  });
+  describe('socket lifecycle', () => {
+    async function connectOk() {
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      triggerWsEvent('message', JSON.stringify({ error: 0, config: { hbInterval: 90 } }));
+      await connectPromise;
+    }
+
+    it('should terminate the previous socket when connecting again', async () => {
+      await connectOk();
+      mockWsTerminate.mockClear();
+      mockWsRemoveAllListeners.mockClear();
+
+      await connectOk();
+
+      expect(mockWsRemoveAllListeners).toHaveBeenCalledTimes(1);
+      expect(mockWsTerminate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should terminate the socket on authentication failure', async () => {
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      triggerWsEvent('message', JSON.stringify({ error: 500 }));
+
+      await expect(connectPromise).rejects.toThrow('Authentication failed: 500');
+      expect(mockWsTerminate).toHaveBeenCalled();
+      expect((wsClient as any).ws).toBeNull();
+    });
+
+    it('should terminate the socket on authentication timeout', async () => {
+      const connectPromise = wsClient.connect().catch((err: Error) => err);
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      await vi.advanceTimersByTimeAsync(10000);
+
+      const result = await connectPromise;
+      expect((result as Error).message).toBe('Authentication timeout');
+      expect(mockWsTerminate).toHaveBeenCalled();
+    });
+
+    it('should reject pending requests when the socket closes', async () => {
+      await connectOk();
+      const commandPromise = wsClient.sendCommand('test-device', { switch: 'on' });
+
+      triggerWsEvent('close', 1006, Buffer.from(''));
+
+      // Already sent: rejected with the in-flight-loss error, which the dispatcher never retries
+      await expect(commandPromise).rejects.toThrow('WebSocket closed before response');
+      expect((wsClient as any).pendingRequests.size).toBe(0);
+    });
+  });
+
+  describe('heartbeat watchdog', () => {
+    beforeEach(() => {
+      (wsClient as any).connected = true;
+      (wsClient as any).ws = openSocket();
+    });
+
+    it('should terminate the socket when nothing is received for two intervals', () => {
+      (wsClient as any).startHeartbeat();
+
+      vi.advanceTimersByTime(90000); // ping 1
+      vi.advanceTimersByTime(90000); // ping 2 (exactly 2 intervals of silence)
+      expect(mockWsTerminate).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(90000); // 3 intervals of silence
+      expect(mockWsTerminate).toHaveBeenCalled();
+      expect(mockPlatform.log.warn).toHaveBeenCalledWith(expect.stringContaining('WebSocket silent'));
+    });
+
+    it('should keep the socket while messages keep arriving', async () => {
+      const connectPromise = wsClient.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      triggerWsEvent('open');
+      triggerWsEvent('message', JSON.stringify({ error: 0, config: { hbInterval: 90 } }));
+      await connectPromise;
+      mockWsTerminate.mockClear(); // connect() terminated the socket injected by beforeEach
+
+      for (let i = 0; i < 5; i++) {
+        vi.advanceTimersByTime(90000);
+        triggerWsEvent('message', 'pong');
+      }
+
+      expect(mockWsTerminate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sequence numbers and fail-fast', () => {
+    it('should use unique increasing numeric sequences within the same millisecond', async () => {
+      (wsClient as any).connected = true;
+      (wsClient as any).ws = openSocket();
+
+      const p1 = wsClient.sendCommand('test-device', { switch: 'on' }).catch(() => {});
+      const p2 = wsClient.sendCommand('test-device', { switch: 'off' }).catch(() => {});
+
+      const sequences = Array.from((wsClient as any).pendingRequests.keys()) as string[];
+      expect(sequences).toHaveLength(2);
+      expect(sequences[0]).toMatch(/^\d+$/);
+      expect(Number(sequences[1])).toBeGreaterThan(Number(sequences[0]));
+
+      wsClient.disconnect();
+      await Promise.all([p1, p2]);
+    });
+
+    it('should return false immediately when the socket is not open', async () => {
+      (wsClient as any).connected = true;
+      (wsClient as any).ws = openSocket({ readyState: 3 }); // CLOSED
+
+      const result = await wsClient.sendCommand('test-device', { switch: 'on' });
+
+      expect(result).toBe(false);
+      expect(mockWsSend).not.toHaveBeenCalled();
+    });
+
+    it('should time out commands after 8 seconds', async () => {
+      (wsClient as any).connected = true;
+      (wsClient as any).ws = openSocket();
+
+      let caughtError: Error | undefined;
+      const commandPromise = wsClient.sendCommand('test-device', { switch: 'on' }).catch((err: Error) => {
+        caughtError = err;
+      });
+
+      await vi.advanceTimersByTimeAsync(7999);
+      expect(caughtError).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await commandPromise;
+      expect(caughtError?.message).toBe('Command timeout');
     });
   });
 });

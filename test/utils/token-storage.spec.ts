@@ -7,6 +7,7 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),
   existsSync: vi.fn(),
+  chmodSync: vi.fn(),
 }));
 
 describe('TokenStorage', () => {
@@ -22,7 +23,8 @@ describe('TokenStorage', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Reset implementations too, so a throwing writeFileSync doesn't leak between tests
+    vi.resetAllMocks();
     tokenStorage = new TokenStorage(storagePath);
   });
 
@@ -46,8 +48,14 @@ describe('TokenStorage', () => {
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expectedFilePath,
         JSON.stringify({ ...mockTokens, timestamp: now }, null, 2),
-        'utf8',
+        { encoding: 'utf8', mode: 0o600 },
       );
+    });
+
+    it('should restrict permissions of an existing file to owner-only', () => {
+      tokenStorage.save(mockTokens);
+
+      expect(fs.chmodSync).toHaveBeenCalledWith(expectedFilePath, 0o600);
     });
 
     it('should handle write errors gracefully', () => {
@@ -156,13 +164,58 @@ describe('TokenStorage', () => {
     });
   });
 
+  describe('isValid with preloaded tokens', () => {
+    it('should not read the file again when tokens are passed in', () => {
+      const storedTokens: StoredTokens = { ...mockTokens, timestamp: Date.now() };
+
+      expect(tokenStorage.isValid(storedTokens)).toBe(true);
+      expect(fs.existsSync).not.toHaveBeenCalled();
+      expect(fs.readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should return false for null tokens without reading the file', () => {
+      expect(tokenStorage.isValid(null)).toBe(false);
+      expect(fs.readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should return false for a cleared file without timestamp', () => {
+      expect(tokenStorage.isValid({} as StoredTokens)).toBe(false);
+    });
+  });
+
+  describe('loadValid', () => {
+    it('should return tokens when fresh, reading the file once', () => {
+      const storedTokens: StoredTokens = { ...mockTokens, timestamp: Date.now() };
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(storedTokens));
+
+      expect(tokenStorage.loadValid()).toEqual(storedTokens);
+      expect(fs.readFileSync).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return null when tokens are stale', () => {
+      const storedTokens: StoredTokens = { ...mockTokens, timestamp: Date.now() - (25 * 60 * 60 * 1000) };
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(storedTokens));
+
+      expect(tokenStorage.loadValid()).toBeNull();
+    });
+
+    it('should return null when no file exists', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(tokenStorage.loadValid()).toBeNull();
+    });
+  });
+
   describe('clear', () => {
     it('should write empty object to file if exists', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
 
       tokenStorage.clear();
 
-      expect(fs.writeFileSync).toHaveBeenCalledWith(expectedFilePath, '{}', 'utf8');
+      expect(fs.writeFileSync).toHaveBeenCalledWith(expectedFilePath, '{}', { encoding: 'utf8', mode: 0o600 });
+      expect(fs.chmodSync).toHaveBeenCalledWith(expectedFilePath, 0o600);
     });
 
     it('should not write if file does not exist', () => {

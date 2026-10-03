@@ -11,6 +11,7 @@ vi.mock('../../src/utils/token-storage.js', () => ({
   TokenStorage: class MockTokenStorage {
     save = vi.fn();
     load = vi.fn().mockReturnValue(null);
+    loadValid = vi.fn().mockReturnValue(null);
     isValid = vi.fn().mockReturnValue(false);
   },
 }));
@@ -890,6 +891,272 @@ describe('EWeLinkAPI', () => {
         }),
         expect.any(Object),
       );
+    });
+  });
+  describe('token refresh interceptor', () => {
+    type Handler = (arg: any) => Promise<any>;
+    let client: any;
+    let onFulfilled: Handler;
+    let onRejected: Handler;
+    let refreshApi: EWeLinkAPI;
+
+    const refreshOk = (at = 'new-at', rt = 'new-rt') => ({
+      data: { error: 0, data: { at, rt } },
+    });
+
+    beforeEach(() => {
+      // Callable axios instance so the interceptor can replay requests via httpClient(config)
+      client = Object.assign(vi.fn().mockResolvedValue({ data: { error: 0, data: 'retried' } }), {
+        defaults: { headers: { common: {} }, baseURL: '' },
+        post: vi.fn(),
+        get: vi.fn(),
+        interceptors: { response: { use: vi.fn() } },
+      });
+      (axios.create as Mock).mockReturnValue(client);
+      refreshApi = new EWeLinkAPI(mockPlatform as any);
+      [onFulfilled, onRejected] = client.interceptors.response.use.mock.calls[0];
+      refreshApi.setCredentials('old-at', 'api-key', 'old-rt');
+    });
+
+    const http401 = (config: object = { url: '/v2/family', headers: {} }) =>
+      Object.assign(new Error('Request failed with status code 401'), { config, response: { status: 401 } });
+
+    it('should refresh on HTTP 401 and retry the original request once', async () => {
+      client.post.mockResolvedValueOnce(refreshOk());
+
+      const result = await onRejected(http401());
+
+      expect(client.post).toHaveBeenCalledWith('/v2/user/refresh', { rt: 'old-rt' }, { _skipAuthRefresh: true });
+      expect(client).toHaveBeenCalledWith(expect.objectContaining({
+        url: '/v2/family',
+        _retry: true,
+        headers: expect.objectContaining({ Authorization: 'Bearer new-at' }),
+      }));
+      expect(result.data.data).toBe('retried');
+      expect(refreshApi.accessToken).toBe('new-at');
+      expect(refreshApi.refreshToken).toBe('new-rt');
+    });
+
+    it('should not try to refresh when the refresh request itself gets a 401 (no loop)', async () => {
+      const error = http401({ url: '/v2/user/refresh', headers: {}, _skipAuthRefresh: true });
+
+      await expect(onRejected(error)).rejects.toBe(error);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('should not refresh a request that was already retried', async () => {
+      const error = http401({ url: '/v2/family', headers: {}, _retry: true });
+
+      await expect(onRejected(error)).rejects.toBe(error);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('should not refresh when no refresh token is available', async () => {
+      refreshApi.refreshToken = '';
+      const error = http401();
+
+      await expect(onRejected(error)).rejects.toBe(error);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('should share a single refresh between concurrent 401s', async () => {
+      let resolveRefresh!: (value: unknown) => void;
+      client.post.mockReturnValueOnce(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+
+      const first = onRejected(http401());
+      const second = onRejected(http401({ url: '/v2/device/thing', headers: {} }));
+      resolveRefresh(refreshOk());
+      await Promise.all([first, second]);
+
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect(client).toHaveBeenCalledTimes(2);
+
+      // A later 401 triggers a new refresh
+      client.post.mockResolvedValueOnce(refreshOk('newer-at', 'newer-rt'));
+      await onRejected(http401());
+      expect(client.post).toHaveBeenCalledTimes(2);
+      expect(refreshApi.accessToken).toBe('newer-at');
+    });
+
+    it('should persist refreshed tokens', async () => {
+      client.post.mockResolvedValueOnce(refreshOk());
+
+      await onRejected(http401());
+
+      expect((refreshApi as any).tokenStorage.save).toHaveBeenCalledWith({
+        accessToken: 'new-at',
+        refreshToken: 'new-rt',
+        apiKey: 'api-key',
+        region: 'us',
+      });
+    });
+
+    it('should reject when the refresh fails', async () => {
+      client.post.mockResolvedValueOnce({ data: { error: 401, msg: 'rt expired' } });
+
+      await expect(onRejected(http401())).rejects.toThrow('Failed to refresh token [401]');
+      expect(client).not.toHaveBeenCalled();
+    });
+
+    it.each([401, 402])('should refresh and retry on HTTP 200 with body error %i', async (code) => {
+      client.post.mockResolvedValueOnce(refreshOk());
+
+      const result = await onFulfilled({
+        data: { error: code, msg: 'token invalid' },
+        config: { url: '/v2/family', headers: {} },
+      });
+
+      expect(client.post).toHaveBeenCalledWith('/v2/user/refresh', { rt: 'old-rt' }, { _skipAuthRefresh: true });
+      expect(client).toHaveBeenCalledWith(expect.objectContaining({ _retry: true }));
+      expect(result.data.data).toBe('retried');
+    });
+
+    it('should return body-level auth errors as-is once retried', async () => {
+      const response = { data: { error: 401 }, config: { url: '/v2/family', headers: {}, _retry: true } };
+
+      await expect(onFulfilled(response)).resolves.toBe(response);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('should not refresh on body-level errors of login/refresh calls', async () => {
+      const response = { data: { error: 401 }, config: { url: '/v2/user/refresh', _skipAuthRefresh: true } };
+
+      await expect(onFulfilled(response)).resolves.toBe(response);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('should reject when a body-level refresh fails', async () => {
+      client.post.mockRejectedValueOnce(new Error('network down'));
+
+      await expect(onFulfilled({ data: { error: 402 }, config: { url: '/v2/family', headers: {} } }))
+        .rejects.toThrow('network down');
+    });
+
+    it('should pass through successful responses untouched', async () => {
+      const response = { data: { error: 0 }, config: {} };
+
+      await expect(onFulfilled(response)).resolves.toBe(response);
+    });
+
+    it('should mark the login request to skip auth refresh', async () => {
+      client.post.mockResolvedValueOnce({
+        data: { error: 0, data: { at: 'a', rt: 'r', user: { apikey: 'k' } } },
+      });
+
+      await refreshApi.login();
+
+      expect(client.post).toHaveBeenCalledWith(
+        '/v2/user/login',
+        expect.any(Object),
+        expect.objectContaining({ _skipAuthRefresh: true }),
+      );
+    });
+  });
+
+  describe('region handling', () => {
+    it('should update host and baseURL when stored tokens are for another region', async () => {
+      const storage = (api as any).tokenStorage;
+      storage.loadValid.mockReturnValueOnce({
+        accessToken: 'stored-at',
+        refreshToken: 'stored-rt',
+        apiKey: 'stored-key',
+        region: 'eu',
+        timestamp: Date.now(),
+      });
+
+      const result = await api.reloadTokensFromStorage();
+
+      expect(result).toBe(true);
+      expect(api.region).toBe('eu');
+      expect(api.getHttpHost()).toBe('eu-apia.coolkit.cc');
+      expect(mockAxiosInstance.defaults.baseURL).toBe('https://eu-apia.coolkit.cc');
+      expect(mockAxiosInstance.defaults.headers.common.Authorization).toBe('Bearer stored-at');
+      // Token file read once via loadValid, not load() + isValid()
+      expect(storage.load).not.toHaveBeenCalled();
+      expect(storage.isValid).not.toHaveBeenCalled();
+    });
+
+    it('should ignore an unknown region in stored tokens', async () => {
+      (api as any).tokenStorage.loadValid.mockReturnValueOnce({
+        accessToken: 'stored-at', refreshToken: 'rt', apiKey: 'k', region: 'mars', timestamp: Date.now(),
+      });
+
+      await api.reloadTokensFromStorage();
+
+      expect(api.region).toBe('us');
+      expect(api.getHttpHost()).toBe('us-apia.coolkit.cc');
+    });
+
+    it('should update host when setCredentials is given a region', () => {
+      api.setCredentials('at', 'key', 'rt', 'as');
+
+      expect(api.region).toBe('as');
+      expect(mockAxiosInstance.defaults.baseURL).toBe('https://as-apia.coolkit.cc');
+    });
+
+    it('should store the redirected region after a login region redirect', async () => {
+      mockAxiosInstance.post
+        .mockResolvedValueOnce({ data: { error: 10004, data: { region: 'eu' } } })
+        .mockResolvedValueOnce({ data: { error: 0, data: { at: 'a', rt: 'r', user: { apikey: 'k' } } } });
+
+      await api.login();
+
+      expect(api.region).toBe('eu');
+      expect((api as any).tokenStorage.save).toHaveBeenCalledWith(expect.objectContaining({ region: 'eu' }));
+    });
+  });
+
+  describe('token persistence without storage path', () => {
+    it('should disable persistence instead of falling back to /tmp', async () => {
+      const platformNoStorage = createMockPlatform({ username: 'test@example.com', password: 'pw', countryCode: '1' });
+      (platformNoStorage as any).api = undefined;
+      (axios.create as Mock).mockReturnValue(mockAxiosInstance);
+
+      const apiNoStorage = new EWeLinkAPI(platformNoStorage as any);
+
+      expect((apiNoStorage as any).tokenStorage).toBeNull();
+      expect(platformNoStorage.log.debug).toHaveBeenCalledWith(expect.stringContaining('token persistence disabled'));
+
+      mockAxiosInstance.post.mockResolvedValueOnce({
+        data: { error: 0, data: { at: 'a', rt: 'r', user: { apikey: 'k' } } },
+      });
+      await expect(apiNoStorage.login()).resolves.toBeUndefined();
+      await expect(apiNoStorage.reloadTokensFromStorage()).resolves.toBe(false);
+    });
+  });
+
+  describe('login error logging', () => {
+    it('should not dump the response body at error level', async () => {
+      const body = { error: 999, data: { secret: 'account-details' } };
+      mockAxiosInstance.post.mockResolvedValue({ data: body });
+
+      await expect(api.login()).rejects.toThrow('Login failed: unexpected response [999]');
+
+      const errorLogs = (mockPlatform.log.error as Mock).mock.calls.flat().join(' ');
+      expect(errorLogs).not.toContain('account-details');
+      const debugLogs = (mockPlatform.log.debug as Mock).mock.calls.flat().join(' ');
+      expect(debugLogs).toContain('account-details');
+    });
+
+    it('should log only status and message for HTTP errors at error level', async () => {
+      const httpError = Object.assign(new Error('Request failed'), {
+        isAxiosError: true,
+        response: { status: 500, statusText: 'Server Error', data: { msg: 'boom', error: 500, secret: 'body-dump' } },
+        config: { url: '/v2/user/login', method: 'post' },
+      });
+      mockAxiosInstance.post.mockRejectedValueOnce(httpError);
+      vi.spyOn(axios, 'isAxiosError').mockReturnValue(true);
+
+      await expect(api.login()).rejects.toThrow('Login failed: boom');
+
+      const errorLogs = (mockPlatform.log.error as Mock).mock.calls.flat().join(' ');
+      expect(errorLogs).toContain('500');
+      expect(errorLogs).toContain('boom');
+      expect(errorLogs).not.toContain('body-dump');
+      const debugLogs = (mockPlatform.log.debug as Mock).mock.calls.flat().join(' ');
+      expect(debugLogs).toContain('body-dump');
     });
   });
 });
