@@ -8,6 +8,8 @@ This file provides guidance when working with code in this repository.
 - **Lint**: `npm run lint`
 - **Lint fix**: `npm run lint:fix`
 - **Watch mode**: `npm run watch` (builds, links, and watches with nodemon)
+- **Test**: `npm test` (Vitest; specs live in `test/`, mocks in `test/__mocks__/`)
+- **Coverage**: `npm run test:coverage`
 
 ## Architecture
 
@@ -32,15 +34,21 @@ src/
 └── utils/                # Utility functions
 ```
 
-### Platform (`src/platform.ts`)
+### Platform (`src/platform.ts` + `src/platform/`)
 
-Main platform class that:
-- Authenticates with eWeLink cloud
-- Fetches and caches device list
-- Routes devices to appropriate accessory handlers based on UIID
-- Manages WebSocket connection for real-time updates
-- Coordinates LAN control for local device communication
-- Implements command queue for rate limiting cloud requests
+`src/platform.ts` is a thin Homebridge `DynamicPlatformPlugin` facade. It keeps the public members accessories rely on (`deviceCache`, `ewelinkApi`, `sendDeviceCommand`, `handleDeviceUpdate`, ...) and delegates to:
+
+| File | Responsibility |
+|------|----------------|
+| `platform/connection-manager.ts` | Login with backoff + jitter, WebSocket/LAN lifecycle, shutdown |
+| `platform/device-discovery.ts` | Device/group discovery, stale accessory removal |
+| `platform/accessory-factory.ts` | Accessory creation, multi-channel and RF sub-devices, handler routing by UIID |
+| `platform/device-registry.ts` | Device cache, handlers (calls `destroy()` on replace/remove), temperature cache |
+| `platform/state-router.ts` | Routes WS/LAN updates to handlers; persists accessories only on change |
+| `platform/command-dispatcher.ts` | LAN first, then cloud via bounded `CommandQueue`, retry rules |
+| `platform/transports.ts` | `LanTransport` / `CloudTransport` interfaces (inject fakes in tests) |
+
+Cached accessories get handlers from `context.device` before login, so LAN control works while the cloud is unreachable.
 
 UUID generation: `api.hap.uuid.generate(deviceId)`
 
@@ -84,6 +92,7 @@ UUID generation: `api.hap.uuid.generate(deviceId)`
 - Sensors: `sensor.ts`, `sensor-visible.ts`, `sensor-leak.ts`
 - Controls: `lock.ts`, `valve.ts`, `tap.ts`, `p-button.ts`, `doorbell.ts`
 - Other: `light-fan.ts`, `purifier.ts`, `tv.ts`
+- Shared bases (`simulations/shared/`): `timed-cover.ts` (+ `switch-cover.ts`, `rf-cover.ts`), `threshold-controller.ts` (+ `switch-climate.ts`, `th-climate.ts`), `channel-power.ts`. Covers and climate simulations are thin subclasses of these.
 
 ### Base Accessory (`src/accessories/base.ts`)
 
@@ -92,6 +101,9 @@ Common functionality for all accessories:
 - `handleGet()`, `handleSet()` - State handling with error management
 - `getOrAddService()` - Service management
 - `setupPollingInterval()` - Periodic state refresh
+- `destroy()` - Clears all tracked timers/cleanups; use `setTrackedTimeout`/`setTrackedInterval`/`registerCleanup` instead of raw timers
+- `sendCommandOrThrow()` - Throws a HAP communication error when a command fails (use in `onSet`)
+- `debounceLatest()` / `claimLatest()` - Latest-wins debouncing
 - `setupPowerMonitoringCharacteristics()` - Eve power characteristics
 
 ### Constants (`src/constants/`)
@@ -115,7 +127,7 @@ Common functionality for all accessories:
 | `switch-helper.ts` | Multi-channel switch state utilities |
 | `eve-characteristics.ts` | Eve app custom characteristics |
 | `token-storage.ts` | Persistent token storage |
-| `crypto-utils.ts` | HMAC-SHA256 API signing |
+| `crypto-utils.ts` | Secure random nonce generation (HMAC signing lives in `ewelink-api.ts`) |
 | `sleep.ts` | Async sleep helper |
 | `number-utils.ts` | Clamping, rounding |
 | `error-utils.ts` | Error handling utilities |
@@ -185,7 +197,7 @@ Every eWeLink device has a UIID that determines its type and capabilities. Devic
 - **Node.js**: ^22.10.0 || ^24.0.0 || ^26.0.0
 - **Homebridge**: ^1.8.0 || ^2.0.0-beta.0
 - **Linting**: ESLint with strict rules, zero warnings allowed
-- **No test suite**: Manual testing required
+- **Tests**: Vitest suite under `test/`; run `npm test` before committing
 - **Package**: `@mp-consulting/homebridge-ewelink`
 
 ## Homebridge UI
