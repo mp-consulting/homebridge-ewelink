@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CommandQueue } from '../../src/utils/command-queue.js';
+import { CommandQueue, QueueOverflowError } from '../../src/utils/command-queue.js';
 
 describe('CommandQueue', () => {
   beforeEach(() => {
@@ -366,6 +366,43 @@ describe('CommandQueue', () => {
       await expect(promise).rejects.toThrow('Failed');
 
       expect(queue.getStats().activeCount).toBe(0);
+    });
+  });
+  describe('max size', () => {
+    it('should reject the oldest pending command when the queue overflows', async () => {
+      const log = vi.fn();
+      const queue = new CommandQueue({ minInterval: 0, concurrency: 1, maxSize: 2, log });
+
+      // Occupy the single execution slot so later commands stay pending
+      let release!: (v: boolean) => void;
+      const blocker = queue.enqueue('busy', () => new Promise<boolean>(r => {
+        release = r;
+      }));
+
+      const first = queue.enqueue('d1', vi.fn().mockResolvedValue(true));
+      const second = queue.enqueue('d2', vi.fn().mockResolvedValue(true));
+      const third = queue.enqueue('d3', vi.fn().mockResolvedValue(true));
+
+      await expect(first).rejects.toBeInstanceOf(QueueOverflowError);
+      expect(queue.getStats().queueSize).toBe(2);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('dropping oldest command for d1'));
+
+      release(true);
+      await vi.runAllTimersAsync();
+      await expect(blocker).resolves.toBe(true);
+      await expect(second).resolves.toBe(true);
+      await expect(third).resolves.toBe(true);
+    });
+
+    it('should default to a bound of 100 pending commands', async () => {
+      const queue = new CommandQueue({ minInterval: 0, concurrency: 1 });
+      const pending: Promise<boolean>[] = [];
+      queue.enqueue('busy', () => new Promise<boolean>(() => {}));
+      for (let i = 0; i < 101; i++) {
+        pending.push(queue.enqueue(`d${i}`, vi.fn().mockResolvedValue(true)));
+      }
+      await expect(pending[0]).rejects.toThrow('Command queue full');
+      expect(queue.getStats().queueSize).toBe(100);
     });
   });
 });

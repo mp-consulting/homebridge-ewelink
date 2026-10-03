@@ -8,126 +8,32 @@ import type {
   Characteristic,
 } from 'homebridge';
 
-import { PLATFORM_NAME, PLUGIN_NAME, DEFAULTS, DEVICE_UIID_MAP, DeviceCategory } from './settings.js';
+import { PLATFORM_NAME, DEFAULTS } from './settings.js';
 import type { EWeLinkPlatformConfig, EWeLinkDevice, AccessoryContext, DeviceParams } from './types/index.js';
-import { isRFButtonType, isRFSensorType, isRFCurtainType, CHANNEL_SUFFIX_PATTERN } from './constants/device-constants.js';
-import {
-  isTHSensorDevice,
-  isDimmableLightForFan,
-  isGroupDevice,
-  isProgrammableSwitch,
-  isWaterValveDevice,
-  getChannelCount,
-  hasCurtainParams,
-} from './constants/device-catalog.js';
-import { QUERY_RETRY } from './constants/api-constants.js';
 import { EWeLinkAPI } from './api/ewelink-api.js';
 import { LANControl } from './api/lan-control.js';
 import { WSClient } from './api/ws-client.js';
 import { EveCharacteristics } from './utils/eve-characteristics.js';
-import { CommandQueue } from './utils/command-queue.js';
-import { sanitizeHomeKitName } from './utils/name-utils.js';
 import type { BaseAccessory } from './accessories/base.js';
+import { DeviceRegistry } from './platform/device-registry.js';
+import { AccessoryFactory } from './platform/accessory-factory.js';
+import { StateRouter } from './platform/state-router.js';
+import { CommandDispatcher } from './platform/command-dispatcher.js';
+import { DeviceDiscoveryService } from './platform/device-discovery.js';
+import { ConnectionManager, type ClientFactory } from './platform/connection-manager.js';
 
-// Core accessory handlers
-import { SwitchAccessory } from './accessories/switch.js';
-import { SwitchMiniAccessory } from './accessories/switch-mini.js';
-import { SwitchMateAccessory } from './accessories/switch-mate.js';
-import { OutletAccessory } from './accessories/outlet.js';
-import { LightAccessory } from './accessories/light.js';
-import { ThermostatAccessory } from './accessories/thermostat.js';
-import { THSensorAccessory } from './accessories/th-sensor.js';
-import { FanAccessory } from './accessories/fan.js';
-import { SensorAccessory } from './accessories/sensor.js';
-import { CurtainAccessory } from './accessories/curtain.js';
-import { GarageAccessory } from './accessories/garage.js';
-import { AirConditionerAccessory } from './accessories/air-conditioner.js';
-import { HumidifierAccessory } from './accessories/humidifier.js';
-import { DiffuserAccessory } from './accessories/diffuser.js';
-import { PanelAccessory } from './accessories/panel.js';
-import { VirtualAccessory } from './accessories/virtual.js';
-import { MotorAccessory } from './accessories/motor.js';
-import { GroupAccessory } from './accessories/group.js';
-import { RFBridgeAccessory } from './accessories/rf-bridge.js';
-import { RFButtonAccessory } from './accessories/rf-button.js';
-import { RFSensorAccessory } from './accessories/rf-sensor.js';
-
-// Simulation accessory handlers
-import { LockAccessory } from './accessories/simulations/lock.js';
-import { ValveAccessory } from './accessories/simulations/valve.js';
-import { TapAccessory } from './accessories/simulations/tap.js';
-import { THHeaterAccessory } from './accessories/simulations/th-heater.js';
-import { THCoolerAccessory } from './accessories/simulations/th-cooler.js';
-import { THHumidifierAccessory } from './accessories/simulations/th-humidifier.js';
-import { THDehumidifierAccessory } from './accessories/simulations/th-dehumidifier.js';
-import { THThermostatAccessory } from './accessories/simulations/th-thermostat.js';
-import { HeaterAccessory } from './accessories/simulations/heater.js';
-import { CoolerAccessory } from './accessories/simulations/cooler.js';
-import { PurifierAccessory } from './accessories/simulations/purifier.js';
-import { BlindAccessory } from './accessories/simulations/blind.js';
-import { DoorAccessory } from './accessories/simulations/door.js';
-import { WindowAccessory } from './accessories/simulations/window.js';
-import { DoorbellAccessory } from './accessories/simulations/doorbell.js';
-import { LightFanAccessory } from './accessories/simulations/light-fan.js';
-import { TVAccessory } from './accessories/simulations/tv.js';
-import { ProgrammableButtonAccessory } from './accessories/simulations/p-button.js';
-import { SensorAccessory as SimSensorAccessory } from './accessories/simulations/sensor.js';
-import { SensorLeakAccessory } from './accessories/simulations/sensor-leak.js';
-
-/** Accessory handler constructor type */
-type AccessoryConstructor = new (
-  platform: EWeLinkPlatform,
-  accessory: PlatformAccessory<AccessoryContext>,
-) => BaseAccessory;
-
-/** Simulation handler mapping (showAs → constructor) */
-const SIMULATION_HANDLERS: Record<string, AccessoryConstructor> = {
-  blind: BlindAccessory,
-  door: DoorAccessory,
-  window: WindowAccessory,
-  garage: GarageAccessory,
-  gate: GarageAccessory,
-  lock: LockAccessory,
-  valve: ValveAccessory,
-  switch_valve: ValveAccessory,
-  tap: TapAccessory,
-  sensor: SimSensorAccessory,
-  sensor_leak: SensorLeakAccessory,
-  p_button: ProgrammableButtonAccessory,
-  doorbell: DoorbellAccessory,
-  purifier: PurifierAccessory,
-  tv: TVAccessory,
-};
-
-/** TH sensor simulation handlers (showAs → constructor, for UIID 15/181) */
-const TH_SIMULATION_HANDLERS: Record<string, AccessoryConstructor> = {
-  heater: THHeaterAccessory,
-  cooler: THCoolerAccessory,
-  humidifier: THHumidifierAccessory,
-  dehumidifier: THDehumidifierAccessory,
-  thermostat: THThermostatAccessory,
-};
-
-/** Category to handler mapping */
-const CATEGORY_HANDLERS: Partial<Record<DeviceCategory, AccessoryConstructor>> = {
-  [DeviceCategory.OUTLET]: OutletAccessory,
-  [DeviceCategory.LIGHT]: LightAccessory,
-  [DeviceCategory.FAN]: FanAccessory,
-  [DeviceCategory.SENSOR]: SensorAccessory,
-  [DeviceCategory.CURTAIN]: CurtainAccessory,
-  [DeviceCategory.GARAGE]: GarageAccessory,
-  [DeviceCategory.AIR_CONDITIONER]: AirConditionerAccessory,
-  [DeviceCategory.HUMIDIFIER]: HumidifierAccessory,
-  [DeviceCategory.DIFFUSER]: DiffuserAccessory,
-  [DeviceCategory.PANEL]: PanelAccessory,
-  [DeviceCategory.VIRTUAL]: VirtualAccessory,
-  [DeviceCategory.MOTOR]: MotorAccessory,
-  [DeviceCategory.GROUP]: GroupAccessory,
-  [DeviceCategory.RF_BRIDGE]: RFBridgeAccessory,
-};
+/** Optional collaborators, overridable for tests */
+export interface PlatformDependencies {
+  clients: Partial<ClientFactory>;
+}
 
 /**
  * eWeLink Platform Plugin
+ *
+ * Homebridge-facing facade. The work is done by the modules in ./platform/:
+ * DeviceRegistry (state), AccessoryFactory (accessories/handlers), StateRouter
+ * (incoming updates), CommandDispatcher (outgoing commands), DeviceDiscoveryService
+ * (device list reconciliation) and ConnectionManager (client lifecycle).
  */
 export class EWeLinkPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
@@ -139,54 +45,57 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
   /** Eve Home custom characteristics */
   public readonly eveCharacteristics: EveCharacteristics;
 
-  /** Cached accessories */
-  public readonly accessories: Map<string, PlatformAccessory<AccessoryContext>> = new Map();
+  public readonly registry: DeviceRegistry;
+  public readonly factory: AccessoryFactory;
+  public readonly router: StateRouter;
+  public readonly dispatcher: CommandDispatcher;
+  public readonly discovery: DeviceDiscoveryService;
+  public readonly connection: ConnectionManager;
 
-  /** Accessory handlers */
-  private readonly accessoryHandlers: Map<string, BaseAccessory> = new Map();
-
-  /** eWeLink API client */
-  public ewelinkApi?: EWeLinkAPI;
-
-  /** LAN control */
-  public lanControl?: LANControl;
-
-  /** WebSocket client */
-  public wsClient?: WSClient;
-
-  /** Device cache */
-  public deviceCache: Map<string, EWeLinkDevice> = new Map();
-
-  /** Temperature cache for cross-device temperature sharing (heater/cooler simulations) */
-  private readonly temperatureCache: Map<string, number> = new Map();
-
-  /** Curtain initialization counter for staggered state refresh */
-  private curtainInitCounter = 0;
-
-  /** Command queue for throttling bulk commands */
-  private readonly commandQueue: CommandQueue;
-
-  /** Initialization complete */
-  private initialized = false;
-
-  constructor(log: Logging, config: PlatformConfig, api: API) {
+  constructor(log: Logging, config: PlatformConfig, api: API, deps: Partial<PlatformDependencies> = {}) {
     this.log = log;
     this.api = api;
     this.config = this.validateConfig(config as EWeLinkPlatformConfig);
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
 
-    // Initialize Eve characteristics
     this.eveCharacteristics = new EveCharacteristics(api);
 
-    // Initialize command queue with throttling
-    // Conservative settings to prevent eWeLink API timeouts on bulk commands
-    // Can be customized via config
-    this.commandQueue = new CommandQueue({
-      minInterval: this.config.commandQueueInterval ?? 250,
-      concurrency: this.config.commandQueueConcurrency ?? 3,
-      log: (message) => this.log.debug(`[CommandQueue] ${message}`),
-      getDeviceName: (deviceId) => this.getDeviceDisplayName(deviceId),
+    this.registry = new DeviceRegistry((id) => api.hap.uuid.generate(id));
+    this.factory = new AccessoryFactory(this, this.registry);
+    this.router = new StateRouter({
+      log,
+      api,
+      registry: this.registry,
+      isCloudEnabled: () => !!this.wsClient,
+    });
+    this.dispatcher = new CommandDispatcher({
+      log,
+      config: this.config,
+      registry: this.registry,
+      getLan: () => this.lanControl,
+      getCloud: () => this.wsClient,
+      getGroupApi: () => this.ewelinkApi,
+    });
+    this.discovery = new DeviceDiscoveryService({
+      log,
+      api,
+      config: this.config,
+      registry: this.registry,
+      factory: this.factory,
+    });
+    this.connection = new ConnectionManager({
+      log,
+      config: this.config,
+      registry: this.registry,
+      factory: this.factory,
+      discovery: this.discovery,
+      clients: {
+        createApi: () => new EWeLinkAPI(this),
+        createLan: () => new LANControl(this),
+        createWs: () => new WSClient(this),
+        ...deps.clients,
+      },
     });
 
     // Bind the method to preserve 'this' context
@@ -197,14 +106,38 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
     // Wait for Homebridge to finish loading cached accessories
     this.api.on('didFinishLaunching', () => {
       this.log.debug('Executed didFinishLaunching callback');
-      this.discoverDevices();
+      void this.discoverDevices();
     });
 
-    // Handle shutdown
     this.api.on('shutdown', () => {
       this.log.info('Shutting down eWeLink platform...');
       this.shutdown();
     });
+  }
+
+  /** Cached accessories, by UUID */
+  get accessories(): Map<string, PlatformAccessory<AccessoryContext>> {
+    return this.registry.accessories;
+  }
+
+  /** Device cache, by device ID */
+  get deviceCache(): Map<string, EWeLinkDevice> {
+    return this.registry.deviceCache;
+  }
+
+  /** eWeLink API client */
+  get ewelinkApi(): EWeLinkAPI | undefined {
+    return this.connection.ewelinkApi;
+  }
+
+  /** LAN control */
+  get lanControl(): LANControl | undefined {
+    return this.connection.lanControl;
+  }
+
+  /** WebSocket client */
+  get wsClient(): WSClient | undefined {
+    return this.connection.wsClient;
   }
 
   /**
@@ -240,147 +173,18 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    */
   configureAccessory(accessory: PlatformAccessory): void {
     this.log.info('Loading accessory from cache:', accessory.displayName);
-    this.sanitizeAccessoryNames(accessory);
-    this.accessories.set(accessory.UUID, accessory as PlatformAccessory<AccessoryContext>);
+    this.factory.sanitizeAccessoryNames(accessory);
+    this.registry.accessories.set(accessory.UUID, accessory as PlatformAccessory<AccessoryContext>);
   }
 
   /**
-   * Replace any Name / ConfiguredName values that contain characters HAP-NodeJS
-   * rejects. This silences the "invalid 'ConfiguredName' characteristic" warning
-   * introduced in Homebridge 2.0 for accessories cached under older versions.
-   */
-  private sanitizeAccessoryNames(accessory: PlatformAccessory): void {
-    const safeDisplay = sanitizeHomeKitName(accessory.displayName);
-    if (safeDisplay !== accessory.displayName) {
-      accessory.displayName = safeDisplay;
-    }
-
-    for (const service of accessory.services) {
-      const safeServiceName = sanitizeHomeKitName(service.displayName, safeDisplay);
-      if (safeServiceName !== service.displayName) {
-        service.displayName = safeServiceName;
-      }
-
-      const nameChar = service.testCharacteristic(this.Characteristic.Name)
-        ? service.getCharacteristic(this.Characteristic.Name)
-        : undefined;
-      if (nameChar && typeof nameChar.value === 'string') {
-        const safe = sanitizeHomeKitName(nameChar.value, safeDisplay);
-        if (safe !== nameChar.value) {
-          service.updateCharacteristic(this.Characteristic.Name, safe);
-        }
-      }
-
-      const configuredChar = service.testCharacteristic(this.Characteristic.ConfiguredName)
-        ? service.getCharacteristic(this.Characteristic.ConfiguredName)
-        : undefined;
-      if (configuredChar && typeof configuredChar.value === 'string' && configuredChar.value.length > 0) {
-        const safe = sanitizeHomeKitName(configuredChar.value, safeDisplay);
-        if (safe !== configuredChar.value) {
-          service.updateCharacteristic(this.Characteristic.ConfiguredName, safe);
-        }
-      }
-    }
-  }
-
-  /**
-   * Discover eWeLink devices
+   * Restore cached accessories, then log in and discover devices (retrying until it succeeds)
    */
   async discoverDevices(): Promise<void> {
-    this.log.info('=== DISCOVER DEVICES START ===');
     try {
-      // Validate credentials
-      this.log.debug(`Config username: ${this.config.username ? 'SET' : 'NOT SET'}`);
-      this.log.debug(`Config password: ${this.config.password ? 'SET' : 'NOT SET'}`);
-
-      if (!this.config.username || !this.config.password) {
-        this.log.warn('eWeLink credentials not configured. Please configure the plugin.');
-        return;
-      }
-
-      // Initialize API
-      this.log.info('Initializing eWeLink API...');
-      this.ewelinkApi = new EWeLinkAPI(this);
-
-      this.log.info('Attempting login...');
-      await this.ewelinkApi.login();
-
-      // Get device list and groups
-      const { devices, groups } = await this.ewelinkApi.getDevices();
-      this.log.info(`Discovered ${devices.length} devices and ${groups.length} groups from eWeLink`);
-
-      // Cache devices
-      for (const device of devices) {
-        this.deviceCache.set(device.deviceid, device);
-      }
-
-      // Initialize LAN control if not WAN-only mode
-      if (this.config.mode !== 'wan') {
-        this.lanControl = new LANControl(this);
-
-        // Pre-register devices with IP info from API (before mDNS discovery)
-        let lanRegisteredCount = 0;
-        let lanCapableNoIp = 0;
-        for (const device of devices) {
-          if (device.localtype === 1) {
-            if (device.ip && device.port) {
-              this.lanControl.registerDevice(
-                device.deviceid,
-                device.ip,
-                device.port,
-                device.devicekey,
-                true, // encrypt
-              );
-              lanRegisteredCount++;
-            } else {
-              lanCapableNoIp++;
-              this.log.debug(
-                `[${device.name}] LAN capable but no IP from API ` +
-                  `(localtype=${device.localtype}, ip=${device.ip}, port=${device.port})`,
-              );
-            }
-          }
-        }
-        if (lanRegisteredCount > 0) {
-          this.log.info(`Pre-registered ${lanRegisteredCount} device(s) for LAN control from API`);
-        }
-        if (lanCapableNoIp > 0) {
-          this.log.info(`${lanCapableNoIp} device(s) support LAN but API didn't provide IP addresses`);
-        }
-
-        await this.lanControl.start();
-      }
-
-      // Initialize WebSocket client if not LAN-only mode
-      if (this.config.mode !== 'lan') {
-        this.wsClient = new WSClient(this);
-        await this.wsClient.connect();
-      }
-
-      // Register/update accessories. Wrap per-device so a bug initializing one
-      // accessory cannot abort the whole loop and leave later devices unhandled.
-      for (const device of devices) {
-        try {
-          await this.addAccessory(device);
-        } catch (error) {
-          this.log.error(
-            `Failed to initialize accessory for ${device.name} [${device.deviceid}]: ` +
-              (error instanceof Error ? error.message : String(error)),
-          );
-        }
-      }
-
-      // Process device groups
-      await this.processGroups(groups);
-
-      // Remove stale accessories
-      this.removeStaleAccessories(devices);
-
-      this.initialized = true;
-      this.log.info('eWeLink platform initialization complete');
-
+      await this.connection.start();
     } catch (error) {
-      this.log.error('Failed to discover devices:', error instanceof Error ? error.message : String(error));
+      this.log.error('Failed to start eWeLink platform:', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -388,801 +192,72 @@ export class EWeLinkPlatform implements DynamicPlatformPlugin {
    * Add or update an accessory
    */
   async addAccessory(device: EWeLinkDevice): Promise<void> {
-    // Check if device should be ignored
-    if (this.isDeviceIgnored(device.deviceid)) {
-      this.log.debug('Device is ignored:', device.name);
-      return;
-    }
-
-    const uuid = this.api.hap.uuid.generate(device.deviceid);
-    const existingAccessory = this.accessories.get(uuid);
-
-    // Determine device category
-    const uiid = device.extra?.uiid || 0;
-    let category = DEVICE_UIID_MAP[uiid] || DeviceCategory.UNKNOWN;
-
-    // Special handling for UIID 126 - can be multi-switch OR curtain depending on params
-    // If device has curtain-specific params (currLocation, setclose, location), treat as curtain
-    if (uiid === 126 && hasCurtainParams(device.params)) {
-      category = DeviceCategory.CURTAIN;
-      this.log.debug(`UIID 126 device "${device.name}" has curtain params, treating as curtain`);
-    }
-
-    // Log device UIID for debugging
-    this.log.debug(`Device "${device.name}" [${device.deviceid}] - UIID: ${uiid}, Category: ${category}`);
-
-    // RF/Zigbee bridges should not be exposed as HomeKit accessories themselves,
-    // only their sub-devices are. We still need a handler for event routing.
-    if (category === DeviceCategory.RF_BRIDGE) {
-      // Remove previously cached bridge accessory from HomeKit if it exists
-      if (existingAccessory) {
-        this.log.info(`Removing bridge device from HomeKit (not user-facing): ${device.name}`);
-        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        this.accessories.delete(uuid);
-      }
-
-      // Create a lightweight accessory object for the handler (not registered in HomeKit)
-      const bridgeAccessory = new this.api.platformAccessory<AccessoryContext>(
-        device.name,
-        uuid,
-      );
-      bridgeAccessory.context.device = device;
-      bridgeAccessory.context.deviceId = device.deviceid;
-      bridgeAccessory.context.category = category;
-
-      // Initialize handler so it can route RF events to sub-devices
-      const handler = new RFBridgeAccessory(this, bridgeAccessory);
-      this.accessoryHandlers.set(bridgeAccessory.UUID, handler);
-
-      // Create sub-devices for learned RF devices
-      await this.createRFSubDevices(device);
-      return;
-    }
-
-    if (existingAccessory) {
-      // Update existing accessory
-      this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-
-      // Check if category changed - if so, remove old services
-      const oldCategory = existingAccessory.context.category;
-      if (oldCategory && oldCategory !== category) {
-        this.log.warn(`Category changed for ${device.name}: ${oldCategory} → ${category}. Removing old services.`);
-        // Remove all services except AccessoryInformation
-        existingAccessory.services
-          .filter(service => service.UUID !== this.api.hap.Service.AccessoryInformation.UUID)
-          .forEach(service => existingAccessory.removeService(service));
-      }
-
-      existingAccessory.context.device = device;
-      existingAccessory.context.deviceId = device.deviceid;
-      existingAccessory.context.category = category;
-
-      // Update accessory info
-      this.updateAccessoryInfo(existingAccessory, device);
-
-      // Initialize handler
-      this.initializeAccessoryHandler(existingAccessory, device, category);
-
-    } else {
-      // Create new accessory
-      this.log.info('Adding new accessory:', device.name);
-
-      const accessory = new this.api.platformAccessory<AccessoryContext>(
-        sanitizeHomeKitName(device.name),
-        uuid,
-      );
-
-      accessory.context.device = device;
-      accessory.context.deviceId = device.deviceid;
-      accessory.context.category = category;
-
-      // Set accessory info
-      this.updateAccessoryInfo(accessory, device);
-
-      // Initialize handler
-      this.initializeAccessoryHandler(accessory, device, category);
-
-      // Register accessory
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-      this.accessories.set(uuid, accessory);
-    }
-
-    // Create multi-channel sub-devices if this is a multi-switch device
-    if (category === DeviceCategory.MULTI_SWITCH) {
-      await this.createMultiChannelSubDevices(device, category);
-      return; // Multi-switch creates its own sub-accessories
-    }
-  }
-
-  /**
-   * Create RF sub-devices for RF Bridge
-   */
-  private async createRFSubDevices(bridgeDevice: EWeLinkDevice): Promise<void> {
-    // Check if bridge has learned RF devices
-    if (!bridgeDevice.tags?.zyx_info || bridgeDevice.tags.zyx_info.length === 0) {
-      this.log.debug(`RF Bridge ${bridgeDevice.name} has no learned RF devices`);
-      return;
-    }
-
-    this.log.info(`Creating RF sub-devices for bridge ${bridgeDevice.name}...`);
-
-    let channelCounter = 0;
-
-    // Process each learned RF device
-    for (const rfDevice of bridgeDevice.tags.zyx_info) {
-      const swNumber = channelCounter + 1;
-      const fullDeviceId = `${bridgeDevice.deviceid}SW${swNumber}`;
-      const uuid = this.api.hap.uuid.generate(fullDeviceId);
-
-      // Determine sub-device type based on remote_type
-      let subType: string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let handler: RFButtonAccessory | RFSensorAccessory | any;
-      const remoteType = rfDevice.remote_type;
-
-      // Parse button names from the buttonName array
-      // buttonName is an array of objects like [{0: "Button 1"}, {1: "Button 2"}]
-      const buttons: Record<string, string> = {};
-      if (rfDevice.buttonName && Array.isArray(rfDevice.buttonName)) {
-        rfDevice.buttonName.forEach((btnMap) => {
-          Object.assign(buttons, btnMap);
-        });
-      }
-
-      this.log.debug(`RF sub-device ${rfDevice.name}: buttons=${JSON.stringify(buttons)}`);
-
-      // Determine type using RF remote type helpers
-      if (isRFButtonType(remoteType)) {
-        subType = 'button';
-      } else if (isRFCurtainType(remoteType)) {
-        // Curtain - check config for simulation type
-        const deviceConfig = this.config.bridgeSensors?.find(
-          s => s.fullDeviceId === fullDeviceId,
-        );
-        if (deviceConfig?.curtainType && ['blind', 'door', 'window'].includes(deviceConfig.curtainType)) {
-          subType = deviceConfig.curtainType;
-        } else {
-          subType = 'curtain';
-        }
-      } else if (isRFSensorType(remoteType)) {
-        subType = 'sensor';
-      } else {
-        this.log.warn(`Unknown RF device type ${remoteType} for ${rfDevice.name}, skipping`);
-        continue;
-      }
-
-      // Create or update accessory
-      let subAccessory = this.accessories.get(uuid);
-
-      const safeRfName = sanitizeHomeKitName(rfDevice.name);
-
-      if (!subAccessory) {
-        // Create new sub-accessory
-        this.log.info(`Adding RF sub-device: ${rfDevice.name} (type: ${subType})`);
-
-        subAccessory = new this.api.platformAccessory<AccessoryContext>(
-          safeRfName,
-          uuid,
-        );
-
-        // Set context
-        subAccessory.context.device = bridgeDevice;
-        subAccessory.context.deviceId = fullDeviceId;
-        subAccessory.context.rfButtonIndex = channelCounter;
-        subAccessory.context.buttons = buttons;
-        subAccessory.context.subType = subType;
-        subAccessory.context.hbDeviceId = fullDeviceId;
-        subAccessory.context.name = rfDevice.name;
-
-        // Set accessory info
-        const infoService = subAccessory.getService(this.Service.AccessoryInformation);
-        if (infoService) {
-          infoService
-            .setCharacteristic(this.Characteristic.Name, safeRfName)
-            .setCharacteristic(this.Characteristic.ConfiguredName, safeRfName)
-            .setCharacteristic(this.Characteristic.Manufacturer, bridgeDevice.brandName || 'eWeLink')
-            .setCharacteristic(this.Characteristic.Model, `RF ${subType}`)
-            .setCharacteristic(this.Characteristic.SerialNumber, fullDeviceId)
-            .setCharacteristic(this.Characteristic.FirmwareRevision, bridgeDevice.params?.fwVersion || '1.0.0');
-        }
-
-        // Register accessory
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [subAccessory]);
-        this.accessories.set(uuid, subAccessory);
-      } else {
-        // Update existing
-        this.log.info(`Restoring RF sub-device: ${rfDevice.name} (type: ${subType})`);
-
-        // Update display name if it changed
-        if (subAccessory.displayName !== safeRfName) {
-          subAccessory.displayName = safeRfName;
-          const infoService = subAccessory.getService(this.Service.AccessoryInformation);
-          if (infoService) {
-            infoService
-              .setCharacteristic(this.Characteristic.Name, safeRfName)
-              .setCharacteristic(this.Characteristic.ConfiguredName, safeRfName);
-          }
-        }
-
-        subAccessory.context.device = bridgeDevice;
-        subAccessory.context.deviceId = fullDeviceId;
-        subAccessory.context.rfButtonIndex = channelCounter;
-        subAccessory.context.buttons = buttons;
-        subAccessory.context.subType = subType;
-        subAccessory.context.hbDeviceId = fullDeviceId;
-        subAccessory.context.name = rfDevice.name;
-      }
-
-      // Initialize appropriate handler
-      if (subType === 'button' || subType === 'curtain') {
-        handler = new RFButtonAccessory(this, subAccessory);
-      } else if (subType === 'sensor') {
-        handler = new RFSensorAccessory(this, subAccessory);
-      } else if (subType === 'blind') {
-        const { RFBlindAccessory } = await import('./accessories/simulations/rf-blind.js');
-        handler = new RFBlindAccessory(this, subAccessory);
-      } else if (subType === 'door') {
-        const { RFDoorAccessory } = await import('./accessories/simulations/rf-door.js');
-        handler = new RFDoorAccessory(this, subAccessory);
-      } else if (subType === 'window') {
-        const { RFWindowAccessory } = await import('./accessories/simulations/rf-window.js');
-        handler = new RFWindowAccessory(this, subAccessory);
-      }
-
-      if (handler) {
-        this.accessoryHandlers.set(subAccessory.UUID, handler);
-        this.api.updatePlatformAccessories([subAccessory]);
-      }
-
-      // Increment channel counter by number of buttons
-      channelCounter += Object.keys(buttons).length;
-    }
-
-    this.log.info(`Created ${bridgeDevice.tags.zyx_info.length} RF sub-devices for bridge ${bridgeDevice.name}`);
-  }
-
-  /**
-   * Create sub-accessories for multi-channel devices
-   */
-  private async createMultiChannelSubDevices(device: EWeLinkDevice, category: DeviceCategory): Promise<void> {
-    const uiid = device.extra?.uiid || 0;
-    const channelCount = getChannelCount(uiid);
-
-    if (channelCount <= 1) {
-      // Single channel device, no sub-accessories needed
-      return;
-    }
-
-    this.log.info(`Creating ${channelCount + 1} channels for multi-switch device ${device.name}...`);
-
-    // Get device configuration
-    const deviceConfig = this.config.multiDevices?.find(d => d.deviceId === device.deviceid);
-    const hideChannels = deviceConfig?.hideChannels?.split(',').map(c => c.trim()) || [];
-    const inchChannels = deviceConfig?.inchChannels || false;
-
-    // Remove any leftover single accessory from a previous simulation
-    const singleUuid = this.api.hap.uuid.generate(device.deviceid);
-    if (this.accessories.has(singleUuid)) {
-      const oldAccessory = this.accessories.get(singleUuid)!;
-      this.log.info(`Removing old single accessory for ${device.name}`);
-      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [oldAccessory]);
-      this.accessories.delete(singleUuid);
-      this.accessoryHandlers.delete(oldAccessory.UUID);
-    }
-
-    // Create sub-accessories for each channel (0 = master, 1-N = individual channels)
-    for (let channel = 0; channel <= channelCount; channel++) {
-      const fullDeviceId = `${device.deviceid}SW${channel}`;
-      const uuid = this.api.hap.uuid.generate(fullDeviceId);
-      const isHidden = hideChannels.includes(`${device.deviceid}SW${channel}`)
-        || (channel === 0 && inchChannels);
-
-      let subAccessory = this.accessories.get(uuid);
-
-      // Determine if we need to create or update the accessory
-      if (!subAccessory) {
-        // Create new sub-accessory
-        const safeName = sanitizeHomeKitName(device.name);
-        const displayName = channel === 0
-          ? safeName
-          : `${safeName} ${channel}`;
-
-        subAccessory = new this.api.platformAccessory<AccessoryContext>(displayName, uuid);
-
-        // Register with Homebridge
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [subAccessory]);
-        this.accessories.set(uuid, subAccessory);
-      }
-
-      // Update context
-      subAccessory.context.device = device;
-      subAccessory.context.deviceId = fullDeviceId;
-      subAccessory.context.switchNumber = channel;
-      subAccessory.context.channelCount = channelCount;
-      subAccessory.context.category = category;
-
-      // Add metadata context (following original implementation)
-      subAccessory.context.firmware = device.params?.fwVersion;
-      subAccessory.context.reachableWAN = !!this.wsClient && device.online;
-      subAccessory.context.reachableLAN = !!this.lanControl; // Will be updated when LAN discovers device
-      subAccessory.context.eweBrandName = device.brandName;
-      subAccessory.context.eweBrandLogo = device.brandLogoUrl;
-      subAccessory.context.eweShared = device.sharedTo && device.sharedTo.length > 0 ? device.sharedTo[0] : false;
-      subAccessory.context.macAddress = device.extra?.staMac?.replace(/:+/g, '').replace(/..\B/g, '$&:');
-      subAccessory.context.lanKey = device.devicekey;
-
-      // Update accessory information
-      this.updateAccessoryInfo(subAccessory, device);
-
-      // Initialize handler based on showAs config
-      const showAs = deviceConfig?.showAs || 'default';
-
-      if (showAs === 'outlet') {
-        // Create outlet handler
-        const { OutletAccessory } = await import('./accessories/outlet.js');
-        const handler = new OutletAccessory(this, subAccessory);
-        this.accessoryHandlers.set(subAccessory.UUID, handler);
-      } else {
-        // Create switch handler
-        const { SwitchAccessory } = await import('./accessories/switch.js');
-        const handler = new SwitchAccessory(this, subAccessory);
-        this.accessoryHandlers.set(subAccessory.UUID, handler);
-      }
-
-      // Update the accessory
-      this.api.updatePlatformAccessories([subAccessory]);
-
-      // Mark accessory as hidden if configured
-      if (isHidden && channel === 0) {
-        this.log.debug(`Channel ${channel} (master) is hidden for ${device.name}`);
-      } else if (isHidden) {
-        this.log.debug(`Channel ${channel} is hidden for ${device.name}`);
-      }
-    }
-
-    this.log.info(`Created ${channelCount + 1} channel accessories for ${device.name}`);
-  }
-
-  /**
-   * Update accessory information service
-   */
-  private updateAccessoryInfo(accessory: PlatformAccessory<AccessoryContext>, device: EWeLinkDevice): void {
-    const infoService = accessory.getService(this.Service.AccessoryInformation);
-    if (infoService) {
-      infoService
-        .setCharacteristic(this.Characteristic.Manufacturer, device.brandName || 'eWeLink')
-        .setCharacteristic(this.Characteristic.Model, device.productModel || device.extra?.model || 'Unknown')
-        .setCharacteristic(this.Characteristic.SerialNumber, device.deviceid)
-        .setCharacteristic(this.Characteristic.FirmwareRevision, device.params?.fwVersion || '1.0.0');
-    }
-  }
-
-  /**
-   * Initialize the appropriate handler for an accessory
-   */
-  private initializeAccessoryHandler(
-    accessory: PlatformAccessory<AccessoryContext>,
-    device: EWeLinkDevice,
-    category: DeviceCategory,
-  ): void {
-    // Remove existing handler if any
-    this.accessoryHandlers.delete(accessory.UUID);
-
-    // Get device-specific config
-    const deviceConfig = this.getDeviceConfig(device.deviceid, category);
-    const showAs = deviceConfig?.showAs || 'default';
-    const uiid = device.extra?.uiid || 0;
-
-    // Create handler based on showAs simulation or device category
-    const handler = this.createHandler(accessory, showAs, uiid, category);
-    this.accessoryHandlers.set(accessory.UUID, handler);
-  }
-
-  /**
-   * Create appropriate handler based on showAs simulation or device category
-   */
-  private createHandler(
-    accessory: PlatformAccessory<AccessoryContext>,
-    showAs: string,
-    uiid: number,
-    category: DeviceCategory,
-  ): BaseAccessory {
-    // 1. Check for simulation handlers (showAs config)
-    const SimHandler = SIMULATION_HANDLERS[showAs];
-    if (SimHandler) {
-      return new SimHandler(this, accessory);
-    }
-
-    // 2. Check for TH sensor simulations (UIID 15/181 with showAs)
-    if (isTHSensorDevice(uiid)) {
-      const THSimHandler = TH_SIMULATION_HANDLERS[showAs];
-      if (THSimHandler) {
-        return new THSimHandler(this, accessory);
-      }
-    }
-
-    // 3. Check for special showAs cases
-    if (showAs === 'heater') {
-      return new HeaterAccessory(this, accessory);
-    }
-    if (showAs === 'cooler') {
-      return new CoolerAccessory(this, accessory);
-    }
-    if (showAs === 'fan' && isDimmableLightForFan(uiid)) {
-      return new LightFanAccessory(this, accessory);
-    }
-
-    // 4. Use category-based handler mapping
-    const CategoryHandler = CATEGORY_HANDLERS[category];
-    if (CategoryHandler) {
-      return new CategoryHandler(this, accessory);
-    }
-
-    // 5. Handle thermostat category specially (UIID 15/181 = TH sensor, UIID 127 = thermostat)
-    if (category === DeviceCategory.THERMOSTAT) {
-      return isTHSensorDevice(uiid)
-        ? new THSensorAccessory(this, accessory)
-        : new ThermostatAccessory(this, accessory);
-    }
-
-    // 6. Handle programmable switches (SwitchMan R5, Switch Mate, etc.)
-    if (isProgrammableSwitch(uiid)) {
-      // Multi-channel programmable switches use SwitchMiniAccessory
-      // Single-channel programmable switches use SwitchMateAccessory
-      return getChannelCount(uiid) > 1
-        ? new SwitchMiniAccessory(this, accessory)
-        : new SwitchMateAccessory(this, accessory);
-    }
-
-    // 7. Handle outlet simulation
-    if (showAs === 'outlet') {
-      return new OutletAccessory(this, accessory);
-    }
-
-    // 8. Default water-valve devices (e.g. SWV-BSP UIID 7027) to a HomeKit faucet.
-    //    Skipped if the user explicitly chose 'switch' to keep the override path.
-    if (isWaterValveDevice(uiid) && showAs !== 'switch') {
-      return new TapAccessory(this, accessory);
-    }
-
-    // Default: regular switch
-    return new SwitchAccessory(this, accessory);
-  }
-
-  /**
-   * Get device-specific configuration
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getDeviceConfig(deviceId: string, category: DeviceCategory): any {
-    switch (category) {
-      case DeviceCategory.SINGLE_SWITCH:
-        return this.config.singleDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.MULTI_SWITCH:
-        return this.config.multiDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.THERMOSTAT:
-        return this.config.thDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.FAN:
-        return this.config.fanDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.LIGHT:
-        return this.config.lightDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.SENSOR:
-        return this.config.sensorDevices?.find(d => d.deviceId === deviceId);
-      case DeviceCategory.RF_BRIDGE:
-        return this.config.rfDevices?.find(d => d.deviceId === deviceId);
-      default:
-        return undefined;
-    }
-  }
-
-  /**
-   * Process device groups from eWeLink cloud
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async processGroups(groups: any[]): Promise<void> {
-    if (!this.ewelinkApi || groups.length === 0) {
-      return;
-    }
-
-    this.log.info(`Processing ${groups.length} group(s) from eWeLink account`);
-
-    // Process each group and create as a device
-    for (const group of groups) {
-      // Create a pseudo-device object for the group
-      const groupDevice: EWeLinkDevice = {
-        ...group,
-        extra: { uiid: 5000 }, // Groups use UIID 5000
-        deviceid: group.id,
-        productModel: 'Group [5000]',
-        brandName: 'eWeLink',
-        online: true,
-        params: group.params || {},
-        devicekey: '', // Groups don't have device keys
-        apikey: this.ewelinkApi!.getApiKey(),
-        name: group.name || `Group ${group.id}`,
-        deviceStatus: 'online',
-        createdAt: new Date().toISOString(),
-      } as EWeLinkDevice;
-
-      // Initialize the group as a regular device
-      await this.addAccessory(groupDevice);
-    }
-  }
-
-  /**
-   * Check if a device should be ignored
-   */
-  private isDeviceIgnored(deviceId: string): boolean {
-    return this.config.ignoredDevices?.includes(deviceId) ?? false;
-  }
-
-  /**
-   * Remove accessories that are no longer in the device list
-   */
-  private removeStaleAccessories(currentDevices: EWeLinkDevice[]): void {
-    const currentDeviceIds = new Set(currentDevices.map(d => d.deviceid));
-
-    for (const [uuid, accessory] of this.accessories) {
-      const deviceId = accessory.context.deviceId;
-
-      // Skip group devices
-      if (accessory.context.isGroup) {
-        continue;
-      }
-
-      // Skip RF sub-devices (check if parent bridge exists)
-      if (accessory.context.rfButtonIndex !== undefined) {
-        // Extract parent device ID (remove SWx suffix)
-        const parentId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
-        if (currentDeviceIds.has(parentId)) {
-          continue;
-        }
-      }
-
-      // Skip multi-channel sub-devices (check if parent device exists)
-      if (accessory.context.switchNumber !== undefined) {
-        // Extract parent device ID (remove SWx suffix)
-        const parentId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
-        if (currentDeviceIds.has(parentId)) {
-          continue;
-        }
-      }
-
-      if (!currentDeviceIds.has(deviceId)) {
-        this.log.info('Removing stale accessory:', accessory.displayName);
-        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-        this.accessories.delete(uuid);
-        this.accessoryHandlers.delete(uuid);
-      }
-    }
+    return this.factory.addAccessory(device);
   }
 
   /**
    * Handle device state updates
    */
   public handleDeviceUpdate(deviceId: string, params: DeviceParams): void {
-    // Check if this is a multi-channel device
-    const device = this.deviceCache.get(deviceId);
-    if (!device) {
-      this.log.debug('Device not found in cache for update:', deviceId);
-      return;
-    }
-
-    const uiid = device.extra?.uiid || 0;
-    const channelCount = getChannelCount(uiid);
-
-    // Check if this is a UIID 126 device configured as curtain (registered with plain deviceId)
-    const isCurtainDevice = uiid === 126 && hasCurtainParams(device.params);
-
-    // For multi-channel devices (except curtains), broadcast to all sub-accessories
-    if (channelCount > 1 && !isCurtainDevice) {
-      // Update all channel sub-accessories (SW0, SW1, SW2, etc.)
-      for (let channel = 0; channel <= channelCount; channel++) {
-        const subDeviceId = `${deviceId}SW${channel}`;
-        const subUuid = this.api.hap.uuid.generate(subDeviceId);
-        const subHandler = this.accessoryHandlers.get(subUuid);
-
-        if (subHandler) {
-          subHandler.updateState(params);
-
-          // Mark online/offline status
-          if (params.online !== undefined && 'markStatus' in subHandler && typeof subHandler.markStatus === 'function') {
-            subHandler.markStatus(params.online === true);
-          }
-
-          // Update reachability context for sub-accessories
-          const subAccessory = this.accessories.get(subUuid);
-          if (subAccessory) {
-            subAccessory.context.reachableWAN = !!this.wsClient && device.online;
-            if (params.updateSource === 'LAN') {
-              subAccessory.context.reachableLAN = true;
-            }
-            this.api.updatePlatformAccessories([subAccessory]);
-          }
-        }
-      }
-    } else {
-      // Single-channel device or RF Bridge - update directly
-      const uuid = this.api.hap.uuid.generate(deviceId);
-      const handler = this.accessoryHandlers.get(uuid);
-
-      if (handler) {
-        handler.updateState(params);
-
-        // Mark online/offline status
-        if (params.online !== undefined && 'markStatus' in handler && typeof handler.markStatus === 'function') {
-          handler.markStatus(params.online === true);
-        }
-      } else {
-        this.log.debug('No handler found for device update:', deviceId);
-      }
-    }
+    this.router.handleDeviceUpdate(deviceId, params);
   }
 
   /**
-   * Send command to device (queued to prevent bulk command overload on cloud API)
+   * Send command to device (LAN first, then queued cloud command)
    */
-  public async sendDeviceCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
-    // Strip channel suffix (e.g., SW1) to get the parent device ID for cache lookup
-    const parentDeviceId = deviceId.replace(CHANNEL_SUFFIX_PATTERN, '');
-    const device = this.deviceCache.get(parentDeviceId);
-    const displayName = this.getDeviceDisplayName(parentDeviceId);
-
-    if (!device) {
-      this.log.error('Device not found in cache:', deviceId);
-      return false;
-    }
-
-    // Groups must use HTTP API with type=2 (not queued - different path)
-    if (isGroupDevice(device.extra?.uiid || 0) && this.ewelinkApi) {
-      this.log.debug(`Sending group command to ${deviceId} via HTTP API`);
-      return await this.ewelinkApi.updateGroup(deviceId, params);
-    }
-
-    // Try LAN control first - no queue needed for local network (no rate limiting)
-    if (this.lanControl && this.config.mode !== 'wan') {
-      const lanSuccess = await this.lanControl.sendCommand(deviceId, params);
-      if (lanSuccess) {
-        return true;
-      }
-      // LAN failed or device not available on LAN, fall through to cloud
-    }
-
-    // Queue the command for cloud API to prevent overwhelming with bulk commands
-    // The queue ensures commands are spaced out with minimum interval
-    return this.commandQueue.enqueue(deviceId, async () => {
-      return this.executeCloudCommand(deviceId, params, displayName);
-    });
+  public sendDeviceCommand(deviceId: string, params: DeviceParams): Promise<boolean> {
+    return this.dispatcher.sendDeviceCommand(deviceId, params);
   }
 
   /**
-   * Execute cloud command via WebSocket (internal - called by command queue)
-   * LAN control is attempted before queueing, so this only handles cloud/WebSocket
+   * Query device state and update accessory with retry logic
    */
-  private async executeCloudCommand(
-    deviceId: string,
-    params: DeviceParams,
-    displayName: string,
-  ): Promise<boolean> {
-    // WebSocket/cloud control with retry logic
-    if (this.wsClient && this.config.mode !== 'lan') {
-      for (let attempt = 1; attempt <= QUERY_RETRY.MAX_ATTEMPTS; attempt++) {
-        try {
-          const success = await this.wsClient.sendCommand(deviceId, params);
-          if (success) {
-            return true;
-          }
+  public queryDeviceState(deviceId: string): Promise<boolean> {
+    return this.dispatcher.queryDeviceState(deviceId);
+  }
 
-          // Command returned false (but didn't throw) - don't retry
-          if (attempt === 1) {
-            this.log.debug(`Command to ${displayName} returned false (not retrying)`);
-          }
-          return false;
-
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-
-          // Only retry on timeout errors
-          if (errorMsg.includes('timeout') && attempt < QUERY_RETRY.MAX_ATTEMPTS) {
-            this.log.debug(`Command attempt ${attempt}/${QUERY_RETRY.MAX_ATTEMPTS} failed for ${displayName}: ${errorMsg}, retrying...`);
-            await new Promise(resolve => setTimeout(resolve, QUERY_RETRY.DELAY_MS));
-          } else {
-            // Non-timeout error or last attempt - fail
-            if (attempt === QUERY_RETRY.MAX_ATTEMPTS) {
-              this.log.error(`[${displayName}] Failed to send command after ${QUERY_RETRY.MAX_ATTEMPTS} attempts: ${errorMsg}`);
-            } else {
-              this.log.error(`[${displayName}] Failed to send command: ${errorMsg}`);
-            }
-            return false;
-          }
-        }
-      }
-    }
-
-    this.log.error('No available control method for device:', deviceId);
-    return false;
+  /**
+   * Staggered delay for curtain state refresh (1s, 2s, 3s, ...)
+   */
+  public getCurtainStaggerDelay(): number {
+    return this.dispatcher.getCurtainStaggerDelay();
   }
 
   /**
    * Get device display name for logging (name or ID if not found)
    */
   public getDeviceDisplayName(deviceId: string): string {
-    const device = this.deviceCache.get(deviceId);
-    return device?.name || deviceId;
+    return this.registry.getDeviceDisplayName(deviceId);
   }
 
   /**
-   * Set cached temperature for a device (called by temperature-capable devices)
-   * This allows heater/cooler simulations to read temperature from other devices
+   * Set cached temperature for a device (read by heater/cooler simulations)
    */
   public setDeviceTemperature(deviceId: string, temperature: number): void {
-    this.temperatureCache.set(deviceId, temperature);
+    this.registry.setDeviceTemperature(deviceId, temperature);
   }
 
   /**
-   * Get cached temperature for a device (used by heater/cooler simulations)
-   * Returns undefined if no temperature has been cached for the device
+   * Get cached temperature for a device (undefined if none cached)
    */
   public getDeviceTemperature(deviceId: string): number | undefined {
-    return this.temperatureCache.get(deviceId);
+    return this.registry.getDeviceTemperature(deviceId);
   }
 
   /**
-   * Get accessory handler by UUID
-   * Used by RF bridges to trigger sub-device updates
+   * Get accessory handler by UUID (used by RF bridges to trigger sub-device updates)
    */
   public getAccessoryHandler(uuid: string): BaseAccessory | undefined {
-    return this.accessoryHandlers.get(uuid);
+    return this.registry.getAccessoryHandler(uuid);
   }
 
   /**
-   * Get staggered delay for curtain state refresh
-   * Returns incrementing delays (1s, 2s, 3s, etc.) to prevent overwhelming WebSocket
-   */
-  public getCurtainStaggerDelay(): number {
-    this.curtainInitCounter++;
-    return this.curtainInitCounter * 1000; // 1 second per curtain
-  }
-
-  /**
-   * Query device state and update accessory with retry logic
-   */
-  async queryDeviceState(deviceId: string): Promise<boolean> {
-    const displayName = this.getDeviceDisplayName(deviceId);
-
-    if (!this.wsClient || !this.wsClient.isConnected()) {
-      this.log.debug(`Cannot query ${displayName}: WebSocket not connected`);
-      return false;
-    }
-
-    for (let attempt = 1; attempt <= QUERY_RETRY.MAX_ATTEMPTS; attempt++) {
-      try {
-        await this.wsClient.queryDeviceState(deviceId);
-        return true;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-
-        if (attempt < QUERY_RETRY.MAX_ATTEMPTS) {
-          this.log.debug(`Query attempt ${attempt}/${QUERY_RETRY.MAX_ATTEMPTS} failed for ${displayName}: ${errorMsg}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, QUERY_RETRY.DELAY_MS));
-        } else {
-          this.log.warn(`Failed to query device ${displayName} after ${QUERY_RETRY.MAX_ATTEMPTS} attempts: ${errorMsg}`);
-        }
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Shutdown the platform
+   * Shutdown: stop discovery retries, clients and command queue, destroy all handlers
    */
   private shutdown(): void {
-    if (this.wsClient) {
-      this.wsClient.disconnect();
-    }
-    if (this.lanControl) {
-      this.lanControl.stop();
-    }
+    this.connection.shutdown();
+    this.dispatcher.clear();
+    this.registry.destroyAllHandlers();
   }
 
   /**

@@ -23,6 +23,21 @@ export interface CommandQueueOptions {
   log?: (message: string) => void;
   /** Function to get device display name from device ID */
   getDeviceName?: (deviceId: string) => string;
+  /**
+   * Maximum number of pending (not yet executing) commands (default: 100).
+   * When exceeded, the oldest pending command is rejected with a QueueOverflowError.
+   */
+  maxSize?: number;
+}
+
+/**
+ * Rejection reason for a command dropped because the queue was full
+ */
+export class QueueOverflowError extends Error {
+  constructor(public readonly deviceId: string) {
+    super('Command queue full - command dropped');
+    this.name = 'QueueOverflowError';
+  }
 }
 
 /**
@@ -34,6 +49,7 @@ export class CommandQueue {
   private readonly concurrency: number;
   private readonly log: (message: string) => void;
   private readonly getDeviceName: (deviceId: string) => string;
+  private readonly maxSize: number;
   private activeCount = 0;
   private lastCommandTime = 0;
   private throttleTimeout: NodeJS.Timeout | null = null;
@@ -43,6 +59,7 @@ export class CommandQueue {
     this.concurrency = options.concurrency ?? 3;
     this.log = options.log ?? (() => {});
     this.getDeviceName = options.getDeviceName ?? ((id) => id);
+    this.maxSize = Math.max(1, options.maxSize ?? 100);
   }
 
   /**
@@ -60,6 +77,15 @@ export class CommandQueue {
         deviceId,
         timestamp: Date.now(),
       });
+
+      // Bound memory and latency: drop the oldest pending commands beyond maxSize
+      while (this.queue.length > this.maxSize) {
+        const dropped = this.queue.shift();
+        if (dropped) {
+          this.log(`Queue full (max ${this.maxSize}) - dropping oldest command for ${this.getDeviceName(dropped.deviceId)}`);
+          dropped.reject(new QueueOverflowError(dropped.deviceId));
+        }
+      }
 
       const displayName = this.getDeviceName(deviceId);
       this.log(`Command queued for ${displayName} (queue size: ${this.queue.length}, active: ${this.activeCount})`);
