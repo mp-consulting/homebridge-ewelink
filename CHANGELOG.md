@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-03
+
+### Fixed
+
+- **Accessories stayed "No Response" after a cloud hiccup at startup**: a WebSocket failure while Homebridge was starting aborted accessory setup for every device, including LAN-only ones, until the next restart. Cached accessories now get their handlers before login, so LAN control works while the cloud is unreachable, and login, discovery and the WebSocket keep retrying with backoff.
+- **Multi-switch devices shown as a blind, garage or lock disappeared**: a DUALR3 (or other multi-channel device) configured with `showAs` `blind`, `garage` or `lock` was removed from HomeKit right after being created, and its updates were never delivered. It is now kept as a single accessory and stays in sync.
+- **Blind/window/door simulations lost their position when interrupted**: stopping or retargeting a cover mid-move snapped it to fully open or fully closed. A closing cover was also treated as stopped. Both are fixed, and the Home app no longer times out on long moves because the request now returns as soon as the motor starts.
+- **Heater/cooler simulations could stay on while HomeKit showed them idle**: a failed "off" command was recorded as done and never retried, and turning a running heater/cooler off in HomeKit did not send "off" at all. Failed commands are now retried on the next reading.
+- **Failed commands looked successful**: the Home app now shows an error and reverts the control when a device does not accept a command (garage, curtain, inching switches, simulations), instead of displaying a state the device is not in. The garage no longer gets stuck on "Opening…".
+- **Fans turned off on unrelated updates** (for example a Wi-Fi signal report).
+- **Expired eWeLink sessions were not refreshed**: eWeLink reports expired tokens inside a normal response, which the plugin ignored. Sessions now refresh automatically, concurrent requests share a single refresh, and refreshed tokens are saved.
+- **Group accessories were deleted right after being created.**
+- **Duplicate commands**: commands lost when the connection dropped were sent again on reconnect, which could pulse garage doors and inching relays twice. They are no longer resent.
+- **Homebridge could keep reconnecting during shutdown**, and accessories removed from eWeLink kept polling the cloud.
+- An explicit `targetTempThreshold` of `0` is now honoured instead of being treated as `0.5`.
+- RF covers now honour `operationTimeDown`.
+- Air conditioner target temperatures are kept within the 16–32 °C range HomeKit accepts.
+
+### Security
+
+- **The eWeLink token file is now readable only by the Homebridge user** (`0600`), and tokens are never written to `/tmp`.
+- **LAN updates are authenticated**: updates for encrypted devices must decrypt with the device key, and plaintext updates are only accepted from the device's known IP, so another host on the network can no longer fake a device state.
+- The settings UI no longer receives the refresh token, and login errors no longer write full API responses to the log.
+
+### Changed
+
+- **Smaller install**: removed the unused `fakegato-history`, `class-validator` and `dns-packet` dependencies. `fakegato-history` alone pulled in about 200 MB of packages and the only `npm audit` high-severity finding.
+- **More responsive when the connection is poor**: dead WebSocket connections are detected and replaced, LAN devices that stop responding are skipped for a minute in favour of the cloud, cloud command timeouts are shorter, and the command queue is bounded.
+- Fewer writes to the Homebridge accessory cache (gentler on SD cards).
+- Internal restructuring of the platform and simulation code, with a much larger automated test suite.
+
 ## [1.0.46] - 2026-09-10
 
 ### Changed
