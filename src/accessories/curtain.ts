@@ -59,8 +59,8 @@ export class CurtainAccessory extends BaseAccessory {
 
     // Query fresh state after WebSocket connects (staggered delay to prevent overwhelming WebSocket)
     const staggerDelay = TIMING.CURTAIN_QUERY_DELAY_MS + platform.getCurtainStaggerDelay();
-    setTimeout(() => {
-      this.refreshState();
+    this.setTrackedTimeout(() => {
+      void this.refreshState();
     }, staggerDelay);
   }
 
@@ -73,7 +73,7 @@ export class CurtainAccessory extends BaseAccessory {
       await this.platform.queryDeviceState(this.deviceId);
 
       // Wait a bit for the WebSocket response to be processed
-      await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
+      await this.trackedSleep(TIMING.STATE_INIT_DELAY_MS);
 
       this.logDebug(`State refreshed - Current: ${this.currentPosition}%, Target: ${this.targetPosition}%`);
     } catch (error) {
@@ -175,6 +175,9 @@ export class CurtainAccessory extends BaseAccessory {
       return;
     }
 
+    const previousTarget = this.targetPosition;
+    const previousPositionState = this.positionState;
+
     this.targetPosition = newTarget;
     this.logInfo(`Setting position to ${newTarget}% (from ${this.currentPosition}%)`);
 
@@ -224,9 +227,12 @@ export class CurtainAccessory extends BaseAccessory {
     const success = await this.sendCommand(params);
 
     if (!success) {
-      throw new this.platform.api.hap.HapStatusError(
-        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
-      );
+      // Revert local state so HomeKit does not show a phantom movement
+      this.targetPosition = previousTarget;
+      this.positionState = previousPositionState;
+      this.service.updateCharacteristic(this.Characteristic.PositionState, previousPositionState);
+      this.revertCharacteristicLater(this.service, this.Characteristic.TargetPosition, previousTarget);
+      throw this.createCommunicationError();
     }
   }
 
@@ -247,6 +253,11 @@ export class CurtainAccessory extends BaseAccessory {
 
     this.logDebug(`Sending stop command (UIID ${uiid}): ${JSON.stringify(params)}`);
     const success = await this.sendCommand(params);
+
+    if (!success) {
+      this.revertCharacteristicLater(this.service, this.Characteristic.TargetPosition, this.targetPosition);
+      throw this.createCommunicationError();
+    }
 
     if (success) {
       // Update state immediately
@@ -324,7 +335,7 @@ export class CurtainAccessory extends BaseAccessory {
       if (positionChange >= POSITION_UPDATE_THRESHOLD || reachedTarget) {
         // Clear any pending debounce timer
         if (this.positionDebounceTimer) {
-          clearTimeout(this.positionDebounceTimer);
+          this.clearTrackedTimeout(this.positionDebounceTimer);
           this.positionDebounceTimer = undefined;
         }
 
@@ -341,7 +352,7 @@ export class CurtainAccessory extends BaseAccessory {
       } else if (positionChange > 0) {
         // Small change - debounce it
         if (!this.positionDebounceTimer) {
-          this.positionDebounceTimer = setTimeout(() => {
+          this.positionDebounceTimer = this.setTrackedTimeout(() => {
             this.positionDebounceTimer = undefined;
             this.service.updateCharacteristic(
               this.Characteristic.CurrentPosition,

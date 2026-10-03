@@ -76,7 +76,7 @@ export class ThermostatAccessory extends BaseAccessory {
     this.service = this.thermostatService;
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**

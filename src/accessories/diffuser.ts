@@ -26,11 +26,8 @@ export class DiffuserAccessory extends BaseAccessory {
   private cacheG = 255;
   private cacheB = 255;
 
-  // Update tracking
-  private updateTimeout?: string | false;
-  private updateKeySpeed?: string;
-  private updateKeyBright?: string;
-  private updateKeyColour?: string;
+  /** True while incoming updates are ignored after a local change */
+  private updatesSuppressed = false;
 
   constructor(
     platform: EWeLinkPlatform,
@@ -131,14 +128,8 @@ export class DiffuserAccessory extends BaseAccessory {
 
     this.logInfo(`Setting diffuser to ${newState}`);
 
-    // Set up timeout to ignore incoming updates
-    const timerKey = this.generateRandomString(5);
-    this.updateTimeout = timerKey;
-    setTimeout(() => {
-      if (this.updateTimeout === timerKey) {
-        this.updateTimeout = false;
-      }
-    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+    // Ignore incoming updates for a while
+    this.suppressUpdates();
 
     const success = await this.sendCommand({ switch: newState });
 
@@ -167,23 +158,14 @@ export class DiffuserAccessory extends BaseAccessory {
     }
 
     // Debounce for slider
-    const updateKeySpeed = this.generateRandomString(5);
-    this.updateKeySpeed = updateKeySpeed;
-    await new Promise(resolve => setTimeout(resolve, TIMING.COMMAND_DELAY_MS));
-
-    if (updateKeySpeed !== this.updateKeySpeed) {
+    if (!(await this.debounceLatest('speed', TIMING.COMMAND_DELAY_MS))) {
       return;
     }
 
     this.logInfo(`Setting diffuser speed to ${newSpeed}%`);
 
-    // Set up timeout to ignore incoming updates
-    this.updateTimeout = updateKeySpeed;
-    setTimeout(() => {
-      if (this.updateTimeout === updateKeySpeed) {
-        this.updateTimeout = false;
-      }
-    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+    // Ignore incoming updates for a while
+    this.suppressUpdates();
 
     const success = await this.sendCommand({ state: newSpeed / DIFFUSER_SPEED.LOW });
 
@@ -210,14 +192,8 @@ export class DiffuserAccessory extends BaseAccessory {
 
     this.logInfo(`Setting light to ${newValue === 1 ? 'on' : 'off'}`);
 
-    // Set up timeout to ignore incoming updates
-    const updateKeyLight = this.generateRandomString(5);
-    this.updateTimeout = updateKeyLight;
-    setTimeout(() => {
-      if (this.updateTimeout === updateKeyLight) {
-        this.updateTimeout = false;
-      }
-    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+    // Ignore incoming updates for a while
+    this.suppressUpdates();
 
     const success = await this.sendCommand({ lightswitch: newValue });
 
@@ -242,23 +218,14 @@ export class DiffuserAccessory extends BaseAccessory {
     }
 
     // Debounce for slider
-    const updateKeyBright = this.generateRandomString(5);
-    this.updateKeyBright = updateKeyBright;
-    await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
-
-    if (updateKeyBright !== this.updateKeyBright) {
+    if (!(await this.debounceLatest('brightness', TIMING.STATE_INIT_DELAY_MS))) {
       return;
     }
 
     this.logInfo(`Setting light brightness to ${newBright}%`);
 
-    // Set up timeout to ignore incoming updates
-    this.updateTimeout = updateKeyBright;
-    setTimeout(() => {
-      if (this.updateTimeout === updateKeyBright) {
-        this.updateTimeout = false;
-      }
-    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+    // Ignore incoming updates for a while
+    this.suppressUpdates();
 
     const success = await this.sendCommand({ lightbright: newBright });
 
@@ -283,11 +250,7 @@ export class DiffuserAccessory extends BaseAccessory {
     }
 
     // Debounce for color wheel
-    const updateKeyColour = this.generateRandomString(5);
-    this.updateKeyColour = updateKeyColour;
-    await new Promise(resolve => setTimeout(resolve, SIMULATION_TIMING.COLOR_DEBOUNCE_MS));
-
-    if (updateKeyColour !== this.updateKeyColour) {
+    if (!(await this.debounceLatest('colour', SIMULATION_TIMING.COLOR_DEBOUNCE_MS))) {
       return;
     }
 
@@ -296,13 +259,8 @@ export class DiffuserAccessory extends BaseAccessory {
 
     this.logInfo(`Setting light color to RGB(${r}, ${g}, ${b})`);
 
-    // Set up timeout to ignore incoming updates
-    this.updateTimeout = updateKeyColour;
-    setTimeout(() => {
-      if (this.updateTimeout === updateKeyColour) {
-        this.updateTimeout = false;
-      }
-    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+    // Ignore incoming updates for a while
+    this.suppressUpdates();
 
     const success = await this.sendCommand({
       lightRcolor: r,
@@ -323,11 +281,25 @@ export class DiffuserAccessory extends BaseAccessory {
   }
 
   /**
+   * Ignore incoming device updates for SIMULATION_TIMING.AUTO_OFF_DELAY_MS
+   * (the latest call wins, earlier timers do not clear the flag)
+   */
+  private suppressUpdates(): void {
+    this.updatesSuppressed = true;
+    const isLatest = this.claimLatest('suppressUpdates');
+    this.setTrackedTimeout(() => {
+      if (isLatest()) {
+        this.updatesSuppressed = false;
+      }
+    }, SIMULATION_TIMING.AUTO_OFF_DELAY_MS);
+  }
+
+  /**
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
     // Ignore updates during timeout
-    if (this.updateTimeout) {
+    if (this.updatesSuppressed) {
       return;
     }
 

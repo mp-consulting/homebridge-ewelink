@@ -53,7 +53,7 @@ export class THSensorAccessory extends BaseAccessory {
     this.service = this.temperatureService;
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**

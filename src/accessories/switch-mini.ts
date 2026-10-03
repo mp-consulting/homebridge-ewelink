@@ -88,7 +88,7 @@ export class SwitchMiniAccessory extends BaseAccessory {
 
         // Set timeout to prevent duplicate events
         this.timeouts.set(channel, true);
-        setTimeout(() => {
+        this.setTrackedTimeout(() => {
           this.timeouts.set(channel, false);
         }, POLLING.EVENT_DEBOUNCE_MS);
 

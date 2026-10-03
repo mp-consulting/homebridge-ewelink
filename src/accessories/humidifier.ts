@@ -11,7 +11,6 @@ import { TIMING, SIMULATION_TIMING } from '../constants/timing-constants.js';
 export class HumidifierAccessory extends BaseAccessory {
   private cacheState: 'on' | 'off' = 'off';
   private cacheMode: 1 | 2 | 3 = 1; // 1=low, 2=medium, 3=high
-  private updateKey?: string;
 
   // Mode labels for logging
   private readonly mode2label = {
@@ -117,15 +116,8 @@ export class HumidifierAccessory extends BaseAccessory {
    * Set rotation speed (mode)
    */
   private async setRotationSpeed(value: CharacteristicValue): Promise<void> {
-    // Generate update key for debouncing
-    const updateKey = this.generateRandomString(5);
-    this.updateKey = updateKey;
-
-    // Wait for debouncing (user might be sliding)
-    await new Promise(resolve => setTimeout(resolve, TIMING.STATE_INIT_DELAY_MS));
-
-    // Check if this is still the latest update
-    if (updateKey !== this.updateKey) {
+    // Wait for debouncing (user might be sliding); only the latest value is sent
+    if (!(await this.debounceLatest('rotationSpeed', TIMING.STATE_INIT_DELAY_MS))) {
       return;
     }
 
@@ -169,7 +161,7 @@ export class HumidifierAccessory extends BaseAccessory {
 
     if (rotationSpeed === 0) {
       // Update the rotation speed back to the previous value (with the fan still off)
-      setTimeout(() => {
+      this.setTrackedTimeout(() => {
         this.service.updateCharacteristic(this.Characteristic.RotationSpeed, this.cacheMode * 33);
       }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
       return;

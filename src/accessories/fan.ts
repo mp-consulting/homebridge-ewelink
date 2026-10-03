@@ -24,9 +24,7 @@ export class FanAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific config
-    this.deviceConfig = platform.config.fanDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getDeviceConfig(platform.config.fanDevices);
 
     // Set up the fan service
     this.service = this.getOrAddService(this.Service.Fanv2);
@@ -63,7 +61,7 @@ export class FanAccessory extends BaseAccessory {
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -173,20 +171,23 @@ export class FanAccessory extends BaseAccessory {
   updateState(params: DeviceParams): void {
     this.mergeDeviceParams(params);
 
-    // Update fan active state
-    let isActive = 0;
-    if (params.switches) {
-      const fanSwitch = params.switches.find(s => s.outlet === 1);
-      isActive = fanSwitch?.switch === 'on' ? 1 : 0;
-    } else if (params.speed !== undefined) {
+    // Update fan active state (only when the update carries fan state)
+    let isActive: number | undefined;
+    const fanSwitch = params.switches?.find(s => s.outlet === 1);
+    if (fanSwitch) {
+      isActive = fanSwitch.switch === 'on' ? 1 : 0;
+    } else if (!params.switches && params.speed !== undefined) {
       isActive = params.speed > 0 ? 1 : 0;
     }
-    this.service.updateCharacteristic(this.Characteristic.Active, isActive);
+    if (isActive !== undefined) {
+      this.service.updateCharacteristic(this.Characteristic.Active, isActive);
+    }
 
-    // Update rotation speed
-    const speed = params.speed || 0;
-    const speedPercentage = (speed / this.maxSpeed) * 100;
-    this.service.updateCharacteristic(this.Characteristic.RotationSpeed, speedPercentage);
+    // Update rotation speed (only when the update carries a speed)
+    if (params.speed !== undefined) {
+      const speedPercentage = (params.speed / this.maxSpeed) * 100;
+      this.service.updateCharacteristic(this.Characteristic.RotationSpeed, speedPercentage);
+    }
 
     // Update light state
     if (this.lightService && params.switches) {
@@ -195,6 +196,6 @@ export class FanAccessory extends BaseAccessory {
       this.lightService.updateCharacteristic(this.Characteristic.On, lightOn);
     }
 
-    this.logDebug(`State updated: Active=${isActive}, Speed=${speed}`);
+    this.logDebug(`State updated: Active=${isActive ?? 'unchanged'}, Speed=${params.speed ?? 'unchanged'}`);
   }
 }

@@ -255,7 +255,7 @@ export class RFSensorAccessory extends BaseAccessory {
 
     // For non-stateless sensors, reset after timeout
     if (this.sensorType !== 'button' && this.sensorType !== 'doorbell') {
-      setTimeout(() => {
+      this.setTrackedTimeout(() => {
         this.updateSensorCharacteristic(0);
         this.logDebug(`Sensor reset after ${this.sensorTimeLength}s`);
       }, this.sensorTimeLength * 1000);

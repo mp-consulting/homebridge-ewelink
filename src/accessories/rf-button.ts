@@ -95,18 +95,16 @@ export class RFButtonAccessory extends BaseAccessory {
 
     if (!success) {
       // Turn off the button after a delay even on failure
-      setTimeout(() => {
-        const service = this.buttonServices.get(channel);
-        service?.updateCharacteristic(this.Characteristic.On, false);
-      }, TIMING.RF_BUTTON_PRESS_MS);
+      const service = this.buttonServices.get(channel);
+      if (service) {
+        this.revertCharacteristicLater(service, this.Characteristic.On, false, TIMING.RF_BUTTON_PRESS_MS);
+      }
 
-      throw new this.platform.api.hap.HapStatusError(
-        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
-      );
+      throw this.createCommunicationError();
     }
 
     // Turn off the button after a short delay (momentary press simulation)
-    setTimeout(() => {
+    this.setTrackedTimeout(() => {
       const service = this.buttonServices.get(channel);
       service?.updateCharacteristic(this.Characteristic.On, false);
     }, TIMING.BUTTON_PRESS_MS);
@@ -137,7 +135,7 @@ export class RFButtonAccessory extends BaseAccessory {
     service.updateCharacteristic(this.Characteristic.On, true);
 
     // Turn off after delay
-    setTimeout(() => {
+    this.setTrackedTimeout(() => {
       service.updateCharacteristic(this.Characteristic.On, false);
     }, TIMING.RF_BUTTON_TRIGGER_MS);
   }

@@ -67,7 +67,7 @@ export class LightAccessory extends BaseAccessory {
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**

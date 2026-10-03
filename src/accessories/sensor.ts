@@ -55,7 +55,7 @@ export class SensorAccessory extends BaseAccessory {
     this.setupSensorServices();
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**

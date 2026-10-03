@@ -2,7 +2,6 @@ import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from './base.js';
 import type { EWeLinkPlatform } from '../platform.js';
 import type { AccessoryContext, DeviceParams, SingleDeviceConfig } from '../types/index.js';
-import { TIMING } from '../constants/timing-constants.js';
 import { SwitchHelper } from '../utils/switch-helper.js';
 import { DeviceValueParser } from '../utils/device-parsers.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../utils/eve-characteristics.js';
@@ -80,7 +79,7 @@ export class OutletAccessory extends BaseAccessory {
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -166,10 +165,7 @@ export class OutletAccessory extends BaseAccessory {
 
       if (receivedOn && !this.ignoreUpdatesRef.value) {
         // Set ignore flag
-        this.ignoreUpdatesRef.value = true;
-        setTimeout(() => {
-          this.ignoreUpdatesRef.value = false;
-        }, TIMING.INCHING_DEBOUNCE_MS);
+        this.startInchingIgnoreWindow(this.ignoreUpdatesRef);
 
         // Toggle cached state
         this.cacheState = !this.cacheState;

@@ -60,7 +60,7 @@ export class SwitchMateAccessory extends BaseAccessory {
 
         // Set timeout to prevent duplicate events
         this.timeouts.set(outlet, true);
-        setTimeout(() => {
+        this.setTrackedTimeout(() => {
           this.timeouts.set(outlet, false);
         }, POLLING.EVENT_DEBOUNCE_MS);
 

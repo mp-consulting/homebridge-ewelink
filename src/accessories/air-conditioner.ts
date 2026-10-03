@@ -9,6 +9,10 @@ import { AC_WIND_SPEED, AC_ROTATION_SPEED } from '../constants/device-constants.
  * Provides HeaterCooler service for AC control
  */
 export class AirConditionerAccessory extends BaseAccessory {
+  /** Supported target temperature range (°C) */
+  private static readonly TARGET_TEMP_MIN = 16;
+  private static readonly TARGET_TEMP_MAX = 32;
+
   private cacheMode: 'auto' | 'heat' | 'cool' = 'cool';
   private cacheTargetTemp = 24;
   private cacheCurrentTemp = 20;
@@ -59,8 +63,8 @@ export class AirConditionerAccessory extends BaseAccessory {
     // Configure cooling threshold temperature characteristic
     this.service.getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
       .setProps({
-        minValue: 16,
-        maxValue: 32,
+        minValue: AirConditionerAccessory.TARGET_TEMP_MIN,
+        maxValue: AirConditionerAccessory.TARGET_TEMP_MAX,
         minStep: 1,
       })
       .onGet(this.getTargetTemperature.bind(this))
@@ -69,8 +73,8 @@ export class AirConditionerAccessory extends BaseAccessory {
     // Configure heating threshold temperature characteristic
     this.service.getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
       .setProps({
-        minValue: 16,
-        maxValue: 32,
+        minValue: AirConditionerAccessory.TARGET_TEMP_MIN,
+        maxValue: AirConditionerAccessory.TARGET_TEMP_MAX,
         minStep: 1,
       })
       .onGet(this.getTargetTemperature.bind(this))
@@ -106,7 +110,7 @@ export class AirConditionerAccessory extends BaseAccessory {
     }
 
     if (this.deviceParams.temperature !== undefined) {
-      this.cacheTargetTemp = this.deviceParams.temperature as number;
+      this.cacheTargetTemp = this.clampTargetTemperature(this.deviceParams.temperature);
       this.service.updateCharacteristic(this.Characteristic.CoolingThresholdTemperature, this.cacheTargetTemp);
       this.service.updateCharacteristic(this.Characteristic.HeatingThresholdTemperature, this.cacheTargetTemp);
     }
@@ -348,6 +352,17 @@ export class AirConditionerAccessory extends BaseAccessory {
   }
 
   /**
+   * Clamp a device-reported target temperature to the characteristic range
+   */
+  private clampTargetTemperature(value: unknown): number {
+    const temp = Number(value);
+    if (Number.isNaN(temp)) {
+      return this.cacheTargetTemp;
+    }
+    return this.clamp(temp, AirConditionerAccessory.TARGET_TEMP_MIN, AirConditionerAccessory.TARGET_TEMP_MAX);
+  }
+
+  /**
    * Convert mode to target state value
    */
   private modeToTargetState(mode: 'auto' | 'heat' | 'cool'): number {
@@ -404,7 +419,7 @@ export class AirConditionerAccessory extends BaseAccessory {
 
     // Update target temperature
     if (params.temperature !== undefined) {
-      this.cacheTargetTemp = params.temperature as number;
+      this.cacheTargetTemp = this.clampTargetTemperature(params.temperature);
       this.service.updateCharacteristic(this.Characteristic.CoolingThresholdTemperature, this.cacheTargetTemp);
       this.service.updateCharacteristic(this.Characteristic.HeatingThresholdTemperature, this.cacheTargetTemp);
       this.logDebug(`Target temperature updated to ${this.cacheTargetTemp}°C`);
