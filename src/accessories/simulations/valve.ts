@@ -3,9 +3,9 @@ import { BaseAccessory } from '../base.js';
 import type { EWeLinkPlatform } from '../../platform.js';
 import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
-import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
 import { POLLING } from '../../constants/timing-constants.js';
 import { hasPowerMonitoring, hasFullPowerReadings as hasFullPowerReadingsUIID } from '../../constants/device-catalog.js';
+import { channelSuffix } from './shared/channel-power.js';
 
 /**
  * Valve Simulation Accessory
@@ -56,11 +56,7 @@ export class ValveAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.channelIndex || 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig() ?? this.getMultiDeviceConfig();
 
     // Check timer configuration
     this.disableTimer = this.deviceConfig?.disableTimer || false;
@@ -130,11 +126,11 @@ export class ValveAccessory extends BaseAccessory {
 
     // Add Eve power characteristics if supported
     if (this.powerReadings) {
-      this.setupPowerMonitoring();
+      this.setupPowerMonitoringCharacteristics(this.service, this.hasFullPowerReadings);
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -144,28 +140,6 @@ export class ValveAccessory extends BaseAccessory {
     return this.deviceParams.power !== undefined ||
            this.deviceParams.voltage !== undefined ||
            this.deviceParams.current !== undefined;
-  }
-
-  /**
-   * Setup power monitoring characteristics
-   */
-  private setupPowerMonitoring(): void {
-    const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-      this.service.addCharacteristic(CurrentConsumption);
-    }
-
-    if (this.hasFullPowerReadings) {
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-        this.service.addCharacteristic(Voltage);
-      }
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-        this.service.addCharacteristic(ElectricCurrent);
-      }
-    }
-
-    this.logDebug(`Power monitoring enabled (full readings: ${this.hasFullPowerReadings})`);
   }
 
   /**
@@ -186,6 +160,10 @@ export class ValveAccessory extends BaseAccessory {
       const on = active === this.Characteristic.Active.ACTIVE;
       const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
 
+      if (!(await this.sendCommand(params))) {
+        return false;
+      }
+
       // Update InUse to match Active
       this.service.updateCharacteristic(
         this.Characteristic.InUse,
@@ -202,7 +180,7 @@ export class ValveAccessory extends BaseAccessory {
         }
       }
 
-      return await this.sendCommand(params);
+      return true;
     });
   }
 
@@ -251,10 +229,10 @@ export class ValveAccessory extends BaseAccessory {
     this.timerStartedAt = Date.now();
     this.timerDuration = duration;
     this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
-    this.timer = setTimeout(() => {
+    this.timer = this.setTrackedTimeout(() => {
       this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
     }, duration * 1000);
-    this.remainingTick = setInterval(() => {
+    this.remainingTick = this.setTrackedInterval(() => {
       const remaining = this.computeRemaining();
       this.service.updateCharacteristic(this.Characteristic.RemainingDuration, remaining);
       this.service.updateCharacteristic(this.Characteristic.SetDuration, remaining);
@@ -275,14 +253,10 @@ export class ValveAccessory extends BaseAccessory {
   }
 
   private clearTimerHandles(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = undefined;
-    }
-    if (this.remainingTick) {
-      clearInterval(this.remainingTick);
-      this.remainingTick = undefined;
-    }
+    this.clearTrackedTimeout(this.timer);
+    this.timer = undefined;
+    this.clearTrackedInterval(this.remainingTick);
+    this.remainingTick = undefined;
   }
 
   private computeRemaining(): number {
@@ -327,21 +301,10 @@ export class ValveAccessory extends BaseAccessory {
 
     // Update Eve power characteristics if supported
     if (this.powerReadings) {
-      if (params.power !== undefined) {
-        const power = parseFloat(String(params.power));
-        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
-      }
-
-      if (this.hasFullPowerReadings) {
-        if (params.voltage !== undefined) {
-          const voltage = parseFloat(String(params.voltage));
-          this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
-        }
-        if (params.current !== undefined) {
-          const current = parseFloat(String(params.current));
-          this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
-        }
-      }
+      this.updateDualR3PowerReadings(this.service, params, {
+        suffix: channelSuffix(this.channelIndex),
+        fullReadings: this.hasFullPowerReadings,
+      });
     }
 
     this.logDebug(`Valve state updated: ${isOn ? 'ACTIVE' : 'INACTIVE'}`);

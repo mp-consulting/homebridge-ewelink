@@ -2,7 +2,6 @@ import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import type { EWeLinkPlatform } from '../../platform.js';
 import type { AccessoryContext, DeviceParams, LightDeviceConfig } from '../../types/index.js';
-import { sleep } from '../../utils/sleep.js';
 import { DeviceValueParser } from '../../utils/device-parsers.js';
 import { TIMING } from '../../constants/timing-constants.js';
 import {
@@ -33,9 +32,6 @@ export class LightFanAccessory extends BaseAccessory {
   /** Cached speed (0-100) */
   private cacheSpeed = 0;
 
-  /** Update key for debouncing speed changes */
-  private updateKeySpeed?: string;
-
   constructor(
     platform: EWeLinkPlatform,
     accessory: PlatformAccessory<AccessoryContext>,
@@ -43,9 +39,7 @@ export class LightFanAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific config
-    this.deviceConfig = platform.config.lightDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getDeviceConfig(platform.config.lightDevices);
 
     this.brightnessStep = Math.min(this.deviceConfig?.brightnessStep || 1, 100);
     this.offlineAsOff = this.deviceConfig?.deviceModel === 'offlineAsOff';
@@ -111,7 +105,10 @@ export class LightFanAccessory extends BaseAccessory {
       const switchParam = getSwitchParamName(uiid);
       const params: DeviceParams = { [switchParam]: newValue };
 
-      await this.sendCommand(params);
+      if (!(await this.sendCommand(params))) {
+        this.revertCharacteristicLater(this.service, this.Characteristic.On, this.cacheState === 'on');
+        return false;
+      }
       this.cacheState = newValue;
       this.logInfo(`Fan: ${this.cacheState}`);
       return true;
@@ -137,11 +134,7 @@ export class LightFanAccessory extends BaseAccessory {
     }
 
     // Debounce speed updates
-    const updateKey = Math.random().toString(36).substring(2, 7);
-    this.updateKeySpeed = updateKey;
-    await sleep(TIMING.STATE_INIT_DELAY_MS);
-
-    if (updateKey !== this.updateKeySpeed) {
+    if (!(await this.debounceLatest('speed', TIMING.STATE_INIT_DELAY_MS))) {
       return;
     }
 
@@ -165,7 +158,10 @@ export class LightFanAccessory extends BaseAccessory {
         params.mode = 0;
       }
 
-      await this.sendCommand(params);
+      if (!(await this.sendCommand(params))) {
+        this.revertCharacteristicLater(this.service, this.Characteristic.RotationSpeed, this.cacheSpeed);
+        return false;
+      }
       this.cacheSpeed = newSpeed;
       this.logInfo(`Fan speed: ${this.cacheSpeed}%`);
       return true;

@@ -64,19 +64,13 @@ export class SensorVisibleAccessory extends BaseAccessory {
     this.subAccessory = subAccessory;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig() ?? this.getMultiDeviceConfig();
 
     // Get sub-accessory config if exists
+    const subId = subAccessory?.context.deviceId;
+    const findSub = <T extends { deviceId: string }>(list?: T[]) => list?.find(d => d.deviceId === subId);
     const subConfig = subAccessory
-      ? platform.config.singleDevices?.find(
-        d => d.deviceId === subAccessory.context.deviceId,
-      ) || platform.config.multiDevices?.find(
-        d => d.deviceId === subAccessory.context.deviceId,
-      )
+      ? findSub(platform.config.singleDevices) ?? findSub(platform.config.multiDevices)
       : undefined;
 
     // Determine if this is a garage door or lock simulation
@@ -141,7 +135,7 @@ export class SensorVisibleAccessory extends BaseAccessory {
     this.subEveInitialTime = Math.floor(Date.now() / 1000);
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
 
     this.logDebug(`Visible sensor initialized (battery: ${this.hasBattery}, sub-accessory: ${!!this.subAccessory})`);
   }
@@ -321,7 +315,8 @@ export class SensorVisibleAccessory extends BaseAccessory {
     }
 
     if (this.isGarage) {
-      // Update garage door
+      // A newer contact report supersedes a pending "fully open" update
+      const isLatest = this.claimLatest('garage-state');
       if (state === 0) {
         // Contact closed = garage door closed
         this.subService.updateCharacteristic(this.Characteristic.TargetDoorState, 1); // CLOSED
@@ -330,7 +325,10 @@ export class SensorVisibleAccessory extends BaseAccessory {
       } else {
         // Contact open = garage door opening/open
         // Wait for operation time before marking as fully open
-        await this.delay(Math.max(this.operationTime * 100, SIMULATION_TIMING.POSITION_CLEANUP_MS));
+        const waited = await this.trackedSleep(Math.max(this.operationTime * 100, SIMULATION_TIMING.POSITION_CLEANUP_MS));
+        if (!waited || !isLatest()) {
+          return;
+        }
 
         this.subService.updateCharacteristic(this.Characteristic.TargetDoorState, 0); // OPEN
         this.subService.updateCharacteristic(this.Characteristic.CurrentDoorState, 0); // OPEN
@@ -358,12 +356,5 @@ export class SensorVisibleAccessory extends BaseAccessory {
         this.logDebug('Lock: UNSECURED');
       }
     }
-  }
-
-  /**
-   * Delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

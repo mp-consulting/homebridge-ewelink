@@ -4,13 +4,8 @@ import type { EWeLinkPlatform } from '../../platform.js';
 import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
-import {
-  hasPowerMonitoring,
-  hasFullPowerReadings as hasFullPowerReadingsUIID,
-  isDualR3Device,
-} from '../../constants/device-catalog.js';
-import { POLLING } from '../../constants/timing-constants.js';
+import { getChannelPower } from './shared/channel-power.js';
+import type { ChannelPower } from './shared/channel-power.js';
 
 /**
  * Sensor Simulation Accessory
@@ -32,17 +27,8 @@ export class SensorAccessory extends BaseAccessory {
   /** Whether to use LastActivation characteristic */
   private readonly useLastActivation: boolean;
 
-  /** Power monitoring support */
-  private readonly powerReadings: boolean;
-
-  /** Dual R3 device flag */
-  private readonly isDualR3: boolean;
-
-  /** Has full power readings (voltage + current) */
-  private readonly hasFullPowerReadings: boolean;
-
-  /** Power update interval */
-  private powerInterval?: NodeJS.Timeout;
+  /** Power monitoring capabilities */
+  private readonly power: ChannelPower;
 
   /** Last activation time (Eve initial time) */
   private eveInitialTime = 0;
@@ -56,11 +42,7 @@ export class SensorAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.channelIndex || 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig() ?? this.getMultiDeviceConfig();
 
     // Get sensor type (default to 'motion')
     this.sensorType = this.deviceConfig?.sensorType || 'motion';
@@ -123,23 +105,22 @@ export class SensorAccessory extends BaseAccessory {
     this.service.getCharacteristic(this.sensorCharacteristic)
       .onGet(this.getSensorState.bind(this));
 
-    // Check for power monitoring support using catalog helpers
-    const uiid = this.device.extra?.uiid || 0;
+    // Power monitoring: from the catalog, or detected from the reported params
+    const catalogPower = getChannelPower(this.device.extra?.uiid || 0, this.channelIndex);
+    this.power = catalogPower.enabled
+      ? catalogPower
+      : { ...catalogPower, enabled: this.supportsPowerMonitoring(catalogPower.suffix), fullReadings: false, isDualR3: false, uiActiveOutlet: undefined };
 
-    if (hasPowerMonitoring(uiid)) {
-      this.powerReadings = true;
-      this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
-      this.isDualR3 = isDualR3Device(uiid);
-    } else {
-      // Check if device params contain power readings
-      this.powerReadings = this.supportsPowerMonitoring();
-      this.hasFullPowerReadings = false;
-      this.isDualR3 = false;
-    }
-
-    // Add Eve power characteristics if supported
-    if (this.powerReadings) {
-      this.setupPowerMonitoring();
+    if (this.power.enabled) {
+      this.setupPowerMonitoringCharacteristics(this.service, this.power.fullReadings);
+      this.logDebug(`Power monitoring enabled (full readings: ${this.power.fullReadings})`);
+      if (!this.power.isDualR3 || this.platform.config.mode !== 'lan') {
+        this.setupPollingInterval(async () => {
+          if (this.isOnline) {
+            await this.requestUiActiveUpdate(this.power.uiActiveOutlet);
+          }
+        });
+      }
     }
 
     // Initialize Eve history service
@@ -147,73 +128,18 @@ export class SensorAccessory extends BaseAccessory {
     // For now, we'll store the initial time for LastActivation calculations
     this.eveInitialTime = Math.floor(Date.now() / 1000);
 
-    // Set up power polling if supported
-    if (this.powerReadings && (!this.isDualR3 || this.platform.config.mode !== 'lan')) {
-      // Start polling after initial delay, then at regular interval
-      setTimeout(() => {
-        this.requestPowerUpdate();
-        this.powerInterval = setInterval(() => this.requestPowerUpdate(), POLLING.UPDATE_INTERVAL_MS);
-      }, POLLING.INITIAL_DELAY_MS);
-    }
-
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
 
     this.logDebug(`Sensor initialized (type: ${this.sensorType})`);
   }
 
   /**
-   * Check if device supports power monitoring
+   * Check if the reported params contain power readings
    */
-  private supportsPowerMonitoring(): boolean {
-    return this.deviceParams.power !== undefined ||
-           this.deviceParams.voltage !== undefined ||
-           this.deviceParams.current !== undefined ||
-           this.deviceParams.actPow_00 !== undefined ||
-           this.deviceParams.voltage_00 !== undefined ||
-           this.deviceParams.current_00 !== undefined;
-  }
-
-  /**
-   * Setup power monitoring characteristics
-   */
-  private setupPowerMonitoring(): void {
-    const { CurrentConsumption, Voltage, ElectricCurrent } = this.platform.eveCharacteristics;
-
-    if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption)) {
-      this.service.addCharacteristic(CurrentConsumption);
-    }
-
-    if (this.hasFullPowerReadings) {
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage)) {
-        this.service.addCharacteristic(Voltage);
-      }
-      if (!this.service.testCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent)) {
-        this.service.addCharacteristic(ElectricCurrent);
-      }
-    }
-
-    this.logDebug(`Power monitoring enabled (full readings: ${this.hasFullPowerReadings})`);
-  }
-
-  /**
-   * Request power update from device
-   */
-  private async requestPowerUpdate(): Promise<void> {
-    try {
-      if (!this.isOnline) {
-        return;
-      }
-
-      const params = this.isDualR3
-        ? { uiActive: { outlet: 0, time: POLLING.UI_ACTIVE_DURATION_S } }
-        : { uiActive: POLLING.UI_ACTIVE_DURATION_S };
-
-      await this.sendCommand(params);
-    } catch (error) {
-      // Suppress errors
-      this.logDebug('Failed to request power update:', error);
-    }
+  private supportsPowerMonitoring(suffix: string): boolean {
+    return ['power', 'voltage', 'current', `actPow_${suffix}`, `voltage_${suffix}`, `current_${suffix}`]
+      .some(key => this.deviceParams[key] !== undefined);
   }
 
   /**
@@ -249,54 +175,11 @@ export class SensorAccessory extends BaseAccessory {
       this.logDebug(`Sensor state updated: ${isOn ? 'DETECTED' : 'CLEAR'}`);
     }
 
-    // Update Eve power characteristics if supported
-    if (this.powerReadings) {
-      this.updatePowerReadings(params);
-    }
-  }
-
-  /**
-   * Update power readings from device params
-   */
-  private updatePowerReadings(params: DeviceParams): void {
-
-    let hasUpdate = false;
-
-    // Check for Dual R3 format (with _00 suffix)
-    if (params.actPow_00 !== undefined) {
-      const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
-      hasUpdate = true;
-    } else if (params.power !== undefined) {
-      const power = parseFloat(String(params.power));
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
-      hasUpdate = true;
-    }
-
-    if (this.hasFullPowerReadings) {
-      if (params.voltage_00 !== undefined) {
-        const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
-        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
-        hasUpdate = true;
-      } else if (params.voltage !== undefined) {
-        const voltage = parseFloat(String(params.voltage));
-        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
-        hasUpdate = true;
-      }
-
-      if (params.current_00 !== undefined) {
-        const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
-        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
-        hasUpdate = true;
-      } else if (params.current !== undefined) {
-        const current = parseFloat(String(params.current));
-        this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
-        hasUpdate = true;
-      }
-    }
-
-    if (hasUpdate) {
-      this.logDebug('Power readings updated');
+    if (this.power.enabled) {
+      this.updateDualR3PowerReadings(this.service, params, {
+        suffix: this.power.suffix,
+        fullReadings: this.power.fullReadings,
+      });
     }
   }
 }

@@ -118,3 +118,14 @@ For TH-based simulations:
 | `humidityOffset` | Humidity offset adjustment |
 | `minTarget` | Minimum target temperature |
 | `maxTarget` | Maximum target temperature |
+| `targetTempThreshold` | Hysteresis (°C, default 0.5) for TH heater/cooler: heater starts below target − threshold, cooler above target + threshold; both stop at the target |
+
+### Shared Implementations (`shared/`)
+
+| File | Used by |
+|------|---------|
+| `timed-cover.ts` | Time-based position tracking for all cover simulations (onSet starts the move and returns; a tracked timer stops it) |
+| `switch-cover.ts` / `rf-cover.ts` | Motor drivers for `blind`/`door`/`window` (2-channel switch) and `rf-blind`/`rf-door`/`rf-window` (RF buttons) |
+| `threshold-controller.ts` | On/off control logic with hysteresis for heater, cooler, humidifier, dehumidifier |
+| `switch-climate.ts` / `th-climate.ts` | `heater`/`cooler` (switch + external temperature) and `th-*` (TH sensor) variants |
+| `channel-power.ts` | Per-channel power monitoring capabilities (DualR3 `actPow_XX` suffix) |

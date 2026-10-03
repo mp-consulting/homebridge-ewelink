@@ -1,17 +1,11 @@
 import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import type { EWeLinkPlatform } from '../../platform.js';
-import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
+import type { AccessoryContext, DeviceParams } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
 import { DeviceValueParser } from '../../utils/device-parsers.js';
-import { EVE_CHARACTERISTIC_UUIDS } from '../../utils/eve-characteristics.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
-import {
-  hasPowerMonitoring,
-  hasFullPowerReadings as hasFullPowerReadingsUIID,
-  isDualR3Device,
-} from '../../constants/device-catalog.js';
-import { POLLING } from '../../constants/timing-constants.js';
+import { getChannelPower } from './shared/channel-power.js';
+import type { ChannelPower } from './shared/channel-power.js';
 
 /**
  * TV Simulation Accessory
@@ -21,17 +15,8 @@ export class TVAccessory extends BaseAccessory {
   /** Channel index for multi-channel devices */
   private readonly channelIndex: number;
 
-  /** Device configuration */
-  private readonly deviceConfig?: SingleDeviceConfig | MultiDeviceConfig;
-
-  /** Supports power monitoring */
-  private readonly powerReadings: boolean;
-
-  /** Has full power readings (voltage/current) */
-  private readonly hasFullPowerReadings: boolean;
-
-  /** Is Dual R3 device */
-  private readonly isDualR3: boolean;
+  /** Power monitoring capabilities */
+  private readonly power: ChannelPower;
 
   /** Cached state */
   private cacheState: 'on' | 'off' = 'off';
@@ -43,26 +28,16 @@ export class TVAccessory extends BaseAccessory {
     super(platform, accessory);
 
     this.channelIndex = accessory.context.channelIndex || 0;
-
-    // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
-
-    // Determine power monitoring capabilities
-    const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = hasPowerMonitoring(uiid);
-    this.hasFullPowerReadings = hasFullPowerReadingsUIID(uiid);
-    this.isDualR3 = isDualR3Device(uiid);
+    this.power = getChannelPower(this.device.extra?.uiid || 0, this.channelIndex);
 
     // Set up Television service
     this.service = this.getOrAddService(this.Service.Television);
 
-    // Add power monitoring characteristics if supported
-    if (this.powerReadings) {
-      this.setupPowerMonitoringCharacteristics(this.service, this.hasFullPowerReadings);
+    if (this.power.enabled) {
+      this.setupPowerMonitoringCharacteristics(this.service, this.power.fullReadings);
+      if (!this.power.isDualR3 || platform.config.mode !== 'lan') {
+        this.setupUiActivePolling(this.power.uiActiveOutlet);
+      }
     }
 
     // Configure active characteristic
@@ -73,13 +48,8 @@ export class TVAccessory extends BaseAccessory {
     // Initialize cache state
     this.cacheState = this.service.getCharacteristic(this.Characteristic.Active).value === 1 ? 'on' : 'off';
 
-    // Set up polling interval for power updates
-    if (this.powerReadings && (!this.isDualR3 || platform.config.mode !== 'lan')) {
-      this.setupPollingInterval(() => this.requestUpdate());
-    }
-
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -99,28 +69,15 @@ export class TVAccessory extends BaseAccessory {
   private async setActive(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as number, 'Active', async (active) => {
       const on = active === 1;
-      this.cacheState = DeviceValueParser.boolToSwitch(on);
-
-      this.logDebug(`TV: ${this.cacheState}`);
-
       const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
-      return await this.sendCommand(params);
-    });
-  }
-
-  /**
-   * Request power update from device
-   */
-  private async requestUpdate(): Promise<void> {
-    try {
-      if (this.isDualR3) {
-        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: POLLING.UI_ACTIVE_DURATION_S } });
-      } else {
-        await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
+      if (!(await this.sendCommand(params))) {
+        this.revertCharacteristicLater(this.service, this.Characteristic.Active, this.cacheState === 'on' ? 1 : 0);
+        return false;
       }
-    } catch {
-      // Suppress errors for polling
-    }
+      this.cacheState = DeviceValueParser.boolToSwitch(on);
+      this.logDebug(`TV: ${this.cacheState}`);
+      return true;
+    });
   }
 
   /**
@@ -138,46 +95,11 @@ export class TVAccessory extends BaseAccessory {
       this.logDebug(`TV state updated: ${this.cacheState}`);
     }
 
-    // Update power readings if supported
-    if (!this.powerReadings) {
-      return;
-    }
-
-    // Update power
-    if (params.actPow_00 !== undefined) {
-      const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
-      this.logDebug(`Power: ${power}W`);
-    } else if (params.power !== undefined) {
-      const power = parseFloat(String(params.power));
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.CurrentConsumption, power);
-      this.logDebug(`Power: ${power}W`);
-    }
-
-    if (!this.hasFullPowerReadings) {
-      return;
-    }
-
-    // Update voltage
-    if (params.voltage_00 !== undefined) {
-      const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
-      this.logDebug(`Voltage: ${voltage}V`);
-    } else if (params.voltage !== undefined) {
-      const voltage = parseFloat(String(params.voltage));
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.Voltage, voltage);
-      this.logDebug(`Voltage: ${voltage}V`);
-    }
-
-    // Update current
-    if (params.current_00 !== undefined) {
-      const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
-      this.logDebug(`Current: ${current}A`);
-    } else if (params.current !== undefined) {
-      const current = parseFloat(String(params.current));
-      this.service.updateCharacteristic(EVE_CHARACTERISTIC_UUIDS.ElectricCurrent, current);
-      this.logDebug(`Current: ${current}A`);
+    if (this.power.enabled) {
+      this.updateDualR3PowerReadings(this.service, params, {
+        suffix: this.power.suffix,
+        fullReadings: this.power.fullReadings,
+      });
     }
   }
 }

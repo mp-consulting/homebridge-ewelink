@@ -33,9 +33,7 @@ export class SensorLeakAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig();
 
     // Get low battery threshold (default to 25%)
     this.lowBattThreshold = this.deviceConfig?.lowBattThreshold
@@ -64,7 +62,7 @@ export class SensorLeakAccessory extends BaseAccessory {
     this.eveInitialTime = Math.floor(Date.now() / 1000);
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
 
     this.logDebug(`Leak sensor initialized (low battery threshold: ${this.lowBattThreshold}%)`);
   }

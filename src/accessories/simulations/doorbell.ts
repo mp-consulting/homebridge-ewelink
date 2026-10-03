@@ -1,11 +1,10 @@
 import type { PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BaseAccessory } from '../base.js';
 import type { EWeLinkPlatform } from '../../platform.js';
-import type { AccessoryContext, DeviceParams, SingleDeviceConfig, MultiDeviceConfig } from '../../types/index.js';
+import type { AccessoryContext, DeviceParams } from '../../types/index.js';
 import { SwitchHelper } from '../../utils/switch-helper.js';
-import { POWER_DIVISOR, VOLTAGE_DIVISOR, CURRENT_DIVISOR } from '../../constants/device-constants.js';
 import { isDualR3Device } from '../../constants/device-catalog.js';
-import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js';
+import { SIMULATION_TIMING } from '../../constants/timing-constants.js';
 
 /**
  * Doorbell Simulation Accessory
@@ -14,15 +13,6 @@ import { POLLING, SIMULATION_TIMING } from '../../constants/timing-constants.js'
 export class DoorbellAccessory extends BaseAccessory {
   /** Channel index for multi-channel devices */
   private readonly channelIndex: number;
-
-  /** Device configuration */
-  private readonly deviceConfig?: SingleDeviceConfig | MultiDeviceConfig;
-
-  /** Supports power monitoring */
-  private readonly powerReadings: boolean;
-
-  /** Is Dual R3 device */
-  private readonly isDualR3: boolean;
 
   /** Prevents duplicate triggers */
   private inUse = false;
@@ -35,18 +25,6 @@ export class DoorbellAccessory extends BaseAccessory {
 
     this.channelIndex = accessory.context.channelIndex || 0;
 
-    // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
-
-    // Determine power monitoring capabilities (DualR3 devices support it)
-    const uiid = this.device.extra?.uiid || 0;
-    this.powerReadings = isDualR3Device(uiid);
-    this.isDualR3 = isDualR3Device(uiid);
-
     // Remove any existing switch service
     this.removeServiceIfExists(this.Service.Switch);
 
@@ -57,9 +35,9 @@ export class DoorbellAccessory extends BaseAccessory {
     this.service.getCharacteristic(this.Characteristic.ProgrammableSwitchEvent)
       .onGet(this.getProgrammableSwitchEvent.bind(this));
 
-    // Set up polling interval for power updates
-    if (this.powerReadings && (!this.isDualR3 || platform.config.mode !== 'lan')) {
-      this.setupPollingInterval(() => this.requestUpdate());
+    // DUALR3 devices only report fresh state while uiActive is requested
+    if (isDualR3Device(this.device.extra?.uiid || 0) && platform.config.mode !== 'lan') {
+      this.setupUiActivePolling(this.channelIndex);
     }
 
     // Set initial state (default to 0)
@@ -76,21 +54,6 @@ export class DoorbellAccessory extends BaseAccessory {
   }
 
   /**
-   * Request power update from device
-   */
-  private async requestUpdate(): Promise<void> {
-    try {
-      if (this.isDualR3) {
-        await this.sendCommand({ uiActive: { outlet: this.channelIndex, time: POLLING.UI_ACTIVE_DURATION_S } });
-      } else {
-        await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
-      }
-    } catch {
-      // Suppress errors for polling
-    }
-  }
-
-  /**
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
@@ -101,39 +64,12 @@ export class DoorbellAccessory extends BaseAccessory {
       const isOn = SwitchHelper.getCurrentState(this.deviceParams, this.channelIndex);
       if (isOn) {
         this.inUse = true;
-        setTimeout(() => {
+        this.setTrackedTimeout(() => {
           this.inUse = false;
         }, SIMULATION_TIMING.POSITION_CLEANUP_MS);
 
         this.service.updateCharacteristic(this.Characteristic.ProgrammableSwitchEvent, 0);
         this.logInfo('Doorbell pressed');
-      }
-    }
-
-    // Update power readings if supported (no display on doorbell service)
-    if (this.powerReadings) {
-      if (params.actPow_00 !== undefined) {
-        const power = parseInt(String(params.actPow_00), 10) / POWER_DIVISOR;
-        this.logDebug(`Power: ${power}W`);
-      } else if (params.power !== undefined) {
-        const power = parseFloat(String(params.power));
-        this.logDebug(`Power: ${power}W`);
-      }
-
-      if (params.voltage_00 !== undefined) {
-        const voltage = parseInt(String(params.voltage_00), 10) / VOLTAGE_DIVISOR;
-        this.logDebug(`Voltage: ${voltage}V`);
-      } else if (params.voltage !== undefined) {
-        const voltage = parseFloat(String(params.voltage));
-        this.logDebug(`Voltage: ${voltage}V`);
-      }
-
-      if (params.current_00 !== undefined) {
-        const current = parseInt(String(params.current_00), 10) / CURRENT_DIVISOR;
-        this.logDebug(`Current: ${current}A`);
-      } else if (params.current !== undefined) {
-        const current = parseFloat(String(params.current));
-        this.logDebug(`Current: ${current}A`);
       }
     }
   }

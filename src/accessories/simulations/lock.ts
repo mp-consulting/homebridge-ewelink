@@ -33,11 +33,7 @@ export class LockAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.channelIndex || 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig() ?? this.getMultiDeviceConfig();
 
     // Get lock type (default to 'lock')
     this.lockType = this.deviceConfig?.type || 'lock';
@@ -65,7 +61,7 @@ export class LockAccessory extends BaseAccessory {
       .onSet(this.setTargetState.bind(this));
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -87,21 +83,23 @@ export class LockAccessory extends BaseAccessory {
    */
   private async setTargetState(value: CharacteristicValue): Promise<void> {
     await this.handleSet(value as number, 'LockTargetState', async (target) => {
-      this.targetState = target;
-
-      // Send command to device
       // Unlocked = switch ON, Locked = switch OFF
       const on = target === this.Characteristic.LockTargetState.UNSECURED;
       const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
 
+      if (!(await this.sendCommand(params))) {
+        this.revertCharacteristicLater(this.service, this.Characteristic.LockTargetState, this.targetState);
+        return false;
+      }
+
       // Update to final state directly
+      this.targetState = target;
       this.currentState = target === this.Characteristic.LockTargetState.UNSECURED
         ? this.Characteristic.LockCurrentState.UNSECURED
         : this.Characteristic.LockCurrentState.SECURED;
       this.service.updateCharacteristic(this.Characteristic.LockCurrentState, this.currentState);
-      this.logDebug(`Lock state: ${target === this.Characteristic.LockTargetState.UNSECURED ? 'UNLOCKED' : 'LOCKED'}`);
-
-      return await this.sendCommand(params);
+      this.logDebug(`Lock state: ${on ? 'UNLOCKED' : 'LOCKED'}`);
+      return true;
     });
   }
 

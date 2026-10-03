@@ -31,11 +31,7 @@ export class TapAccessory extends BaseAccessory {
     this.channelIndex = accessory.context.channelIndex || 0;
 
     // Get device-specific config
-    this.deviceConfig = platform.config.singleDevices?.find(
-      d => d.deviceId === this.deviceId,
-    ) || platform.config.multiDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getSingleDeviceConfig() ?? this.getMultiDeviceConfig();
 
     // Check timer configuration
     this.disableTimer = this.deviceConfig?.disableTimer || false;
@@ -87,7 +83,7 @@ export class TapAccessory extends BaseAccessory {
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -108,39 +104,31 @@ export class TapAccessory extends BaseAccessory {
       const on = active === this.Characteristic.Active.ACTIVE;
       const params = SwitchHelper.buildSwitchParams(this.deviceParams, this.channelIndex, on);
 
+      if (!(await this.sendCommand(params))) {
+        return false;
+      }
+
       // Update InUse to match Active
       this.service.updateCharacteristic(
         this.Characteristic.InUse,
         on ? this.Characteristic.InUse.IN_USE : this.Characteristic.InUse.NOT_IN_USE,
       );
 
-      // Start timer if activating and timer not disabled
       if (on && !this.disableTimer) {
+        // Start auto-off timer
         const durationChar = this.service.getCharacteristic(this.Characteristic.SetDuration);
         const duration = durationChar.value as number || POLLING.VALVE_DEFAULT_DURATION_S;
         this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
-
-        // Clear existing timer
-        if (this.timer) {
-          clearTimeout(this.timer);
-        }
-
-        // Set new timer
-        this.timer = setTimeout(() => {
-          this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
-        }, duration * 1000);
+        this.startTimer(duration);
       } else {
-        // Clear timer if deactivating
-        if (this.timer) {
-          clearTimeout(this.timer);
-          this.timer = undefined;
-        }
+        this.clearTrackedTimeout(this.timer);
+        this.timer = undefined;
         if (!this.disableTimer) {
           this.service.updateCharacteristic(this.Characteristic.RemainingDuration, 0);
         }
       }
 
-      return await this.sendCommand(params);
+      return true;
     });
   }
 
@@ -165,18 +153,21 @@ export class TapAccessory extends BaseAccessory {
       // Update remaining duration
       this.service.updateCharacteristic(this.Characteristic.RemainingDuration, duration);
 
-      // Clear existing timer
-      if (this.timer) {
-        clearTimeout(this.timer);
-      }
-
-      // Set new timer with updated duration
-      this.timer = setTimeout(() => {
-        this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
-      }, duration * 1000);
+      this.startTimer(duration);
 
       this.logDebug(`Tap duration updated to ${duration}s while active`);
     }
+  }
+
+  /**
+   * (Re)start the auto-off timer
+   */
+  private startTimer(duration: number): void {
+    this.clearTrackedTimeout(this.timer);
+    this.timer = this.setTrackedTimeout(() => {
+      this.timer = undefined;
+      this.service.setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE);
+    }, duration * 1000);
   }
 
   /**

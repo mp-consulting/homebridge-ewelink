@@ -3,7 +3,6 @@ import { BaseAccessory } from '../base.js';
 import type { EWeLinkPlatform } from '../../platform.js';
 import type { AccessoryContext, DeviceParams, ThermostatDeviceConfig } from '../../types/index.js';
 import { DeviceValueParser } from '../../utils/device-parsers.js';
-import { POLLING } from '../../constants/timing-constants.js';
 
 /**
  * TH Thermostat Simulation Accessory
@@ -59,9 +58,7 @@ export class THThermostatAccessory extends BaseAccessory {
     super(platform, accessory);
 
     // Get device-specific config
-    this.deviceConfig = platform.config.thDevices?.find(
-      d => d.deviceId === this.deviceId,
-    );
+    this.deviceConfig = this.getDeviceConfig(platform.config.thDevices);
 
     // Set up temperature/humidity offsets
     this.tempOffset = this.deviceConfig?.tempOffset || 0;
@@ -165,11 +162,11 @@ export class THThermostatAccessory extends BaseAccessory {
 
     // Set up polling interval
     if (platform.config.mode !== 'lan') {
-      this.setupPollingInterval(() => this.requestUpdate());
+      this.setupUiActivePolling();
     }
 
     // Set initial state
-    this.updateState(this.deviceParams);
+    this.applyInitialState();
   }
 
   /**
@@ -266,6 +263,15 @@ export class THThermostatAccessory extends BaseAccessory {
           return true;
       }
 
+      // Decide whether a command is needed before touching the caches
+      const needsCommand =
+        (targetState === 0 && (this.cacheHeat === 'on' || this.cacheCool === 'on')) ||
+        ([1, 3].includes(targetState) && newHeat !== this.cacheHeat) ||
+        (targetState === 2 && newCool !== this.cacheCool);
+      if (needsCommand && !(await this.sendCommand(params))) {
+        return false;
+      }
+
       if (newState !== this.cacheState) {
         this.cacheState = newState;
         this.cacheHeat = undefined;
@@ -292,14 +298,6 @@ export class THThermostatAccessory extends BaseAccessory {
         this.cacheCool === 'on' ? 2 : hapState,
       );
 
-      // Only send update if needed
-      if (
-        (targetState === 0 && (this.cacheHeat === 'on' || this.cacheCool === 'on')) ||
-        ([1, 3].includes(targetState) && newHeat !== this.cacheHeat) ||
-        (targetState === 2 && newCool !== this.cacheCool)
-      ) {
-        return await this.sendCommand(params);
-      }
       return true;
     });
   }
@@ -409,7 +407,11 @@ export class THThermostatAccessory extends BaseAccessory {
         ([1, 3].includes(curMode) && newHeat !== this.cacheHeat) ||
         (curMode === 2 && newCool !== this.cacheCool)
       ) {
-        await this.sendCommand(params);
+        if (!(await this.sendCommand(params))) {
+          // Leave the cache unchanged so the next update retries
+          this.logError('Failed to update thermostat state, will retry on next update');
+          return;
+        }
       }
 
       if ([1, 3].includes(curMode) && newHeat !== this.cacheHeat) {
@@ -435,17 +437,6 @@ export class THThermostatAccessory extends BaseAccessory {
   }
 
   /**
-   * Request temperature/humidity update from device
-   */
-  private async requestUpdate(): Promise<void> {
-    try {
-      await this.sendCommand({ uiActive: POLLING.UI_ACTIVE_DURATION_S });
-    } catch {
-      // Suppress errors for polling
-    }
-  }
-
-  /**
    * Update state from device params
    */
   updateState(params: DeviceParams): void {
@@ -464,10 +455,10 @@ export class THThermostatAccessory extends BaseAccessory {
         this.cacheTemp = newTemp;
         this.service.updateCharacteristic(this.Characteristic.CurrentTemperature, this.cacheTemp);
         this.logDebug(`Temperature: ${this.cacheTemp}°C`);
-
-        // Update thermostat state when temperature changes
-        this.updateThermostatState();
       }
+
+      // Re-evaluate on every temperature report so a previously failed command is retried
+      void this.updateThermostatState();
     }
 
     // Update humidity
