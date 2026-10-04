@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
 import { Bonjour } from 'bonjour-service';
+import { registerAssistant } from './assistant.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, '..', 'dist');
@@ -21,6 +22,9 @@ class EWeLinkUiServer extends HomebridgePluginUiServer {
     this.onRequest('/get-devices', this.handleGetDevices.bind(this));
     this.onRequest('/test-device', this.handleTestDevice.bind(this));
     this.onRequest('/getCachedAccessories', this.handleGetCachedAccessories.bind(this));
+
+    // Assistant: /ai/status, /ai/explain, /ai/ask, /ai/config (configured in Homebridge AI Kit)
+    registerAssistant(this);
 
     this.ready();
   }

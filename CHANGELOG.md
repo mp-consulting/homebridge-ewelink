@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 1.2.0
+
+### Added
+
+- **Assistant in the config UI.** When an AI provider is set up in Homebridge AI Kit (the shared `HomebridgeAiKit` platform block), an **Explain** button appears next to a failed login, a failed device list, and devices that are offline or have LAN enabled without an IP address. The explanation streams into an Assistant panel, with eWeLink context (cloud vs LAN mode, common error codes, regions). Only the error, connection mode, country code/region and non-sensitive device facts are sent: never the eWeLink login, tokens or IP addresses. Without the AI Kit nothing changes, apart from a small tip in the Settings tab.
+- **Describe Your Setup** (Settings tab): describe a change in plain language and the Assistant proposes a config diff to apply or reject. The eWeLink username and password are kept out of the request and merged back on apply.
+- `homebridge-ui/server.js` registers the `/ai/status`, `/ai/explain`, `/ai/ask` and `/ai/config` routes with `registerAiRoutes` from `@mp-consulting/homebridge-ai-kit/plugin` (new runtime dependency).
+
+### Changed
+
+- **UI assets are vendored with `mp-ui-kit-copy --vendor`** from `@mp-consulting/homebridge-ui-kit` 1.2.0 instead of a hand-written copy script; `homebridge-ui/public/lib/` keeps the same layout and now also contains `ai.css`.
+
+### Release blockers
+
+- `@mp-consulting/homebridge-ai-kit` (`file:../homebridge-mcp-server`) and `@mp-consulting/homebridge-ui-kit` (`file:../homebridge-ui-kit`) are local, unpublished checkouts. Change them to `^2.0.0` and `^1.2.0` once published, and regenerate `package-lock.json`.
+
 ## [1.1.2] - 2026-10-03
 
 ### Changed

@@ -20,6 +20,7 @@ Homebridge plugin to integrate eWeLink devices into HomeKit. Complete TypeScript
 - **Command Queue** - Throttled cloud requests (500 ms spacing, 2 concurrent) to handle HomeKit scene bursts
 - **LAN Discovery** - Real-time mDNS discovery with cross-VLAN support via mDNS proxy
 - **Custom Config UI** - Device list with LAN/RF/online badges, RF sub-device display, settings tab
+- **Assistant (optional)** - Explains login, device-list and offline/LAN problems in the config UI and suggests config changes, using the AI provider you set up in Homebridge AI Kit
 - **Session Management** - Automatic token reuse; fresh login on concurrent session detection
 - **60+ Country Codes** - Organized by region in the configuration UI
 
@@ -170,6 +171,29 @@ Simulation accessories let you expose a switch as a different HomeKit accessory 
 - **Sensors**: Motion, Contact, Leak, Visible
 - **Other**: Garage Door (1–4 channels), Doorbell, Light Fan, TV, Purifier, Programmable Button
 
+## Assistant
+
+The config UI can explain problems and suggest configuration changes with the
+**Assistant**. It is off until you set up an AI provider once for all MP Consulting
+plugins in [Homebridge AI Kit](https://github.com/mp-consulting/homebridge-ai-kit)
+(or the Homebridge Glass UI): the plugin reads the shared `HomebridgeAiKit` platform
+block from `config.json` and has no AI settings of its own. When it is not set up,
+the UI looks exactly as before, with a small tip in the Settings tab.
+
+When it is enabled:
+
+- **Explain** buttons appear next to a failed login, a failed device list, and every
+  device that is offline or has LAN control enabled but no IP address found over mDNS.
+  The answer streams into an Assistant panel below.
+- **Describe Your Setup** (Settings tab) turns a request such as *"LAN only and show
+  offline devices as off"* into a configuration change, shown as a diff to apply or
+  reject. Applied changes are kept after you click **Save Configuration**.
+
+What is sent to the provider: the error message, the connection mode, the country code
+and API region, and for a device its name, ID, brand, model, UIID and online/LAN flags.
+Your eWeLink username, password, tokens and device IP addresses are never sent, and the
+provider's API key stays on the Homebridge server.
+
 ## Troubleshooting
 
 ### Login Failed
@@ -222,6 +246,12 @@ npm run lint
 # Watch mode (build + link + nodemon)
 npm run watch
 ```
+
+The build vendors `@mp-consulting/homebridge-ui-kit` and Bootstrap into
+`homebridge-ui/public/lib/` with `mp-ui-kit-copy --vendor`. Until
+`@mp-consulting/homebridge-ai-kit` 2.0.0 and `@mp-consulting/homebridge-ui-kit` 1.2.0
+are published, both are installed from sibling checkouts (`file:../homebridge-mcp-server`
+and `file:../homebridge-ui-kit`); they must become `^2.0.0` and `^1.2.0` before release.
 
 ## Changelog
 
