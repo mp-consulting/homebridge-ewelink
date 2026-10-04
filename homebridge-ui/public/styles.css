@@ -33,14 +33,11 @@
   margin: 0;
 }
 
-/* Device list */
-.device-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
+/* Device list: no max-height/scroll box, so the card grows with the list and
+   an open Assistant answer is never clipped. */
 .device-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   padding: 0.75rem 1rem;
@@ -52,7 +49,15 @@
 }
 
 .device-info {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Assistant answer: a full-width line below the name and the badges */
+.device-item > .assistant-answer {
+  flex: 0 0 100%;
+  min-width: 0;
+  margin-top: 0.75rem;
 }
 
 .device-name {

@@ -195,11 +195,11 @@
               <span>${escapeHtml(d.brand || 'Unknown')} — ${escapeHtml(d.model || 'Unknown')} (UIID: ${d.uiid ?? 'N/A'})</span>
             </div>
             ${buttonInfo}
-            <div class="assistant-answer mt-2 d-none"></div>
           </div>
           <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-3 mt-1">
             ${explainButton}${rfBadge}${lanBadge}${onlineBadge}
           </div>
+          <div class="assistant-answer d-none"></div>
         </div>
       `;
     }).join('');
