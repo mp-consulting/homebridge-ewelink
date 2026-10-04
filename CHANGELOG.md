@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Assistant in the config UI.** When an AI provider is set up in Homebridge AI Kit (the shared `HomebridgeAiKit` platform block), an **Explain** button appears next to a failed login, a failed device list, and devices that are offline or have LAN enabled without an IP address. The explanation streams into an Assistant panel, with eWeLink context (cloud vs LAN mode, common error codes, regions). Only the error, connection mode, country code/region and non-sensitive device facts are sent: never the eWeLink login, tokens or IP addresses. Without the AI Kit nothing changes, apart from a small tip in the Settings tab.
 - **Describe Your Setup** (Settings tab): describe a change in plain language and the Assistant proposes a config diff to apply or reject. The eWeLink username and password are kept out of the request and merged back on apply.
-- `homebridge-ui/server.js` registers the `/ai/status`, `/ai/explain`, `/ai/ask` and `/ai/config` routes with `registerAiRoutes` from `@mp-consulting/homebridge-ai-kit/plugin` (new runtime dependency).
+- `homebridge-ui/server.js` registers the `/ai/status`, `/ai/explain`, `/ai/ask` and `/ai/config` routes with `registerAiRoutes` from `@mp-consulting/homebridge-ai-core/plugin` (new runtime dependency: the slim core of Homebridge AI Kit, so the plugin does not pull in the MCP SDK, socket.io or zod).
 
 ### Changed
 
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Release blockers
 
-- `@mp-consulting/homebridge-ai-kit` (`file:../homebridge-mcp-server`) and `@mp-consulting/homebridge-ui-kit` (`file:../homebridge-ui-kit`) are local, unpublished checkouts. Change them to `^2.0.0` and `^1.2.0` once published, and regenerate `package-lock.json`.
+- `@mp-consulting/homebridge-ai-core` (`file:../homebridge-mcp-server/packages/ai-core`) and `@mp-consulting/homebridge-ui-kit` (`file:../homebridge-ui-kit`) are local, unpublished checkouts. Change them to `^2.0.0` and `^1.2.0` once published, and regenerate `package-lock.json`.
 
 ## [1.1.2] - 2026-10-03
 
