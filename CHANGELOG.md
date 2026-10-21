@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Settings page**: pressing Return in the login form signs in, and the username and password fields work with password managers and phone keyboards (no auto-capitalisation or autocorrect).
+- **Settings page on phones**: buttons and tabs no longer stay highlighted after a tap, taps respond without delay, and the session banner and device badges wrap instead of squeezing.
+
+### Changed
+
+- **Settings page** uses `@mp-consulting/homebridge-ui-kit` 1.4.0: long device names wrap to two lines, tabs scroll instead of wrapping, buttons press in, hover effects only apply with a mouse or trackpad, dialogs and toasts ease in and out, and the Assistant glow no longer repaints every frame.
+- **Settings page**: steps fade in, the success badge pops in, and buttons press in slightly (no movement with reduced motion).
+
 ## [1.2.2] - 2026-10-04
 
 ### Fixed

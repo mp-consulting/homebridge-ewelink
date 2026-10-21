@@ -1,6 +1,70 @@
-/* Step wizard */
+/* Touch: no grey tap flash, no text inflation on rotate, no double-tap zoom delay
+   or long-press text selection on controls */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+.btn,
+.nav-link {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Touch screens keep :hover after a tap: show the resting colors there instead */
+@media (hover: none) {
+  .btn:where(:not(.active, .show, :disabled, .disabled)):hover {
+    color: var(--bs-btn-color);
+    background-color: var(--bs-btn-bg);
+    border-color: var(--bs-btn-border-color);
+  }
+
+  .mp-tabs .nav-link:not(.active):hover {
+    color: var(--bs-secondary-color);
+  }
+}
+
+/* Button press feedback */
+@media (prefers-reduced-motion: no-preference) {
+  .btn {
+    transition:
+      color 0.15s ease-in-out,
+      background-color 0.15s ease-in-out,
+      border-color 0.15s ease-in-out,
+      box-shadow 0.15s ease-in-out,
+      transform 160ms var(--mp-ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+  }
+
+  .btn:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+
+/* Step wizard. Steps are shown by removing d-none, so @starting-style fades them in. */
 .step-container {
   margin-bottom: 2rem;
+  transition: opacity 250ms var(--mp-ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+@starting-style {
+  .step-container {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .step-container {
+    transition:
+      opacity 250ms var(--mp-ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+      transform 250ms var(--mp-ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+  }
+
+  @starting-style {
+    .step-container {
+      transform: translateY(8px);
+    }
+  }
 }
 
 .step-header {
@@ -25,6 +89,27 @@
 
 .step-number-success {
   background-color: var(--bs-success);
+  transition: opacity 200ms ease-out 100ms;
+}
+
+@starting-style {
+  .step-number-success {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .step-number-success {
+    transition:
+      transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms,
+      opacity 200ms ease-out 100ms;
+  }
+
+  @starting-style {
+    .step-number-success {
+      transform: scale(0.6);
+    }
+  }
 }
 
 .step-title {
@@ -40,6 +125,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 0.5rem 1rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--bs-border-color);
 }
@@ -53,11 +139,12 @@
   min-width: 0;
 }
 
-/* Assistant answer: a full-width line below the name and the badges */
+/* Assistant answer: a full-width line below the name and the badges
+   (0.25rem + the 0.5rem row gap = the previous 0.75rem spacing) */
 .device-item > .assistant-answer {
   flex: 0 0 100%;
   min-width: 0;
-  margin-top: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .device-name {

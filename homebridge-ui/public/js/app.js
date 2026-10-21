@@ -1,6 +1,11 @@
 (async () => {
   'use strict';
 
+  // The login form never navigates: Return submits it and the submit handler further
+  // down does the work. Registered before the first await so a Return pressed while
+  // settings and the session check load does not reload the page.
+  document.getElementById('login-form').addEventListener('submit', e => e.preventDefault());
+
   // Confirm theme from Homebridge settings (overrides the early OS-preference detection)
   try {
     const settings = await homebridge.getUserSettings();
@@ -196,7 +201,7 @@
             </div>
             ${buttonInfo}
           </div>
-          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-3 mt-1">
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 mt-1">
             ${explainButton}${rfBadge}${lanBadge}${onlineBadge}
           </div>
           <div class="assistant-answer d-none"></div>
@@ -291,7 +296,11 @@
     $('login-form').classList.remove('d-none');
   });
 
-  $('btn-login').addEventListener('click', async () => {
+  $('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if ($('btn-login').disabled) {
+      return;
+    }
     const username = $('username').value.trim();
     const password = $('password').value;
     const countryCode = $('countryCode').value;
